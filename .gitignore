@@ -1,0 +1,48 @@
+# secrets
+.env
+.env.local
+*.key
+*.pem
+*_token*
+passwords.json
+secrets.*
+
+# toolchain and build artifacts
+toolchain/
+build/
+out/
+*.o
+*.d
+*.elf
+*.nso
+*.npdm
+*.nacp
+*.lst
+*.map
+
+# switch binaries â€” never commit these
+*.ovl
+*.nro
+*.nsp
+*.kip
+*.kip1
+*.bin
+*.dat
+payload.bin
+
+# generated package
+package/dist/
+
+# temporary
+*.bak
+*.tmp
+*.log
+~$*
+scratch/
+
+# os / editors
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/

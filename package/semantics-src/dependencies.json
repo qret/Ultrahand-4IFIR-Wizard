@@ -1,0 +1,2684 @@
+{
+  "_meta": {
+    "title": "Graph of control links between the offsets of the CUST block",
+    "report": "docs/research/13-dependencies.md",
+    "anchor": "CUST",
+    "kipVer": 27,
+    "offsets_total": 122,
+    "confidence_levels": {
+      "fact": "direct proof with file:line — the 4IFIR source, an ini command or the kip bytes",
+      "hypothesis": "an indirect inference; the why field states what it is based on"
+    },
+    "primary_source": {
+      "file": "Wizard/4IFIR-Wizard-update/customize.cpp",
+      "what": "the source of the CustomizeTable structure — found in the course of this research, not used in the project before",
+      "caveat": "FACT: the version found is older than kipVer=27 — in it pMEH is described up to index 19 and sMEH up to 13 (customize.cpp:331,338). The field layout matched byte for byte and is reliable; the comments about the RANGES of the later fields (pMeh 20/21, sMeh 14/15/16) may be incomplete.",
+      "verified_against": "4ifir/atmosphere/kips/loader.kip, anchor CUST = 0x63414"
+    },
+    "counts": {
+      "switches": 12,
+      "paired_switches": 1,
+      "range_sentinels": 6,
+      "arithmetic_links": 5,
+      "auto_cascade": 4,
+      "compound_writes": 14,
+      "apply_order": 5,
+      "conflicts": 20,
+      "invalid_offsets": 8
+    }
+  },
+  "struct_layout": {
+    "_why": "Needed by the generator to check array bounds. The absence of such a check produced the bug with 184…208. FACT: reconstructed from customize.cpp and verified byte by byte on a live kip; all seven DVFS tables have a stride of 56 bytes and a capacity of 31 slots (1736 bytes), the boundaries matched with no remainder.",
+    "confidence": "fact",
+    "evidence": "customize.cpp:22-348 + loader.kip @0x63414",
+    "fields": [
+      {
+        "offset": 0,
+        "size": 4,
+        "field": "magic \"CUST\"",
+        "tunable": false
+      },
+      {
+        "offset": 4,
+        "size": 4,
+        "field": "version",
+        "tunable": false,
+        "kip_value": 27
+      },
+      {
+        "offset": 8,
+        "size": 4,
+        "field": "mtcConf",
+        "tunable": true,
+        "exposed_by_any_package": false,
+        "note": "FACT: not among the 122 offsets catalogued in fields.json — it would be the 123rd. By position in the structure it is the first field, right after 'CUST' and kipVer (see ram.json, offset 8). Exposed neither in Wizard nor in Ebal. Values: eBAMATIC / CUSTOM_ADJ_ALL / NO_ADJ_ALL / CUSTOMIZED_ALL (customize.cpp:24-25)."
+      },
+      {
+        "offset": 12,
+        "size": 4,
+        "field": "commonCpuBoostClock",
+        "tunable": true
+      },
+      {
+        "offset": 16,
+        "size": 4,
+        "field": "commonEmcMemVolt",
+        "tunable": true
+      },
+      {
+        "offset": 20,
+        "size": 4,
+        "field": "eristaCpuMaxVolt",
+        "tunable": true
+      },
+      {
+        "offset": 24,
+        "size": 4,
+        "field": "eristaEmcMaxClock",
+        "tunable": true
+      },
+      {
+        "offset": 28,
+        "size": 4,
+        "field": "marikoCpuMaxVolt",
+        "tunable": true
+      },
+      {
+        "offset": 32,
+        "size": 4,
+        "field": "marikoEmcMaxClock",
+        "tunable": true
+      },
+      {
+        "offset": 36,
+        "size": 4,
+        "field": "marikoEmcVddqVolt",
+        "tunable": true
+      },
+      {
+        "offset": 40,
+        "size": 4,
+        "field": "marikoCpuUV",
+        "tunable": true
+      },
+      {
+        "offset": 44,
+        "size": 4,
+        "field": "marikoGpuUV",
+        "tunable": true
+      },
+      {
+        "offset": 48,
+        "size": 4,
+        "field": "CPUv",
+        "tunable": true
+      },
+      {
+        "offset": 52,
+        "size": 4,
+        "field": "GPUv",
+        "tunable": true
+      },
+      {
+        "offset": 56,
+        "size": 4,
+        "field": "marikoEmcDvbShift",
+        "tunable": true
+      },
+      {
+        "offset": 60,
+        "size": 28,
+        "field": "drochr01…drochr07",
+        "tunable": true,
+        "elements": 7,
+        "stride": 4
+      },
+      {
+        "offset": 88,
+        "size": 96,
+        "field": "marikoGpuVoltArray",
+        "tunable": true,
+        "elements": 24,
+        "stride": 4,
+        "valid_range": [
+          88,
+          180
+        ],
+        "note": "FACT: exactly 24 elements (customize.cpp:95), the last one at offset 180. Correspondence with the frequencies: 88=307MHz … 180=1190MHz."
+      },
+      {
+        "offset": 184,
+        "size": 1736,
+        "field": "eristaCpuDvfsTable",
+        "tunable": false,
+        "elements": 31,
+        "stride": 56
+      },
+      {
+        "offset": 1920,
+        "size": 1736,
+        "field": "marikoCpuDvfsTable",
+        "tunable": false,
+        "elements": 31,
+        "stride": 56
+      },
+      {
+        "offset": 3656,
+        "size": 1736,
+        "field": "marikoCpuDvfsTableSLT",
+        "tunable": false,
+        "elements": 31,
+        "stride": 56
+      },
+      {
+        "offset": 5392,
+        "size": 1736,
+        "field": "eristaGpuDvfsTable",
+        "tunable": true,
+        "elements": 31,
+        "stride": 56,
+        "voltage_at_entry_plus": 32,
+        "note": "FACT: entry+0 is the frequency (kHz), entry+32 is the voltage (uV). That is why the Erista curve in the tuners starts at 5424 = 5392+32 and goes with a stride of 56 — Wizard is right."
+      },
+      {
+        "offset": 7128,
+        "size": 1736,
+        "field": "marikoGpuDvfsTable",
+        "tunable": false,
+        "elements": 31,
+        "stride": 56
+      },
+      {
+        "offset": 8864,
+        "size": 1736,
+        "field": "marikoGpuDvfsTableSLT",
+        "tunable": false,
+        "elements": 31,
+        "stride": 56
+      },
+      {
+        "offset": 10600,
+        "size": 1736,
+        "field": "marikoGpuDvfsTableHiOPT",
+        "tunable": false,
+        "elements": 31,
+        "stride": 56
+      },
+      {
+        "offset": 12336,
+        "size": 4,
+        "field": "SpeedShift",
+        "tunable": true
+      },
+      {
+        "offset": 12340,
+        "size": 4,
+        "field": "marikoCpuHUV",
+        "tunable": true
+      },
+      {
+        "offset": 12344,
+        "size": 4,
+        "field": "hGPUv",
+        "tunable": true
+      },
+      {
+        "offset": 12348,
+        "size": 4,
+        "field": "dCPUv",
+        "tunable": true
+      },
+      {
+        "offset": 12352,
+        "size": 4,
+        "field": "eBAL",
+        "tunable": true
+      },
+      {
+        "offset": 12356,
+        "size": 4,
+        "field": "drochr08",
+        "tunable": true
+      },
+      {
+        "offset": 12360,
+        "size": 4,
+        "field": "eBAS",
+        "tunable": true
+      },
+      {
+        "offset": 12364,
+        "size": 96,
+        "field": "pMEH",
+        "tunable": true,
+        "elements": 24,
+        "stride": 4,
+        "exposed_range": [
+          12364,
+          12452
+        ],
+        "reserved_range": [
+          12456,
+          12456
+        ],
+        "note": "FACT (актуальная ревизия customize.cpp): индексы 0-22 документированы поимённо, последний — 22 isKefir. Резервом остаётся только pMEH[23] = 12456. Прежняя запись объявляла резервом 12452 и 12456: она опиралась на найденную тогда ревизию источника, которая описывала pMEH лишь до 19."
+      },
+      {
+        "offset": 12460,
+        "size": 96,
+        "field": "sMEH",
+        "tunable": true,
+        "elements": 24,
+        "stride": 4,
+        "exposed_range": [
+          12460,
+          12528
+        ],
+        "reserved_range": [
+          12532,
+          12552
+        ],
+        "note": "FACT (актуальная ревизия customize.cpp): индексы 0-17 документированы поимённо, последний — 17 DBI. Резерв — sMEH[18..23] = 12532…12552, в живом кипе там нули."
+      },
+      {
+        "offset": 12556,
+        "size": 56,
+        "field": "SHAITAN",
+        "tunable": false,
+        "elements": 14,
+        "stride": 4,
+        "danger": true,
+        "note": "FACT: customize.cpp:343-346 «Secret Hardware Assisted Integration Tool 4 Advanced Necessities», SPELL = [S][SLOT1][SLOT2][SLOT3][R], //!DANGER, «Magic numbers - right combination adds features from the future». In the live kip: 0, 13×12, 0. No package looks there."
+      },
+      {
+        "offset": 12612,
+        "size": 0,
+        "field": "end of the CUST block",
+        "tunable": false
+      }
+    ]
+  },
+  "invalid_offsets": {
+    "_why": "Offsets that both packages (and our package/dist/boot_package.ini) expose as fields but which are not fields. The generator MUST discard them.",
+    "items": [
+      {
+        "offset": 184,
+        "claimed_as": "gpu_curve_mariko / 1228MHz",
+        "actually": "eristaCpuDvfsTable[0].freq",
+        "kip_value": 408000,
+        "danger": "critical",
+        "why": "FACT: marikoGpuVoltArray has exactly 24 elements and ends at offset 180. A write here changes the frequency of the first step of the Erista CPU DVFS. On Mariko it is harmless (the table is not read), on Erista it is a potential brick.",
+        "confidence": "fact",
+        "evidence": "customize.cpp:95 (24 elements) + loader.kip CUST+184 = 408000 = customize.cpp:98 + Ebal kipBackup/default.ini:25 (1228MGPV3=C03906 = 408000)"
+      },
+      {
+        "offset": 188,
+        "claimed_as": "gpu_curve_mariko / 1267MHz",
+        "actually": "eristaCpuDvfsTable[0], a field inside the cvb structure",
+        "kip_value": 0,
+        "danger": "critical",
+        "confidence": "fact",
+        "evidence": "customize.cpp:95 + loader.kip"
+      },
+      {
+        "offset": 192,
+        "claimed_as": "gpu_curve_mariko / 1305MHz",
+        "actually": "eristaCpuDvfsTable[0].cvb_dfll_param.c0",
+        "kip_value": 786986,
+        "danger": "critical",
+        "why": "FACT: Ebal kipBackup/default.ini:27 saved 1305MGPV3=2A020C = 786986 — this is exactly customize.cpp:98 { 408000, { 786986 }, {} }. A third independent confirmation.",
+        "confidence": "fact",
+        "evidence": "customize.cpp:95,98 + loader.kip CUST+192 = 786986 + Ebal kipBackup/default.ini:27"
+      },
+      {
+        "offset": 196,
+        "claimed_as": "gpu_curve_mariko / 1344MHz",
+        "actually": "eristaCpuDvfsTable[0]",
+        "kip_value": 0,
+        "danger": "critical",
+        "confidence": "fact",
+        "evidence": "customize.cpp:95 + loader.kip"
+      },
+      {
+        "offset": 200,
+        "claimed_as": "gpu_curve_mariko / 1382MHz",
+        "actually": "eristaCpuDvfsTable[0]",
+        "kip_value": 0,
+        "danger": "critical",
+        "confidence": "fact",
+        "evidence": "customize.cpp:95 + loader.kip"
+      },
+      {
+        "offset": 204,
+        "claimed_as": "gpu_curve_mariko / 1420MHz",
+        "actually": "eristaCpuDvfsTable[0]",
+        "kip_value": 0,
+        "danger": "critical",
+        "confidence": "fact",
+        "evidence": "customize.cpp:95 + loader.kip"
+      },
+      {
+        "offset": 208,
+        "claimed_as": "gpu_curve_mariko / MAX MHz",
+        "actually": "eristaCpuDvfsTable[0]",
+        "kip_value": 0,
+        "danger": "critical",
+        "confidence": "fact",
+        "evidence": "customize.cpp:95 + loader.kip"
+      },
+      {
+        "offset": 170,
+        "claimed_as": "Backup/1113E (Ebal only)",
+        "actually": "the middle of the element marikoGpuVoltArray[20] (offset 168) — not aligned",
+        "danger": "high",
+        "why": "FACT: a 3-byte write at address 170 touches bytes 170,171 of element [20] and byte 172 of element [21]. In the Ebal backups it shows up as 1113E=0000C0. Restoring overwrites the high bytes of two neighbouring voltages of the curve.",
+        "confidence": "fact",
+        "evidence": "Ebal/boot_package.ini:263,395 · Ebal/Presets/boot_package.ini:212,352 · Ebal/kipBackup/eclipse.ini:120 · Ebal/kipBackup/stock.ini:120"
+      }
+    ],
+    "status_in_our_project": {
+      "checked_at": "the end of this session",
+      "fields_json": "FIXED: 184…208 have been renamed to eristaCpuDvfsTable[0..6] and excluded from the gpu_curve_mariko series — the series has exactly 24 points, 88…180. Offset 170 is marked with the backup/restore roles and is not exposed in the menu.",
+      "dist": "CLEAN: package/dist/ contains no reference to 170 or to 184…208 (verified with grep over both write forms — hex_file(CUST,N,..) and hex-by-custom-offset CUST N).",
+      "remaining_risk": "184…204 have kept the backup/menu/preset/restore roles in fields.json, and 208 has menu. If the generator ever starts expanding the menu/preset roles automatically, the bug will come back. Keep invalid_offsets as a hard blacklist at the generator input rather than relying on the absence of a series."
+    }
+  },
+  "switches": [
+    {
+      "offset": 44,
+      "struct_field": "marikoGpuUV",
+      "name": "GPU Undervolt Mode",
+      "kind": "gate",
+      "unlocks": "the voltage curve",
+      "platform": "mariko",
+      "values": {
+        "00": "Eco ST1 (AUTO)",
+        "01": "Eco ST2 (AUTO)",
+        "02": "Eco ST3 (AUTO)",
+        "03": "Custom Table (MANUAL)"
+      },
+      "enables": [
+        {
+          "series": "gpu_curve_mariko",
+          "offsets": [
+            88,
+            92,
+            96,
+            100,
+            104,
+            108,
+            112,
+            116,
+            120,
+            124,
+            128,
+            132,
+            136,
+            140,
+            144,
+            148,
+            152,
+            156,
+            160,
+            164,
+            168,
+            172,
+            176,
+            180
+          ],
+          "when": "03",
+          "note": "FACT: only 24 points. 184…208 are NOT part of the series — see invalid_offsets."
+        }
+      ],
+      "disables": [
+        {
+          "series": "gpu_curve_mariko",
+          "when": [
+            "00",
+            "01",
+            "02"
+          ],
+          "note": "FACT: with 00/01/02 the marikoGpuVoltArray array is not read at all — the values in it remain non-working leftovers. In the live kip 44=00, and 88…180 contain exactly the default curve from customize.cpp:95."
+        }
+      ],
+      "value_constraint": {
+        "applies_to": "gpu_curve_mariko",
+        "rule": "manual values are allowed within a corridor of ±75 mV from the ECO ST2 curve, step 5 mV",
+        "why": "FACT: the corridor is set by the source. No package reports this — the table is not absolutely free, it has an anchor.",
+        "confidence": "fact",
+        "evidence": "customize.cpp:73"
+      },
+      "confidence": "fact",
+      "evidence": "customize.cpp:71-73 · Wizard/4Advanced/GPU/json/GPU_MODE.json · Wizard/4Advanced/GPU/GPU custom table/config.ini:8 (side_write 44=03 in all 31 items)"
+    },
+    {
+      "offset": 44,
+      "struct_field": "marikoGpuUV",
+      "name": "GPU Undervolt Mode (on Erista)",
+      "kind": "multiplier",
+      "platform": "erista",
+      "formula": "volt = eristaGpuDvfsTable[i] - 12500uV * marikoGpuUV",
+      "affects": {
+        "series": "gpu_curve_erista",
+        "offsets": [
+          5424,
+          5480,
+          5536,
+          5592,
+          5648,
+          5704,
+          5760,
+          5816,
+          5872,
+          5928,
+          5984,
+          6040,
+          6096,
+          6152,
+          6208,
+          6264,
+          6320,
+          6376,
+          6432,
+          6488,
+          6544,
+          6600,
+          6656,
+          6712,
+          6768
+        ],
+        "note": "FACT: shifts the WHOLE Erista curve at once. A link that is present in no package."
+      },
+      "why": "FACT: on Erista this is NOT a mode switch. The value 03 simply gives -37.5 mV over the whole curve, no «Custom Table» exists there. Consequence: the Ebal item «Custom Table» for Erista and the whole subsection of 22 frequencies writing into 88…172 edit the Mariko array, which Erista does not read.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:73 · contradicts Ebal/GPU.ini:19 and Ebal/custom_table.ini:233-385"
+    },
+    {
+      "offset": 12524,
+      "struct_field": "sMEH[16]",
+      "name": "sMeh 16 SYK-LOH",
+      "kind": "gate",
+      "unlocks": "pMeh 2",
+      "values": {
+        "00": "Optimized E base = 1331",
+        "01": "Optimized E base = 1600"
+      },
+      "enables": [
+        {
+          "offset": 12372,
+          "when": "00"
+        }
+      ],
+      "disables": [
+        {
+          "offset": 12372,
+          "when": "01",
+          "note": "FACT: «Works only when sMeh 16 is set to 0». The logic is closed: sMeh16 changes the base frequency of the Optimized E step from 1331 to 1600, while pMeh2 lowers the effective frequency of the same step — with sMeh16=1 there is nothing to lower."
+        }
+      ],
+      "confidence": "fact",
+      "evidence": "Ebal/Micro-Enhance Logic/microP.ini:173-175 · Ebal/Micro-Enhance Logic/microS.ini:241-242"
+    },
+    {
+      "offset": 12436,
+      "struct_field": "pMEH[18]",
+      "name": "eBAMATIC Stage",
+      "kind": "cascade_root",
+      "values": {
+        "00": "Default",
+        "01": "Stage 1",
+        "02": "Stage 2",
+        "03": "Stage 3"
+      },
+      "affects": {
+        "offsets": [
+          12352,
+          60,
+          64,
+          68,
+          72,
+          76,
+          80,
+          84,
+          12356,
+          48,
+          52,
+          56,
+          12344,
+          12348
+        ],
+        "how": "indexes the «memory frequency → eBAL» mapping tables and the derived automatics",
+        "note": "FACT: the tables are written out in the source separately for Erista (customize.cpp:37-43) and Mariko (:51-61). Mariko example: 2534400 → eBAL 3 3 2 2 for the eBAMATIC stages 0/1/2/3."
+      },
+      "why": "FACT: this is not «one more pMeh» but the input parameter of all the automatics. By changing it the user changes the meaning of every field that stands at the 0 sentinel. That is why Ebal puts it FIRST in the tuning order.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:36-63 · Wizard/Help/eBamatic.txt · Ebal/TuningGuide.ini:62-63"
+    },
+    {
+      "offset": 12416,
+      "struct_field": "pMEH[13]",
+      "name": "pMeh 13 DR Debug",
+      "kind": "killswitch",
+      "values": {
+        "00": "the automatics work"
+      },
+      "disables": [
+        {
+          "scope": "all_auto_sentinel_offsets",
+          "when": "!= 00",
+          "note": "FACT: «Disables ebamatic functions for debug». Stepwise: the first mode removes the least critical optimisations, the second the more critical ones."
+        }
+      ],
+      "why": "FACT: the broadest switch in coverage after 12436. A non-zero value cancels the action of all the fields that stand at the automatic sentinel, leaving the manual values.",
+      "range_conflict": "FACT: the source gives 0-5 (customize.cpp:330), the Wizard dictionary — 0-8.",
+      "confidence": "fact",
+      "evidence": "Ebal/Micro-Enhance Logic/microP.ini:280-281 · Wizard/Help/MICRO-ENHANCE LOGIC/pMeh 13 DR Debug.txt · customize.cpp:330"
+    },
+    {
+      "offset": 12352,
+      "struct_field": "eBAL",
+      "name": "EMC Balance",
+      "kind": "gate+derived",
+      "values": {
+        "00": "eBAMATIC — computed from the memory frequency and the eBAMATIC stage",
+        "01": "SYK-LOH",
+        "02": "ECO ST1",
+        "03": "Default",
+        "04": "SRT ST1",
+        "05": "SRT ST2"
+      },
+      "derived_from": {
+        "when": "00",
+        "offsets": [
+          32,
+          24,
+          12436
+        ],
+        "how": "the table «frequency → eBAL by stages 0-1-2-3»",
+        "note": "FACT: the Wizard help verbatim — «0(eBamatic) – smart mode, automatically selects the appropriate eBal for the selected frequency»."
+      },
+      "affects": [
+        {
+          "offset": 12356,
+          "how": "together with 12360 it sets the T8 ceiling — see arithmetic_links"
+        }
+      ],
+      "confidence": "fact",
+      "evidence": "customize.cpp:317-318 · customize.cpp:36-63 · Wizard/Help/RAM/EMC Balance.txt"
+    },
+    {
+      "offset": 12360,
+      "struct_field": "eBAS",
+      "name": "EBA-Shift",
+      "kind": "limit_shifter",
+      "values": {
+        "00": "Default",
+        "01": "AUTO ST1",
+        "02": "SYK-LOH",
+        "03": "AUTO ST3",
+        "04": "AUTO ST4",
+        "05": "LOH-C4C"
+      },
+      "affects": [
+        {
+          "offset": 12356,
+          "how": "raises eBAS → shifts the ceiling of the 8th timing"
+        }
+      ],
+      "reduced_only_by": {
+        "offset": 12364,
+        "note": "FACT: «eBAS can be increased using the [eba-shift] option. The only way to decrease it is by using — pMeh[0] and only by 1 (when set to pmeh[0]=1)»."
+      },
+      "confidence": "fact",
+      "evidence": "customize.cpp:323-324 · Wizard/Help/RAM/Eba-shift.txt · Wizard/Help/MICRO-ENHANCE LOGIC/pMeh 0 eBAS Sub-Zero.txt"
+    },
+    {
+      "offset": 12444,
+      "struct_field": "pMEH[20]",
+      "name": "pMeh 20 rVDDick",
+      "kind": "override",
+      "overrides": [
+        {
+          "offset": 16,
+          "scope": "the Optimized E memory step"
+        },
+        {
+          "offset": 36,
+          "scope": "the Optimized E memory step"
+        }
+      ],
+      "why": "FACT: «Sets the vdd2/q for optimized e ram freq». This means that 16 and 36 act NOT on all memory steps — on Optimized E they are overridden by this field.",
+      "confidence": "fact",
+      "evidence": "Ebal/Micro-Enhance Logic/microP.ini:345-346 · Wizard/Help/MICRO-ENHANCE LOGIC/pMeh 20 rVDDick.txt"
+    },
+    {
+      "offset": 12368,
+      "struct_field": "pMEH[1]",
+      "name": "pMeh 1 divMB Supressor",
+      "kind": "conditional",
+      "conditions": [
+        {
+          "platform": "erista",
+          "rule": "any value other than 3 is treated as 0",
+          "note": "FACT: the field is effectively binary — «3 or nothing»."
+        },
+        {
+          "platform": "mariko",
+          "rule": "ignored when the value of offset 12 is above 3.0 GHz",
+          "depends_on_offset": 12,
+          "note": "FACT: «the regulator value is excluded from the formula, as using values above 2 will drastically reduce stability»."
+        }
+      ],
+      "confidence": "fact",
+      "evidence": "Wizard/Help/MICRO-ENHANCE LOGIC/pMeh 1 divMB Supressor.txt"
+    },
+    {
+      "offset": 12408,
+      "struct_field": "pMEH[11]",
+      "name": "pMeh 11 SRPD",
+      "kind": "step_dependent",
+      "conditions": [
+        {
+          "ram_step": "Optimized S",
+          "default_state": "disabled"
+        },
+        {
+          "ram_step": "Optimized E",
+          "default_state": "enabled"
+        }
+      ],
+      "why": "FACT: «Controls RAM power consumption mechanisms. They are disabled by default for optimized S and on for optimized E. Higher val = less perf and less power draw».",
+      "confidence": "fact",
+      "evidence": "Ebal/Micro-Enhance Logic/microP.ini:259-263"
+    },
+    {
+      "offset": 12424,
+      "struct_field": "pMEH[15]",
+      "name": "pMeh 15 eFOS MK / Eri-Bump",
+      "kind": "mitigation+platform_split",
+      "mitigates": [
+        {
+          "offsets": [
+            12516,
+            12520
+          ],
+          "problem": "an aggressive zero-jump with a large voltage spread between the memory steps",
+          "cost": "a delay of 2-3 s when switching the mode"
+        }
+      ],
+      "platform_split": {
+        "mariko": "increases the delay of the memory mode switch (eFOS MK)",
+        "erista": "an eBAL 3↔4 switch (Eri-Bump)"
+      },
+      "why": "FACT: in the source the field is named «Eri-Bump», while the Wizard dictionary gives the values «0 - Erista eBal=3» / «1 - Default(Erista eBal=4)». These are two different meanings on two platforms under one name.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:330 · Wizard/Help/MICRO-ENHANCE LOGIC/pMeh 15 eFOS MK.txt · Wizard/Help/MICRO-ENHANCE LOGIC/sMeh 14 GetLow.txt · Wizard/…/json/pMeh15.json"
+    },
+    {
+      "offset": 12336,
+      "struct_field": "SpeedShift",
+      "name": "Speed Shift",
+      "kind": "global_modifier",
+      "affects": [
+        {
+          "offsets": [
+            40,
+            12340,
+            48,
+            28
+          ],
+          "how": "shifts the speedo target in the undervolt calculation, changing the actual effect of all the UV fields"
+        }
+      ],
+      "why": "FACT: «Adjusts speedo target in calculations for UV. Higher number = lower voltages overall».",
+      "confidence": "fact",
+      "evidence": "Ebal/CPU.ini:145-146 · customize.cpp:304-305"
+    }
+  ],
+  "paired_switches": [
+    {
+      "offsets": [
+        40,
+        12340
+      ],
+      "struct_fields": [
+        "marikoCpuUV",
+        "marikoCpuHUV"
+      ],
+      "name": "CPU ECO ALT-MODE",
+      "rule": "the special ECO ALT-MODE is enabled ONLY when both fields equal 0",
+      "source_text": "0 ECO ALT-MODE (low=0 & high=0)",
+      "scale_note": "FACT: the scale is non-linear — 1 = ECO ST1, 3 = ECO ST2, 5 = ECO ST3; 2/4/6 are intermediate manual steps. The packages expose this as a flat trackbar «Level 1…6» (Ebal/CPU.ini:40,48), losing the meaning of the anchor points.",
+      "ranges": {
+        "40": "1-6",
+        "12340": "1-7"
+      },
+      "undefined_combination": "FACT: the combination 40=0 with 12340!=0 (or the other way round) is described neither in the source nor in the help texts. This is NOT «base undervolt», as labelled in the Wizard dictionaries.",
+      "wrongly_listed_as_sentinel": true,
+      "confidence": "fact",
+      "evidence": "customize.cpp:68-69 · customize.cpp:308-309"
+    }
+  ],
+  "range_sentinels": [
+    {
+      "_why": "One offset behaves as a mode selector at small values and as an absolute voltage at large ones. For the generator: the dictionary of such a field MUST NOT be validated with a single range — the value 3 and the value 530 come from different universes.",
+      "offset": 48,
+      "struct_field": "CPUv",
+      "mode_values": {
+        "1": "AUTO ECO ST3",
+        "2": "AUTO ECO ST2",
+        "3": "AUTO ECO ST1"
+      },
+      "literal_range": {
+        "min": 430,
+        "max": 670,
+        "units": "mV"
+      },
+      "platform_shift": {
+        "mariko": "CPU volt min = the value",
+        "erista": "CPU volt min = the value + 205 mV"
+      },
+      "confidence": "fact",
+      "evidence": "customize.cpp:75-77 · Wizard/4Advanced/CPU/json/cpuv.json"
+    },
+    {
+      "offset": 52,
+      "struct_field": "GPUv",
+      "mode_values": {
+        "1": "AUTO ECO ST3",
+        "2": "AUTO ECO ST2",
+        "3": "AUTO ECO ST1"
+      },
+      "literal_range": {
+        "min": 430,
+        "max": 970,
+        "units": "mV"
+      },
+      "platform_shift": {
+        "mariko": "GPU volt min = the value",
+        "erista": "GPU volt min = the value + 100 mV",
+        "caveat": "FACT with a caveat: the source says «ERISTA GPU VOLT MIN = CPUv + 100mV» — the field CPUv is mentioned although GPUv is meant. HYPOTHESIS: a typo by the author. Requires clarification."
+      },
+      "mode_enables": [
+        {
+          "offsets": [
+            12440,
+            12448
+          ],
+          "when": "mode_values",
+          "note": "HYPOTHESIS (high confidence): the auto-vmin offsets act only when 52 stands at a mode value. With literal mV there is no automatic mode — there is nothing to shift. There is no direct quote «offsets ignored when manual», but otherwise the phrase «offset for AUTO vmin» would be meaningless."
+        }
+      ],
+      "help_quote": "Stages set automatic Vmins for [optimized] and [max RAM] ram freqs, [xxx mV] options Set the vmin for all ram freqs.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:79-81 · Ebal/GPU.ini:92-94 · Wizard/4Advanced/Full Assist/json/8GPUv.json"
+    },
+    {
+      "offset": 56,
+      "struct_field": "marikoEmcDvbShift",
+      "mode_values": {
+        "0": "AUTO ECO ST3",
+        "1": "AUTO ECO ST2",
+        "2": "AUTO ECO ST1",
+        "3": "AUTO"
+      },
+      "literal_range": {
+        "min": 300,
+        "max": 1150,
+        "units": "mV"
+      },
+      "disputed": true,
+      "dispute": "FACT (discrepancy): according to the source 0 = ECO ST3, while «auto» is 3. But Wizard, Ebal and Reset to default all write 0 there and call it «eBamatic». The live kip holds 0. If the source is right, everyone who «left it on auto» is sitting on the most aggressive lowering of the SoC voltage. The only discrepancy found that is capable of explaining random hangs.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:83-84 · Wizard/4Advanced/RAM/json/EMC DVB Table.json · Wizard/4Advanced/Full Assist/json/9EMB.json · Wizard/Dashboard/Reset to default/config.ini:16"
+    },
+    {
+      "offset": 12348,
+      "struct_field": "dCPUv",
+      "mode_values": {
+        "0": "AUTO",
+        "1": "AUTO ECO ST1",
+        "2": "AUTO ECO ST2",
+        "3": "AUTO ECO ST3"
+      },
+      "literal_range": {
+        "min": 750,
+        "max": 850,
+        "units": "mV"
+      },
+      "scope": "FACT: acts at frequencies 1785+ — shares the area of responsibility with offset 48",
+      "range_conflict": "FACT: the source allows 750…850 mV, the Wizard dictionary gives 700…890 mV",
+      "confidence": "fact",
+      "evidence": "customize.cpp:314-315 · Ebal/CPU.ini:101 · Wizard/4Advanced/CPU/json/dcpuv.json"
+    },
+    {
+      "offset": 12344,
+      "struct_field": "hGPUv",
+      "mode_values": {
+        "0": "AUTO"
+      },
+      "literal_range": {
+        "mariko": {
+          "min": 750,
+          "max": 1200
+        },
+        "erista": {
+          "min": 850,
+          "max": 1300
+        },
+        "units": "mV"
+      },
+      "range_conflict": "FACT: the Ebal help — «Dont raise above 800 mV», the Wizard dictionary offers up to 1050 mV and above, the source allows up to 1200. Three different ceilings.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:311-312 · Ebal/GPU.ini:82 · Wizard/4Advanced/Full Assist/json/19GPU_OVER.json"
+    },
+    {
+      "offset": 12336,
+      "struct_field": "SpeedShift",
+      "mode_values": {
+        "0": "DEFAULT",
+        "50": "AUTO SRT",
+        "100": "AUTO ECO ST1",
+        "125": "AUTO ECO ST2",
+        "150": "AUTO ECO ST3"
+      },
+      "literal_range": {
+        "min": 1,
+        "max": 200,
+        "units": "arbitrary speedo units"
+      },
+      "note": "FACT: the package dictionaries call 0 «eBAMATIC», the source — «DEFAULT». The discrepancy is mild (DEFAULT ≈ «do not interfere»), but the name is worth correcting.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:304-305 · Wizard/4Advanced/CPU/json/SpeedShift.json"
+    }
+  ],
+  "arithmetic_links": [
+    {
+      "target": 76,
+      "formula": "applied T5 = value(60) + value(76)",
+      "inputs": [
+        60,
+        76
+      ],
+      "struct_fields": [
+        "drochr01",
+        "drochr05"
+      ],
+      "source_text": "! drochr05 = drochr01 + drochr05",
+      "why": "FACT: the exclamation mark was put there by the author of the source. A user who raises T1 from 1 to 5 silently raises T5 by 4 steps as well. This is in no help text, even though Ebal explicitly asks to change one timing at a time.",
+      "danger": "high",
+      "confidence": "fact",
+      "evidence": "customize.cpp:91 · contradicts Ebal/RAM.ini:163"
+    },
+    {
+      "target": "effective memory frequency",
+      "formula": "eff.frequency = value(32) - value(12420)",
+      "inputs": [
+        32,
+        12420
+      ],
+      "struct_fields": [
+        "marikoEmcMaxClock",
+        "pMEH[14]"
+      ],
+      "source_text": "Lowers effective ram freq relative to target freq. Freq=tuner.max_ram-pmeh14",
+      "unknown": "UNKNOWN: the unit of the subtracted value — grid steps of 38.4 MHz, megahertz or something else. Not stated in the help.",
+      "range": {
+        "12420": "0-24"
+      },
+      "confidence": "fact",
+      "evidence": "Ebal/Micro-Enhance Logic/microP.ini:289-291 · customize.cpp:330"
+    },
+    {
+      "target": "gpu_curve_erista",
+      "formula": "voltage[i] = eristaGpuDvfsTable[i] - 12500uV * value(44)",
+      "inputs": [
+        44,
+        5424,
+        5480,
+        5536,
+        5592,
+        5648,
+        5704,
+        5760,
+        5816,
+        5872,
+        5928,
+        5984,
+        6040,
+        6096,
+        6152,
+        6208,
+        6264,
+        6320,
+        6376,
+        6432,
+        6488,
+        6544,
+        6600,
+        6656,
+        6712,
+        6768
+      ],
+      "why": "FACT: offset 44 shifts the whole Erista curve at once. There is no gate — the table is always read.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:73"
+    },
+    {
+      "target": 48,
+      "formula": "recommended CPU Vmin += 20 mV for every +200 MHz of memory frequency",
+      "inputs": [
+        48,
+        32,
+        24
+      ],
+      "source_text": "Affects RAM stability, raise by 20 mV for every additional 200 mhz of RAM",
+      "anchor_points": "FACT: the labels in the dictionary — «530mV - RAM <= 1734Mhz», «560mV - RAM 1862Mhz», «590mV - RAM 1996Mhz»",
+      "why": "FACT: a cross-domain link — the minimum CPU voltage is bound to the memory frequency.",
+      "confidence": "fact",
+      "evidence": "Ebal/CPU.ini:81-82 · Wizard/4Advanced/CPU/json/cpuv.json"
+    },
+    {
+      "target": 12356,
+      "formula": "the T8 ceiling is the higher the smaller the difference (value(12352) - value(12360))",
+      "inputs": [
+        12352,
+        12360,
+        12364
+      ],
+      "source_text": "The lesser [EMC Balance - EBA-Shift] is the higher you can set the 8th timing.",
+      "why": "FACT: the triple 12352 / 12360 / 12364 jointly determines the ceiling of 12356. The Wizard help confirms it from the other side: «setting it [eba-shift] to 2 allows raising the 8th timing value».",
+      "confidence": "fact",
+      "evidence": "Ebal/RAM.ini:171-173 · Wizard/Help/RAM/Eba-shift.txt · Wizard/Help/MICRO-ENHANCE LOGIC/pMeh 0 eBAS Sub-Zero.txt"
+    }
+  ],
+  "auto_cascade": [
+    {
+      "level": 1,
+      "offset": 12436,
+      "name": "eBAMATIC Stage",
+      "role": "the top-level automatic — indexes the mapping tables on which all the other automatics depend",
+      "confidence": "fact",
+      "evidence": "customize.cpp:36-63 · Ebal/TuningGuide.ini:62-63"
+    },
+    {
+      "level": 2,
+      "offset": 12352,
+      "name": "EMC Balance",
+      "role": "with the value 0 it is computed from the memory frequency (32/24) and the eBAMATIC stage (12436)",
+      "confidence": "fact",
+      "evidence": "customize.cpp:317 · customize.cpp:36-63 · Wizard/Help/RAM/EMC Balance.txt"
+    },
+    {
+      "level": 3,
+      "offsets": [
+        48,
+        52,
+        56,
+        12344,
+        12348,
+        12440,
+        12448,
+        60,
+        64,
+        68,
+        72,
+        76,
+        80,
+        84,
+        12356
+      ],
+      "role": "fields whose result depends on the computed eBAL and on the eBAMATIC stage",
+      "confidence": "hypothesis",
+      "why": "HYPOTHESIS: there is no direct enumeration of «what exactly is recomputed» in the sources. The conclusion is drawn from the fact that the tables customize.cpp:36-63 set the eBAL and the derived timings, while the help texts describe 48/52/56 as «AUTO» stages.",
+      "evidence": "customize.cpp:36-63,75-84 · Ebal/GPU.ini:92-94"
+    },
+    {
+      "level": "override",
+      "offset": 12416,
+      "name": "pMeh 13 DR Debug",
+      "role": "a non-zero value switches off the automatics of all levels, leaving the manual values",
+      "confidence": "fact",
+      "evidence": "Ebal/Micro-Enhance Logic/microP.ini:280-281"
+    }
+  ],
+  "auto_sentinel": {
+    "value": "0",
+    "meaning": "the kip computes it itself",
+    "claimed_offsets": [
+      12,
+      28,
+      48,
+      56,
+      68,
+      12336,
+      12340,
+      12344,
+      12348,
+      12352
+    ],
+    "verified": [
+      12344,
+      12348,
+      12352
+    ],
+    "verified_added": [
+      8
+    ],
+    "confirmed_by_packages_only": [
+      12,
+      28,
+      12336
+    ],
+    "disputed": [
+      48,
+      56,
+      68
+    ],
+    "rejected": [
+      12340
+    ],
+    "per_offset": [
+      {
+        "offset": 8,
+        "status": "add",
+        "struct_field": "mtcConf",
+        "source_says": ".mtcConf = eBAMATIC — the only field where eBAMATIC is written as the name of an enumeration value",
+        "packages_say": "nothing — the offset is exposed neither in Wizard nor in Ebal",
+        "why": "FACT: both tuners read the structure starting from 12. Possibly it is exactly here that the «real» global manual mode lives (CUSTOM_ADJ_ALL / NO_ADJ_ALL / CUSTOMIZED_ALL).",
+        "confidence": "fact",
+        "evidence": "customize.cpp:24-25 · loader.kip CUST+8 = 0"
+      },
+      {
+        "offset": 12,
+        "status": "packages_only",
+        "struct_field": "commonCpuBoostClock",
+        "source_says": "zero is not described — only the range 1400000-3000000",
+        "packages_say": "000000 = eBAMATIC",
+        "confidence": "fact",
+        "evidence": "customize.cpp:27-28 · Wizard/4Advanced/CPU/json/cpu boost.json"
+      },
+      {
+        "offset": 28,
+        "status": "packages_only",
+        "struct_field": "marikoCpuMaxVolt",
+        "source_says": "zero is not described — 1150 ECO / 1180-1250 STAGE / 1130-1280 MANUAL",
+        "packages_say": "000000 = eBamatic",
+        "confidence": "fact",
+        "evidence": "customize.cpp:47-48 · Wizard/4Advanced/CPU/json/voltage_mariko.json"
+      },
+      {
+        "offset": 48,
+        "status": "disputed",
+        "struct_field": "CPUv",
+        "source_says": "3/2/1 = ECO ST1..ST3, 430-670 MANUAL. Zero is NOT described.",
+        "packages_say": "0000 = eBamatic (automatic)",
+        "why": "FACT: no reference sets 0 here — Reset writes 48=3, the Ebal Backup Default.ini gives 6C02 (620 mV), the live kip holds 3. Whether 0 is supported at all is a question for the developer.",
+        "confidence": "fact",
+        "evidence": "customize.cpp:75-77 · Wizard/Dashboard/Reset to default/config.ini:112 · Ebal/kipBackup/Backup Default.ini:6 · Wizard/4Advanced/CPU/json/cpuv.json"
+      },
+      {
+        "offset": 56,
+        "status": "disputed",
+        "struct_field": "marikoEmcDvbShift",
+        "source_says": "0 = AUTO ECO ST3, while AUTO is 3",
+        "packages_say": "000000 = eBamatic",
+        "why": "FACT (priority discrepancy): if the source is right, everyone who «left it on auto» is sitting on the most aggressive ECO ST3. The only discrepancy found that is capable of explaining random hangs.",
+        "confidence": "fact",
+        "evidence": "customize.cpp:83-84 · Wizard/4Advanced/RAM/json/EMC DVB Table.json · loader.kip CUST+56 = 0"
+      },
+      {
+        "offset": 68,
+        "status": "disputed",
+        "struct_field": "drochr03",
+        "source_says": "0 = DEBUG, 1 = AUTO SAFE",
+        "packages_say": "000000 = eBamatic - Default",
+        "why": "FACT: the live kip holds 0, Reset writes 0, and in ALL 27 files Ebal Presets/Mariko/RAM/*/*.ini T3 = 0 — even though the other timings there are 1 and above. It looks like drochr03 is a special case where 0 really means «do not interfere».",
+        "confidence": "fact",
+        "evidence": "customize.cpp:89 · Wizard/4Advanced/RAM/Core Timings/json/core_timings3.json · Ebal/Presets/Mariko/RAM/Default.ini:9,19 · loader.kip CUST+68 = 0"
+      },
+      {
+        "offset": 12336,
+        "status": "packages_only",
+        "struct_field": "SpeedShift",
+        "source_says": "0 = DEFAULT",
+        "packages_say": "0000 = eBAMATIC",
+        "why": "The discrepancy is mild: DEFAULT ≈ «do not interfere». Keep it in the list, but rename the value.",
+        "confidence": "fact",
+        "evidence": "customize.cpp:304-305 · Wizard/4Advanced/CPU/json/SpeedShift.json"
+      },
+      {
+        "offset": 12340,
+        "status": "reject",
+        "struct_field": "marikoCpuHUV",
+        "source_says": "0 = ECO ALT-MODE (low=0 & high=0)",
+        "packages_say": "0 - Base undervolting",
+        "why": "FACT: this is NOT an automatic but half of a paired mode. Remove it from the list of sentinels, move it to paired_switches together with offset 40.",
+        "confidence": "fact",
+        "evidence": "customize.cpp:308-309 · Wizard/4Advanced/CPU/json/undervolt_high.json"
+      },
+      {
+        "offset": 12344,
+        "status": "verified",
+        "struct_field": "hGPUv",
+        "source_says": "0 = AUTO",
+        "packages_say": "000000 = eBamatic",
+        "confidence": "fact",
+        "evidence": "customize.cpp:311-312 · Wizard/4Advanced/Full Assist/json/19GPU_OVER.json"
+      },
+      {
+        "offset": 12348,
+        "status": "verified",
+        "struct_field": "dCPUv",
+        "source_says": "0 = AUTO",
+        "packages_say": "000000 = eBamatic",
+        "confidence": "fact",
+        "evidence": "customize.cpp:314-315 · Wizard/4Advanced/Full Assist/json/20dCPUv.json"
+      },
+      {
+        "offset": 12352,
+        "status": "verified",
+        "struct_field": "eBAL",
+        "source_says": "0 = eBAMATIC (verbatim)",
+        "packages_say": "000000 = eBAMATIC",
+        "confidence": "fact",
+        "evidence": "customize.cpp:317-318 · Wizard/4Advanced/RAM/json/EBal.json"
+      },
+      {
+        "offset": 40,
+        "status": "never_was_sentinel",
+        "struct_field": "marikoCpuUV",
+        "source_says": "0 = ECO ALT-MODE (low=0 & high=0)",
+        "why": "It was not in the original list, but by symmetry with 12340 it suggested itself. NOT an automatic — see paired_switches.",
+        "confidence": "fact",
+        "evidence": "customize.cpp:68-69"
+      },
+      {
+        "offset": 12360,
+        "status": "not_sentinel",
+        "struct_field": "eBAS",
+        "source_says": "0 = DEFAULT",
+        "why": "just a default, not an automatic",
+        "confidence": "fact",
+        "evidence": "customize.cpp:323-324"
+      },
+      {
+        "offsets": [
+          60,
+          64,
+          72,
+          76,
+          80,
+          84,
+          12356
+        ],
+        "status": "not_sentinel",
+        "struct_field": "drochr01,02,04,05,06,07,08",
+        "source_says": "0 = DEBUG",
+        "why": "not an automatic, and the package dictionaries state this honestly («0 - DEBUG»)",
+        "confidence": "fact",
+        "evidence": "customize.cpp:87-93,321"
+      }
+    ],
+    "manual_value_next_to_auto": {
+      "confidence": "hypothesis",
+      "why": "HYPOTHESIS (high confidence): there is no direct statement in the sources, the mechanics were assembled from indirect signs.",
+      "rules": [
+        "The automatic swallows the neighbour's manual value if that neighbour stands in the mode (non-literal) range: 52=3 is not a voltage but an instruction to compute it; the computation depends on 32 and is corrected via 12440/12448. Manual mV in 52 switch off this chain entirely.",
+        "12416 != 0 switches off the automatics, leaving the manual values.",
+        "12436 changes the result of all the automatics at once — the tables are indexed by the stage.",
+        "With 12352 = 0 a manually written eBAL value is simply absent: the field holds 0, the actual eBAL is taken from the table."
+      ],
+      "backup_trap": {
+        "what": "FACT as to the mechanics, HYPOTHESIS as to the consequences: the backup saves the INTENT, not the result.",
+        "why": "With 12352 = 0 the backup will write 0, and after a restore on another firmware or at another RAM frequency the automatics will compute differently. No package warns about this, while «Restore» is presented as an exact return.",
+        "evidence": "Ebal/boot_package.ini:169 (the backup reads 12352 as is) · Ebal/boot_package.ini:301 (the restore writes it back)"
+      }
+    }
+  },
+  "compound_writes": [
+    {
+      "item": "Wizard · Profiles > CPU for v2,Lite,Oled",
+      "offsets": [
+        40,
+        12340,
+        48
+      ],
+      "order": [
+        40,
+        12340,
+        48
+      ],
+      "dict": "Wizard/Profiles/json/cpu.json",
+      "keys": [
+        "hex1",
+        "hex2",
+        "hex3"
+      ],
+      "stages": {
+        "Stage1 - Min": {
+          "40": "01",
+          "48": "03",
+          "12340": "01"
+        },
+        "Stage2 - Mid": {
+          "40": "03",
+          "48": "02",
+          "12340": "03"
+        },
+        "Stage3 - Max": {
+          "40": "05",
+          "48": "01",
+          "12340": "05"
+        },
+        "Default": {
+          "40": "00",
+          "48": "03",
+          "12340": "00"
+        }
+      },
+      "why": "FACT: 40 and 12340 go with IDENTICAL values (01/01, 03/03, 05/05) — these are exactly the anchor points ECO ST1/ST2/ST3 from customize.cpp:68. The preset keeps low and high in sync, while 48 moves the opposite way (3→2→1 = ECO ST1→ST3): the more aggressive the undervolt, the lower the allowed voltage floor. Default = 00/00 — this is precisely the ECO ALT-MODE from paired_switches.",
+      "confidence": "fact",
+      "evidence": "Wizard/Profiles/config.ini:8-11 · Wizard/Profiles/json/cpu.json"
+    },
+    {
+      "item": "Wizard · Profiles > GPU for v2,Lite,Oled",
+      "offsets": [
+        44,
+        52
+      ],
+      "order": [
+        44,
+        52
+      ],
+      "dict": "Wizard/Profiles/json/gpu.json",
+      "keys": [
+        "hex1",
+        "hex2"
+      ],
+      "stages": {
+        "Stage1 - Min": {
+          "44": "00",
+          "52": "03"
+        },
+        "Stage2 - Mid": {
+          "44": "01",
+          "52": "02"
+        },
+        "Default": {
+          "44": "00",
+          "52": "03"
+        }
+      },
+      "why": "FACT: 44 and 52 go in OPPOSITE directions. Not a single stage uses 44 = 03 — that is, the GPU presets fundamentally do not enable the manual table.",
+      "confidence": "fact",
+      "evidence": "Wizard/Profiles/config.ini:19-21 · Wizard/Profiles/json/gpu.json"
+    },
+    {
+      "item": "Wizard · Profiles > GPU (alternative set)",
+      "offsets": [
+        44,
+        52
+      ],
+      "order": [
+        44,
+        52
+      ],
+      "dict": "Wizard/Profiles/json/alt_gpu.json",
+      "stages": {
+        "Stage1 - Min": {
+          "44": "00",
+          "52": "03"
+        },
+        "Stage2 - Mid": {
+          "44": "01",
+          "52": "02"
+        },
+        "Stage3 - Max": {
+          "44": "02",
+          "52": "01"
+        },
+        "Default": {
+          "44": "00",
+          "52": "03"
+        }
+      },
+      "why": "FACT: four stages instead of three, but 44 = 03 is still not used.",
+      "confidence": "fact",
+      "evidence": "Wizard/Profiles/alt_exec.ini:4-6 · Wizard/Profiles/json/alt_gpu.json"
+    },
+    {
+      "item": "Wizard · Profiles > RAM for v2,Lite,Oled",
+      "offsets": [
+        32,
+        12352,
+        12436,
+        56
+      ],
+      "order": [
+        32,
+        12352,
+        12436,
+        56
+      ],
+      "dict": "Wizard/Profiles/json/ram.json",
+      "keys": [
+        "hex1",
+        "hex2",
+        "hex3",
+        "hex4"
+      ],
+      "stages": {
+        "Stage1 - Min": {
+          "32": "009222",
+          "56": "03",
+          "12352": "01",
+          "12436": "01"
+        },
+        "Stage2 - Mid": {
+          "32": "009F24",
+          "56": "02",
+          "12352": "02",
+          "12436": "02"
+        },
+        "Stage3 - Max": {
+          "32": "009F24",
+          "56": "02",
+          "12352": "02",
+          "12436": "03"
+        },
+        "Default": {
+          "32": "009F24",
+          "56": "00",
+          "12352": "00",
+          "12436": "00"
+        }
+      },
+      "why": "FACT: 12352 and 12436 grow together while 56 falls — the memory mode becomes more aggressive, the SoC voltage lower. Default sets all three to 0, that is «give everything to eBAMATIC». The order matches the cascade of automatics: first the frequency, then the eBAL, then the eBAMATIC stage.",
+      "confidence": "fact",
+      "evidence": "Wizard/Profiles/config.ini:29-33 · Wizard/Profiles/json/ram.json"
+    },
+    {
+      "item": "Wizard · Profiles > RAM for Erista v1",
+      "offsets": [
+        24,
+        12352,
+        12436,
+        16
+      ],
+      "order": [
+        24,
+        12352,
+        12436,
+        16
+      ],
+      "dict": "Wizard/Profiles/json/ram_erista.json",
+      "keys": [
+        "hex1",
+        "hex2",
+        "hex3",
+        "hex4"
+      ],
+      "why": "FACT: the same set, but the frequency is taken from the Erista offset (24), and the fourth item is Vdd2 (16) instead of EMC DVB — on Erista the field 56 is not applied.",
+      "confidence": "fact",
+      "evidence": "Wizard/Profiles/config.ini:39-43 · Wizard/Profiles/json/ram_erista.json"
+    },
+    {
+      "item": "Wizard · Profiles > Timings for Erista v1",
+      "offsets": [
+        60,
+        64,
+        68,
+        72,
+        76,
+        80,
+        84,
+        12356
+      ],
+      "order": [
+        60,
+        64,
+        68,
+        72,
+        76,
+        80,
+        84,
+        12356
+      ],
+      "dict": "Wizard/Profiles/json/tmng_erista.json",
+      "keys": [
+        "tmng1",
+        "tmng2",
+        "tmng3",
+        "tmng4",
+        "tmng5",
+        "tmng6",
+        "tmng7",
+        "tmng8"
+      ],
+      "why": "FACT: all eight timings in one press. In all four stages tmng3 = 000000 — T3 is always given to the automatic. ATTENTION: the set ignores the link 76 = 60 + 76 (arithmetic_links) — the written tmng5 will be added to tmng1.",
+      "confidence": "fact",
+      "evidence": "Wizard/Profiles/config.ini:49-57 · Wizard/Profiles/json/tmng_erista.json"
+    },
+    {
+      "item": "Ebal · preset-CPU",
+      "offsets": [
+        40,
+        12340,
+        48
+      ],
+      "order": [
+        40,
+        12340,
+        48
+      ],
+      "dict": "Ebal/Presets/Mariko/{Default,Bassic,Middle,High}.ini",
+      "keys": [
+        "CPUUvL",
+        "CPUUvH",
+        "CPUVmin"
+      ],
+      "stages": {
+        "Default": {
+          "40": 0,
+          "48": 620,
+          "12340": 0
+        },
+        "Bassic": {
+          "40": 2,
+          "48": 600,
+          "12340": 2
+        },
+        "Middle": {
+          "40": 4,
+          "48": 590,
+          "12340": 4
+        },
+        "High": {
+          "40": 6,
+          "48": 580,
+          "12340": 6
+        }
+      },
+      "why": "FACT: the same rule as in Wizard — 40 = 12340 synchronously, 48 in literal mV falls together with them. Note: here 48 is written as a literal (620…580 mV) rather than as a stage — that is, Ebal deliberately leaves the mode range (see range_sentinels).",
+      "confidence": "fact",
+      "evidence": "Ebal/Presets/boot_package.ini:9-11 · Ebal/Presets/Mariko/Default.ini · Bassic.ini · Middle.ini · High.ini"
+    },
+    {
+      "item": "Ebal · preset-GPU",
+      "offsets": [
+        44,
+        12440
+      ],
+      "order": [
+        44,
+        12440
+      ],
+      "dict": "Ebal/Presets/Mariko/{Default,Bassic,Middle,High}.ini",
+      "keys": [
+        "GPUUv",
+        "pMeh19"
+      ],
+      "stages": {
+        "Default": {
+          "44": 1,
+          "12440": 0
+        },
+        "Bassic": {
+          "44": 1,
+          "12440": 1
+        },
+        "Middle": {
+          "44": 2,
+          "12440": 2
+        },
+        "High": {
+          "44": 2,
+          "12440": 2
+        }
+      },
+      "why": "FACT: the GPU mode and the auto-vmin offset go together — this agrees with range_sentinels(52) and with the fact that 12440 works only with an automatic vmin. 44 = 03 is not used in any stage.",
+      "confidence": "fact",
+      "evidence": "Ebal/Presets/boot_package.ini:23-24"
+    },
+    {
+      "item": "Ebal · preset-RAM",
+      "offsets": [
+        16,
+        36,
+        32
+      ],
+      "order": [
+        16,
+        36,
+        32
+      ],
+      "dict": "Ebal/Presets/Mariko/RAM/<model>/<level>.ini",
+      "keys": [
+        "Vdd2",
+        "Vddq",
+        "MaxClockRAMm"
+      ],
+      "why": "FACT: the voltages are written BEFORE the frequency — the reverse order relative to TuningGuide (there it is 1-Max RAM MHz, 3-Vdd2/Vddq). Within a single press this does not matter (see apply_order.note), but it shows that the order in the ini is not considered significant.",
+      "ram_model_specific": true,
+      "confidence": "fact",
+      "evidence": "Ebal/Presets/boot_package.ini:36-38 · Ebal/Presets/Mariko/RAM/*/*.ini"
+    },
+    {
+      "item": "Ebal · preset-Common (timings, mild set)",
+      "offsets": [
+        60,
+        64,
+        68,
+        72,
+        76,
+        80,
+        84,
+        12356
+      ],
+      "order": [
+        60,
+        64,
+        68,
+        72,
+        76,
+        80,
+        84,
+        12356
+      ],
+      "dict": "the [Common] section in Ebal/Presets/Mariko/RAM/<model>/<level>.ini",
+      "keys": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8"
+      ],
+      "why": "FACT: in ALL 27 model files T3 = 0 — the third timing is always given to the automatic.",
+      "ram_model_specific": true,
+      "confidence": "fact",
+      "evidence": "Ebal/Presets/boot_package.ini:45-52 · Ebal/Presets/Mariko/RAM/Default.ini:6-14"
+    },
+    {
+      "item": "Ebal · preset-ST (timings, aggressive set)",
+      "offsets": [
+        60,
+        64,
+        68,
+        72,
+        76,
+        80,
+        84,
+        12356
+      ],
+      "order": [
+        60,
+        64,
+        68,
+        72,
+        76,
+        80,
+        84,
+        12356
+      ],
+      "dict": "the [ST] section in the same file",
+      "keys": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8"
+      ],
+      "why": "FACT: an alternative set of the same eight offsets, always 1-2 steps more aggressive than [Common]. It is switched by the [ST RAM] toggle in Presets.ini:58-69, which overwrites the same offsets. That is, one toggle changes eight fields.",
+      "ram_model_specific": true,
+      "confidence": "fact",
+      "evidence": "Ebal/Presets/boot_package.ini:61-68 · Ebal/Presets/Presets.ini:58-69 · Ebal/Presets/Mariko/RAM/Default.ini:16-24"
+    },
+    {
+      "item": "Ebal · preset-GpuVmin / preset-GpuVminMaxMHZ",
+      "offsets": [
+        12440,
+        12448
+      ],
+      "order": [
+        12440,
+        12448
+      ],
+      "why": "FACT: the two trackbars write into different offsets, but BOTH take the value from {ini_file(Min Volt,index)} — that is, 12448 always follows the first trackbar, while the second one's own position is ignored. Plus the scales differ: 12440 receives 0,2,4,6,8,10, and 12448 — 0,1,2,3,4,5.",
+      "bug": true,
+      "confidence": "fact",
+      "evidence": "Ebal/Presets/boot_package.ini:75-76,81-82"
+    },
+    {
+      "item": "Ebal · Erista GPU curve presets (EcoTaste / EcoPlusTaste / SuperEcoTaste)",
+      "offsets": [
+        44,
+        88,
+        92,
+        96,
+        100,
+        104,
+        108,
+        112,
+        116,
+        120,
+        124,
+        128,
+        132,
+        136,
+        140,
+        144,
+        148,
+        152,
+        156,
+        160,
+        164,
+        168,
+        172,
+        176,
+        180,
+        184,
+        188,
+        192,
+        196,
+        200,
+        204
+      ],
+      "order": [
+        44,
+        88,
+        92,
+        96,
+        100,
+        104,
+        108,
+        112,
+        116,
+        120,
+        124,
+        128,
+        132,
+        136,
+        140,
+        144,
+        148,
+        152,
+        156,
+        160,
+        164,
+        168,
+        172,
+        176,
+        180,
+        184,
+        188,
+        192,
+        196,
+        200,
+        204
+      ],
+      "why": "FACT: first the mode (44), then 30 points. The reverse order relative to Wizard, where 44 is written last.",
+      "broken": true,
+      "problems": [
+        "FACT: the value sources are kipBackup/Eco.ini, EcoPlus.ini, SuperEco.ini. These files are NOT in the distribution (verified by a recursive search over the whole of Ebal). Three of the five GPU menu items for Erista write an undefined value into 44 and into 30 offsets.",
+        "FACT: they write into 184…204, which are not part of marikoGpuVoltArray — see invalid_offsets.",
+        "FACT: they edit the Mariko array, which Erista does not read — see switches[44/erista]."
+      ],
+      "do_not_port": true,
+      "confidence": "fact",
+      "evidence": "Ebal/boot_package.ini:437-537 (438,472,506 — references to missing files)"
+    },
+    {
+      "item": "Wizard · Reset to default / Full Assist Start",
+      "offsets": [
+        32,
+        24,
+        36,
+        16,
+        12352,
+        12360,
+        56,
+        60,
+        64,
+        68,
+        72,
+        76,
+        80,
+        84,
+        12356,
+        12364,
+        12368,
+        12372,
+        12376,
+        12380,
+        12384,
+        12388,
+        12392,
+        12396,
+        12400,
+        12404,
+        12408,
+        12412,
+        12416,
+        12420,
+        12424,
+        12428,
+        12432,
+        12436,
+        12440,
+        12444,
+        12448,
+        12460,
+        12464,
+        12468,
+        12472,
+        12476,
+        12480,
+        12484,
+        12488,
+        12492,
+        12496,
+        12500,
+        12504,
+        12508,
+        12512,
+        12516,
+        12520,
+        12524,
+        48,
+        28,
+        12348,
+        12,
+        40,
+        12340,
+        20,
+        12336,
+        44,
+        52,
+        12344
+      ],
+      "order_group": [
+        "memory",
+        "timings",
+        "pMEH",
+        "sMEH",
+        "CPU",
+        "GPU",
+        "reboot"
+      ],
+      "why": "FACT: two almost identical lists of 55 entries in a fixed order — memory, then timings, then the micro-logic, then CPU, then GPU. They do NOT touch the GPU curve (88…180) or the Erista curve (5424…6768) — which agrees with the fact that with 44=00 the table is not read anyway.",
+      "confidence": "fact",
+      "evidence": "Wizard/Dashboard/Reset to default/config.ini:1-133 · Wizard/4Advanced/Full Assist/config.ini:4-135"
+    }
+  ],
+  "default_disagreement": {
+    "_why": "FACT: four different «factory defaults», and not one of them matches the others. For our tuner this means: «Reset» is not an objective quantity, a reference must be chosen and declared. Recommendation: customize.cpp as the primary source, with caveats where the structure version has diverged.",
+    "confidence": "fact",
+    "sources": {
+      "reset": "Wizard/Dashboard/Reset to default/config.ini",
+      "full_assist": "Wizard/4Advanced/Full Assist/config.ini",
+      "ebal": "Ebal/kipBackup/Backup Default.ini",
+      "source": "customize.cpp"
+    },
+    "rows": [
+      {
+        "offset": 12460,
+        "name": "sMeh0",
+        "reset": "07",
+        "full_assist": "06",
+        "ebal": "07",
+        "source": "4"
+      },
+      {
+        "offset": 12496,
+        "name": "sMeh9",
+        "reset": "00",
+        "full_assist": "01",
+        "ebal": "01",
+        "source": "1"
+      },
+      {
+        "offset": 12524,
+        "name": "sMeh16",
+        "reset": "01",
+        "full_assist": "00",
+        "ebal": "01",
+        "source": "not defined"
+      },
+      {
+        "offset": 12440,
+        "name": "pMeh19",
+        "reset": "01",
+        "full_assist": "01",
+        "ebal": "00",
+        "source": "3"
+      },
+      {
+        "offset": 12368,
+        "name": "pMeh1",
+        "reset": "02",
+        "full_assist": "02",
+        "ebal": "03",
+        "source": "2"
+      },
+      {
+        "offset": 12436,
+        "name": "pMeh18",
+        "reset": "00",
+        "full_assist": "00",
+        "ebal": "02",
+        "source": "0"
+      },
+      {
+        "offset": 56,
+        "name": "EMC DVB",
+        "reset": "000000",
+        "full_assist": "000000",
+        "ebal": "030000",
+        "source": "3"
+      },
+      {
+        "offset": 12360,
+        "name": "EBA-Shift",
+        "reset": "01",
+        "full_assist": "01",
+        "ebal": "00",
+        "source": "0"
+      }
+    ]
+  },
+  "apply_order": [
+    {
+      "scope": "global",
+      "first": 12436,
+      "then": [
+        "CPU",
+        "GPU",
+        "RAM"
+      ],
+      "why": "FACT: the Ebal developers set the order explicitly — «eBAMATIC ST->CPU->GPU->RAM». 12436 first, because it is the input parameter of all the automatics (see auto_cascade).",
+      "confidence": "fact",
+      "evidence": "Ebal/TuningGuide.ini:62-63"
+    },
+    {
+      "scope": "CPU",
+      "first": 48,
+      "then": [
+        28,
+        12348,
+        12,
+        40,
+        12340,
+        12336
+      ],
+      "sequence": [
+        [
+          48,
+          28
+        ],
+        [
+          12348
+        ],
+        [
+          12
+        ],
+        [
+          40
+        ],
+        [
+          12340
+        ],
+        [
+          12336
+        ]
+      ],
+      "why": "FACT: 1-CPU Min/Max voltage, 2-High freq Vmin, 3-Cpu Boost clock, 4-Low MHz Undervolt, 5-High MHz Undervolt, 6-SpeedShift. SpeedShift last, because it shifts the speedo target and changes the actual effect of all the previous fields.",
+      "confidence": "fact",
+      "evidence": "Ebal/TuningGuide.ini:71-77"
+    },
+    {
+      "scope": "GPU",
+      "first": 44,
+      "then": [
+        12344
+      ],
+      "why": "FACT: 1-GPU UV Mode, 2-Gpu Max Voltage. The mode determines whether the table is read, therefore it comes first. Note: 52 and 12440/12448 are NOT tuned in the GPU section — they have been moved to the end of the RAM section.",
+      "confidence": "fact",
+      "evidence": "Ebal/TuningGuide.ini:85-87"
+    },
+    {
+      "scope": "RAM",
+      "first": 32,
+      "then": [
+        12352,
+        16,
+        36,
+        56,
+        12360,
+        60,
+        64,
+        68,
+        72,
+        76,
+        80,
+        84,
+        12356,
+        52,
+        12440,
+        12448
+      ],
+      "sequence": [
+        [
+          32,
+          24
+        ],
+        [
+          12352
+        ],
+        [
+          16,
+          36
+        ],
+        [
+          56
+        ],
+        [
+          12360
+        ],
+        [
+          60,
+          64,
+          68,
+          72,
+          76,
+          80,
+          84,
+          12356
+        ],
+        [
+          52
+        ],
+        [
+          12440,
+          12448
+        ]
+      ],
+      "why": "FACT: 1-Max RAM MHz, 2-EMC Balance, 3-Vdd2/Vddq, 4-EMC DVB Voltage, 5-EBA-Shift, 6-RAM Timings, 7-GPU Vmin, 8-GPU Vmin offsets. The logic matches all the links found: 32 before 12352, because with 12352=0 the eBAL is derived from the frequency; 52 and 12440/12448 LAST and in the RAM section rather than the GPU one, because the automatic GPU vmin depends on the final memory frequency («!!!Higher freq needs higher GPU vMin»).",
+      "confidence": "fact",
+      "evidence": "Ebal/TuningGuide.ini:95-103 · Ebal/RAM.ini:94"
+    },
+    {
+      "scope": "gpu_custom_table",
+      "first": null,
+      "then": [
+        88,
+        92,
+        96,
+        100,
+        104,
+        108,
+        112,
+        116,
+        120,
+        124,
+        128,
+        132,
+        136,
+        140,
+        144,
+        148,
+        152,
+        156,
+        160,
+        164,
+        168,
+        172,
+        176,
+        180,
+        44
+      ],
+      "why": "FACT (Wizard): each of the 31 curve items writes the point first and THEN 44=03 as a side write. Ebal does the opposite (44 first), and in custom_table.ini it does not write 44 at all — there the user has to switch the mode by hand. Recommendation for our tuner: reproduce the Wizard behaviour (side_write 44=03), otherwise the curve will not be applied.",
+      "confidence": "fact",
+      "evidence": "Wizard/4Advanced/GPU/GPU custom table/config.ini:7-8,15-16 (and onwards up to 247-248) · Ebal/boot_package.ini:439 · Ebal/custom_table.ini (44 is not written)"
+    }
+  ],
+  "order_semantics": {
+    "within_single_action": {
+      "matters": false,
+      "confidence": "hypothesis",
+      "why": "HYPOTHESIS (high confidence): all the hex-by-cust-offset commands edit the file on the SD card, while the kip reads the whole structure at the next boot. Therefore «value, then mode» (Wizard) and «mode, then values» (Ebal) give an identical result. Indirect confirmation: both packages have been working for years with the opposite order.",
+      "caveat": "True only as long as all the writes fall into one reboot."
+    },
+    "between_sessions": {
+      "matters": true,
+      "confidence": "fact",
+      "why": "The tuning order for the human is set in Ebal/TuningGuide.ini — see apply_order. For the generator: lay the menu items out in this order, not alphabetically and not by ascending offset."
+    },
+    "forced_by_reboot": {
+      "matters": true,
+      "confidence": "fact",
+      "why": "FACT: the step-by-step Full Assist wizard — each step ends with a reboot, the next ini is substituted via cp. The order is physically enforced: 0RAM → 1CPU_BOOST → 2CPU_VMAX → 3VDD2 → 4VDDQ → 5CPU_LOW_UV → 6GPU_MODE → 7CPUv → 8GPUv → 9EMB → 10Timings → 11..16 Core2-7 → 17SpeedShift → 18CPU_HIGH_UV → 19GPU_OVER → 20dCPUv → 21Ebal → 22Core8 → 23Eba_shift → 24Finish. Tellingly: 6GPU_MODE (44) comes before 8GPUv (52) — the mode before the value; while 23Eba_shift (12360) is next to last, already after all the timings, which agrees with the link «T8 ceiling = f(12352 - 12360)».",
+      "evidence": "Wizard/4Advanced/Full Assist/inis/*.ini (1CPU_BOOST.ini:8 · 8GPUv.ini:8 · 24Finish.ini)"
+    }
+  },
+  "conflicts": [
+    {
+      "a": 184,
+      "b": null,
+      "kind": "corruption",
+      "severity": "critical",
+      "why": "FACT: a write into 184…208 as if into the «GPU curve» corrupts eristaCpuDvfsTable. See invalid_offsets.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:95 + loader.kip + Ebal/kipBackup/default.ini:25,27"
+    },
+    {
+      "a": 170,
+      "b": 168,
+      "kind": "corruption",
+      "severity": "high",
+      "why": "FACT: a 3-byte write at the unaligned address 170 corrupts two neighbouring voltages of the curve (elements [20] and [21]).",
+      "confidence": "fact",
+      "evidence": "Ebal/boot_package.ini:263,395 · Ebal/kipBackup/stock.ini:120"
+    },
+    {
+      "a": 12508,
+      "b": 12352,
+      "kind": "no_boot",
+      "severity": "high",
+      "condition": "12508=1 AND 12352=1 (eBAL 1) AND Micron memory AND frequency 1600",
+      "why": "FACT: «At low frequencies, it may not be compatible with certain memory chips, like eBAL1 on Micron at a frequency of 1600, possibly higher».",
+      "confidence": "fact",
+      "evidence": "Wizard/Help/MICRO-ENHANCE LOGIC/sMeh 12 Clatok.txt"
+    },
+    {
+      "a": 12492,
+      "b": null,
+      "kind": "visual_artifact",
+      "severity": "medium",
+      "condition": "12492 != 0 in docked mode",
+      "why": "FACT: «Because of sMeh 8, the screen may start to stripe in the dock. To solve this problem, reset sMeh 8 to 0».",
+      "confidence": "fact",
+      "evidence": "Wizard/Help/MICRO-ENHANCE LOGIC/sMeh 8 E-Boost.txt"
+    },
+    {
+      "a": 16,
+      "b": 36,
+      "kind": "hardware_damage",
+      "severity": "critical",
+      "condition": "values that are too low",
+      "why": "FACT: «Carefully! If the value is too low, it may damage the emunand!!»",
+      "confidence": "fact",
+      "evidence": "Wizard/Help/EMC-4IFIR Optimized/VDDQ-VDD2.txt"
+    },
+    {
+      "a": 32,
+      "b": 24,
+      "kind": "data_corruption",
+      "severity": "critical",
+      "condition": "an excessive memory frequency",
+      "why": "FACT: «excessive values can lead to issues like corrupted data (e.g., emuNAND) and visual artifacts».",
+      "confidence": "fact",
+      "evidence": "Wizard/Help/RAM/RAM MHz.txt"
+    },
+    {
+      "a": 12344,
+      "b": null,
+      "kind": "range_disagreement",
+      "severity": "high",
+      "why": "FACT: the Ebal help — no higher than 800 mV; the Wizard dictionary offers 1050 mV and above; the source allows up to 1200. Three different ceilings for one field.",
+      "confidence": "fact",
+      "evidence": "Ebal/GPU.ini:82 · Wizard/4Advanced/Full Assist/json/19GPU_OVER.json · customize.cpp:311"
+    },
+    {
+      "a": 28,
+      "b": null,
+      "kind": "range_disagreement",
+      "severity": "high",
+      "why": "FACT: the Ebal help — no higher than 1160 mV; the Wizard dictionary gives up to 1375; the source — up to 1280.",
+      "confidence": "fact",
+      "evidence": "Ebal/CPU.ini:92 · Wizard/4Advanced/CPU/json/voltage_mariko.json · customize.cpp:47"
+    },
+    {
+      "a": 12348,
+      "b": null,
+      "kind": "range_disagreement",
+      "severity": "medium",
+      "why": "FACT: the source allows 750…850 mV, the Wizard dictionary gives 700…890.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:314 · Wizard/4Advanced/CPU/json/dcpuv.json"
+    },
+    {
+      "a": 12440,
+      "b": null,
+      "kind": "range_disagreement",
+      "severity": "medium",
+      "why": "FACT: the source 0-5, Wizard gives 0-14, Ebal 0-42. Plus the scale depends on the memory model.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:331 · Wizard/4Advanced/RAM/MICRO-ENHANCE LOGIC/json/pMeh19.json · package/fields-src/ebal-notes.md"
+    },
+    {
+      "a": 12372,
+      "b": null,
+      "kind": "range_disagreement",
+      "severity": "low",
+      "why": "FACT: the source 0-2, Wizard gives 0-3.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:329 · Wizard/…/json/pMeh2.json"
+    },
+    {
+      "a": 12416,
+      "b": null,
+      "kind": "range_disagreement",
+      "severity": "low",
+      "why": "FACT: the source 0-5, Wizard gives 0-8.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:330 · Wizard/…/json/pMeh13.json"
+    },
+    {
+      "a": 12512,
+      "b": null,
+      "kind": "range_disagreement",
+      "severity": "low",
+      "why": "FACT: the source 0-1, Ebal gives 0-4.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:338 · Ebal/…/json/sMeh13.json"
+    },
+    {
+      "a": 12448,
+      "b": 12444,
+      "kind": "mislabeled_write",
+      "severity": "high",
+      "why": "FACT: the Ebal item is labelled «pMeh 20 rVDDick», the hint promises «Vddq/Vdd2: Higher val = higher volt», but the field writes into 12448 — that is the GPU vMin for Optimized S. The user thinks he is raising the memory voltage while he is lowering the minimum GPU voltage. The opposite effect in terms of risk.",
+      "confidence": "fact",
+      "evidence": "Ebal/4opt.ini:21-25 · Ebal/4opt.ini:38 · Ebal/Micro-Enhance Logic/microP.ini:354-355"
+    },
+    {
+      "a": 12448,
+      "b": 12448,
+      "kind": "double_write",
+      "severity": "medium",
+      "why": "FACT: microP.ini writes into 12448 twice in a row from two different dictionaries with different scales. The first write is guaranteed to be overwritten by the second — one of the two dictionaries in the interface is purely decorative.",
+      "confidence": "fact",
+      "evidence": "Ebal/Micro-Enhance Logic/microP.ini:133-136"
+    },
+    {
+      "a": 44,
+      "b": null,
+      "kind": "missing_file",
+      "severity": "high",
+      "why": "FACT: the Erista GPU presets refer to kipBackup/Eco.ini, EcoPlus.ini, SuperEco.ini — these files are not in the distribution. Three menu items write an undefined value into 44 and into 30 offsets.",
+      "confidence": "fact",
+      "evidence": "Ebal/boot_package.ini:438,472,506 vs the contents of Ebal/kipBackup/"
+    },
+    {
+      "a": 44,
+      "b": 88,
+      "kind": "wrong_platform",
+      "severity": "high",
+      "why": "FACT: the Ebal «Erista custom table» writes into 88…172 — the marikoGpuVoltArray array, which Erista does not read (on Erista 44 works as a -12.5 mV multiplier over eristaGpuDvfsTable).",
+      "confidence": "fact",
+      "evidence": "Ebal/custom_table.ini:233-385 vs customize.cpp:73"
+    },
+    {
+      "a": 40,
+      "b": 12340,
+      "kind": "undefined_combination",
+      "severity": "medium",
+      "why": "FACT: 40=0 with 12340!=0 (or the other way round) is not «base undervolt», as labelled in the dictionaries, but an undescribed combination. ECO ALT-MODE requires both zeros.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:68,308"
+    },
+    {
+      "a": null,
+      "b": null,
+      "kind": "version_drift",
+      "severity": "medium",
+      "why": "FACT: in the version of customize.cpp that was found pMEH is described up to index 19 and sMEH up to 13, even though kipVer=27 and the packages confidently write pMeh 20/21 and sMeh 14/15/16. The layout is reliable, the comments about the ranges of the later fields are not.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:331,338 vs Wizard/config.ini:7 (kipVer=27)"
+    },
+    {
+      "a": 12556,
+      "b": null,
+      "kind": "undocumented_danger",
+      "severity": "unknown",
+      "why": "FACT: SHAITAN (12556…12608) is marked //!DANGER, «right combination adds features from the future». No package looks there. 14 offsets of hidden functionality outside our 122.",
+      "confidence": "fact",
+      "evidence": "customize.cpp:343-346 · loader.kip CUST+12556 = 0,13×12,0"
+    }
+  ],
+  "no_hard_exclusions": {
+    "finding": "FACT: not a single explicit mutual exclusion in the strict sense («A and B cannot be used at the same time») was found in the sources.",
+    "why": "Everything found is either «does not work» (gates) or «unstable» (degradations). That is a result in itself: 4IFIR has no hard conflicts, it has gates and degradations. For the generator this means that combinations do not need to be blocked — it is enough to hide what does not work and to warn about what is dangerous."
+  },
+  "generator_requirements": {
+    "_why": "What the package generator must be able to do for this graph to be applied. The details and the justification are in docs/research/13-dependencies.md §9.",
+    "must": [
+      {
+        "id": "bounds_check",
+        "what": "Fail at build time if an offset goes beyond the bounds of an array from struct_layout. It was exactly the absence of this check that produced the bug with 184…208."
+      },
+      {
+        "id": "drop_invalid",
+        "what": "Discard all the offsets from invalid_offsets — 170 and 184…208."
+      },
+      {
+        "id": "conditional_visibility",
+        "what": "Conditional visibility of an item by the value of another offset (switches[].enables/disables). Ideally — an extension of ;system=mariko|erista to a predicate of the form ;visible_if=CUST:44==03. A workaround without patching Ultrahand: the item is visible, but «not applied» is written in the footer — computed in [boot] via json_file from the value of the gate."
+      },
+      {
+        "id": "apply_order",
+        "what": "Lay out the sections and the items by apply_order rather than by ascending offset. The order field in fields.json is enough — a change on our side."
+      },
+      {
+        "id": "side_write_44",
+        "what": "Reproduce the side write 44=03 in every item of the Mariko curve, otherwise the curve will not be applied."
+      }
+    ],
+    "should": [
+      {
+        "id": "range_sentinel_dicts",
+        "what": "Support for a field with mixed semantics: part of the values are named modes, part are a numeric range with a step; validation is applied only to the numeric part."
+      },
+      {
+        "id": "atomic_group_write",
+        "what": "Atomic writing of a group of offsets for compound_writes — a failure on the third command currently leaves an inconsistent kip."
+      },
+      {
+        "id": "danger_flag",
+        "what": "A ;danger=true mark for 12344, 12348, 16, 36, 28 and for the whole block 184…208."
+      },
+      {
+        "id": "reference_profile",
+        "what": "A button «restore the customize.cpp values» in addition to the four mismatching defaults (see default_disagreement)."
+      }
+    ],
+    "nice": [
+      {
+        "id": "show_computed",
+        "what": "Show the computed value instead of the written one for fields at the sentinel: «auto → 3 (by frequency 2534 and stage 2)». Requires porting the tables customize.cpp:36-63 into json. Expensive, but it removes the backup_trap."
+      },
+      {
+        "id": "combo_warnings",
+        "what": "Warnings in the footer for the dangerous combinations from conflicts (the items Clatok, E-Boost, VDDQ/VDD2, memory frequency)."
+      }
+    ]
+  },
+  "open_questions": [
+    {
+      "id": 1,
+      "offsets": [
+        56
+      ],
+      "q": "customize.cpp says «3 AUTO // 2 AUTO ECO ST1 // 1 AUTO ECO ST2 // 0 AUTO ECO ST3». But Wizard, Ebal and Reset write 0 there and call it «eBAMATIC/auto». What does 0 actually mean — «automatic» or «ECO ST3»?",
+      "priority": "high"
+    },
+    {
+      "id": 2,
+      "offsets": [
+        68
+      ],
+      "q": "The comment says «0 DEBUG», but all the presets and the factory kip hold 0, while the dictionaries call it «eBamatic - Default». Is the value 0 for drochr03 a debug mode or an automatic one? Does drochr03 differ in this sense from drochr01/02/04…08?",
+      "priority": "high"
+    },
+    {
+      "id": 3,
+      "offsets": [
+        48
+      ],
+      "q": "The value 0 is not described in the comment (1/2/3 and the range 430-670 are described), while the Wizard dictionary offers 0 as «eBamatic (automatic)». Is 0 supported in CPUv, and what does it do?",
+      "priority": "high"
+    },
+    {
+      "id": 4,
+      "offsets": [
+        40,
+        12340
+      ],
+      "q": "The comment «0 ECO ALT-MODE (low=0 & high=0)» reads as «the mode is enabled only if both are zero». Is that correct? What happens with low=0, high=1?",
+      "priority": "high"
+    },
+    {
+      "id": 5,
+      "offsets": [
+        60,
+        76
+      ],
+      "q": "«! drochr05 = drochr01 + drochr05». Is it understood correctly that the applied T5 equals the sum of the written T1 and T5? Are there similar hidden links between the other drochr?",
+      "priority": "high"
+    },
+    {
+      "id": 6,
+      "offsets": [
+        8
+      ],
+      "q": "What values does mtcConf take and what does each of them do (eBAMATIC, CUSTOM_ADJ_ALL, NO_ADJ_ALL, CUSTOMIZED_ALL)? Is it safe to expose this field in the tuner?",
+      "priority": "medium"
+    },
+    {
+      "id": 7,
+      "offsets": [
+        184,
+        188,
+        192,
+        196,
+        200,
+        204,
+        208
+      ],
+      "q": "In the source marikoGpuVoltArray has 24 elements (307…1190 MHz), but both tuners show 31 items up to «MAX MHz». Is it correct that 184…208 do not belong to the GPU curve and that writing there corrupts eristaCpuDvfsTable? Was an extension of the array to 31 planned?",
+      "priority": "high"
+    },
+    {
+      "id": 8,
+      "offsets": [
+        44
+      ],
+      "q": "Is it correct that on Erista marikoGpuUV works only as a -12.5 mV multiplier by the formula eristaGpuDvfsTable - 12500 * marikoGpuUV, and that no manual table exists for Erista? Then what should the «Custom Table» item do for Erista?",
+      "priority": "high"
+    },
+    {
+      "id": 9,
+      "offsets": [
+        52
+      ],
+      "q": "The comment «ERISTA GPU VOLT MIN = CPUv + 100mV» mentions CPUv although the field is GPUv. Is this a typo, or is the minimum GPU voltage on Erista really derived from CPUv?",
+      "priority": "medium"
+    },
+    {
+      "id": 10,
+      "offsets": [
+        52
+      ],
+      "q": "Wizard help: «The selected value will only work in EMC mode - 4IFIR optimized S». Ebal help: the stages of 52 set the auto-vmin both for [optimized] and for [max RAM]. Which is correct?",
+      "priority": "medium"
+    },
+    {
+      "id": 11,
+      "offsets": [
+        12440,
+        12448
+      ],
+      "q": "Do the auto-vmin offsets work if GPUv is set in millivolts rather than as a stage?",
+      "priority": "medium"
+    },
+    {
+      "id": 12,
+      "offsets": [
+        12420
+      ],
+      "q": "The formula Freq = tuner.max_ram - pmeh14. In what units is the value subtracted — grid steps of 38.4 MHz, megahertz, or something else?",
+      "priority": "medium"
+    },
+    {
+      "id": 13,
+      "offsets": [
+        12444,
+        12448,
+        12516,
+        12520,
+        12524
+      ],
+      "q": "In the version of customize.cpp that was found pMEH is described up to index 19, sMEH up to 13. What are the official ranges of pMeh 20/21 and sMeh 14/15/16 in kipVer=27? Are the extended ranges of the packages correct (pMeh19 up to 42, pMeh13 up to 8, sMeh13 up to 4)?",
+      "priority": "medium"
+    },
+    {
+      "id": 14,
+      "offsets": [
+        12556
+      ],
+      "q": "What is SHAITAN and is it dangerous to touch? Is the default value {0, 13×12, 0} the «off» state?",
+      "priority": "low"
+    },
+    {
+      "id": 15,
+      "offsets": [
+        12452,
+        12456,
+        12528,
+        12532,
+        12536,
+        12540,
+        12544,
+        12548,
+        12552
+      ],
+      "q": "Are pMEH[22..23] and sMEH[17..23] reserved for something specific, or are they just spare capacity?",
+      "priority": "low"
+    },
+    {
+      "id": 16,
+      "offsets": [
+        12432
+      ],
+      "q": "Ebal help: «No effect for now. Should correct emc errors and allow for better performance of >2800 freqs». Has it started working in kipVer=27?",
+      "priority": "low"
+    },
+    {
+      "id": 17,
+      "offsets": [
+        12352
+      ],
+      "q": "If 12352 = 0 (eBAMATIC), the backup saves 0 rather than the actually applied eBAL. Is there a way to read the COMPUTED values out of the kip so that the backup is reproducible?",
+      "priority": "medium"
+    },
+    {
+      "id": 18,
+      "offsets": [],
+      "q": "TuningGuide sets the tuning order for the human. Is there an order inside the kip that matters for WRITING — can all the fields be written at once and the console rebooted a single time, or do some fields require an intermediate reboot?",
+      "priority": "medium"
+    }
+  ],
+  "signed_offsets": {
+    "_why": "The GPU auto-vmin offsets are read as a SIGNED byte: the values FD/FE/FF/00 set an UPWARD shift. The capability was added to 4IFIR at the request of the Ebal author to Cooler3D — confirmed by the project operator, a witness of the conversation.",
+    "confidence": "fact",
+    "evidence": "the testimony of the project operator (an eyewitness) + Ebal/json/VminOff.json, VminMaxFreqOff.json — the scale matches at all positions",
+    "formula": "shift_mV = (neutral − value_int8) × 5",
+    "items": [
+      {
+        "offset": 12440,
+        "name": "pMeh 19 vMINetune ST",
+        "applies_to": "4IFIR Optimised E",
+        "neutral": "01",
+        "range_mV": {
+          "min": -70,
+          "max": 20
+        },
+        "step_mV": 5
+      },
+      {
+        "offset": 12448,
+        "name": "pMeh 21 gVMINDick",
+        "applies_to": "4IFIR Optimised S / max RAM",
+        "neutral": "02",
+        "range_mV": {
+          "min": -45,
+          "max": 25
+        },
+        "step_mV": 5
+      }
+    ],
+    "note": "Wizard does not know these values — its dictionaries are older than the change (0..9 and 0..14 without the negative part)."
+  },
+  "emc_mode_voltage_table": {
+    "_why": "The RAM speed mode together with the EMC Balance level (eBAL) determines which Vddq and Vdd2 the kip uses by default. Offsets 16 and 36 hold explicit values that override that default. Until the current firmware source appeared this mapping was not written down anywhere on our side, and neither original package exposes it.",
+    "source": "CustomizeTable source, Mariko block; confirmed by the project operator who works with the firmware author",
+    "operator_notes": [
+      "The eBAL mode is what picks the default Vddq and Vdd2 — the table is a lookup, not a list of requirements the user must satisfy by hand.",
+      "The firmware auto-selects both RAM speed and eBAL from the memory chip, and falls back to a lower mode when the banks do not hold it. Silicon binning makes the outcome per-console, so the selected row cannot be predicted from the chip model alone.",
+      "sMeh 8 (E-Boost) changes what the 1600 MHz mode inherits: at value 2 it takes timings and other settings from the high-frequency profile, which is where its speed-up comes from. So the row for 1600 is not the whole story for that mode."
+    ],
+    "columns": [
+      "mode",
+      "mhz",
+      "khz",
+      "vddq_mv",
+      "vdd2_ebal1",
+      "vdd2_ebal2",
+      "vdd2_ebal3",
+      "vdd2_ebal4",
+      "vdd2_ebal5"
+    ],
+    "note_on_dashes": "null means the combination is not available at that eBAL level",
+    "rows": [
+      [
+        "—",
+        1333,
+        1331200,
+        425,
+        1225,
+        1100,
+        1025,
+        975,
+        925
+      ],
+      [
+        "S_LOH",
+        1600,
+        1600000,
+        475,
+        1325,
+        1175,
+        1075,
+        1025,
+        975
+      ],
+      [
+        "E_ST3",
+        1733,
+        1734400,
+        500,
+        1375,
+        1225,
+        1100,
+        1075,
+        1000
+      ],
+      [
+        "E_ST2",
+        1866,
+        1868800,
+        525,
+        null,
+        1275,
+        1125,
+        1050,
+        1025
+      ],
+      [
+        "E_ST1",
+        2000,
+        1996800,
+        550,
+        null,
+        1325,
+        1175,
+        1100,
+        1050
+      ],
+      [
+        "D_ST1",
+        2133,
+        2131200,
+        575,
+        null,
+        1375,
+        1225,
+        1125,
+        1075
+      ],
+      [
+        "D_ST2",
+        2266,
+        2265600,
+        600,
+        null,
+        null,
+        1275,
+        1175,
+        1100
+      ],
+      [
+        "D_ST3",
+        2400,
+        2400000,
+        625,
+        null,
+        null,
+        1325,
+        1200,
+        1125
+      ],
+      [
+        "S_ST1",
+        2533,
+        2534400,
+        650,
+        null,
+        null,
+        1375,
+        1250,
+        1150
+      ],
+      [
+        "S_ST2",
+        2666,
+        2665600,
+        675,
+        null,
+        null,
+        null,
+        1275,
+        1175
+      ],
+      [
+        "S_ST3",
+        2800,
+        2800000,
+        700,
+        null,
+        null,
+        null,
+        1325,
+        1200
+      ],
+      [
+        "L_C4C",
+        2933,
+        2934400,
+        725,
+        null,
+        null,
+        null,
+        null,
+        1225
+      ]
+    ],
+    "auto_selection": {
+      "mariko": {
+        "Samsung B-DIE": "D_ST3 2400",
+        "Hynix NME": "S_ST1 2534",
+        "others": "S_ST2 2666"
+      },
+      "erista": {
+        "Samsung MGCH B-DIE": "D_ST1 1996.8",
+        "others": "D_ST2 2124.8"
+      },
+      "ebal": {
+        "Mariko Samsung B-DIE": 2,
+        "Mariko Hynix NME": 3,
+        "Erista Samsung MGCH B-DIE": 2
+      },
+      "caveat": "These are the intended picks. The firmware lowers them when the banks do not hold, so what a given console actually runs may be a step below."
+    },
+    "frequency_ceilings": "MICRON E/H at eBAL 4 below 3.8 GHz; SAMSUNG B at eBAL 4 below 3.9 GHz; HYNIX CJR/DJR at eBAL 4 below 3.8 GHz. Timing ceiling: SAMSUNG D/E at 2666 with eBAL 2 and RCD 12.",
+    "what_the_package_cannot_do": "Show which row is in effect. The overlay engine has no clock-reading API — no clkrstGetClockRate, no pcvGetClockRate — and the firmware records the resolved values nowhere readable. With RAM speed and eBAL both on automatic the kip holds 0, so the package can only display «automatic». Showing the real figure needs an engine change; see IMPROVEMENTS.",
+    "danger": "medium"
+  }
+}

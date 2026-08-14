@@ -1,0 +1,11 @@
+{
+    "name":  "uhlint",
+    "version":  "0.1.0",
+    "description":  "Linter for the Ultrahand/Uberhand overlay DSL — catches what both engines swallow silently",
+    "type":  "module",
+    "main":  "index.mjs",
+    "bin":  {
+                "uhlint":  "index.mjs"
+            },
+    "private":  true
+}

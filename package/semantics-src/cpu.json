@@ -1,0 +1,411 @@
+[
+  {
+    "offset": 12,
+    "name": "CPU Boost Clock",
+    "struct_field": "commonCpuBoostClock",
+    "what": "FACT: the target CPU frequency in the system boost mode — it is applied when the OS asks for a boost (game loading screens, Tinfoil downloads), not as a ceiling of the ordinary frequency grid. The source calls it 'CPU LAUNCH CONTROL TARGET'. The ordinary CPU maximum is set by the DVFS table inside the kip, not by this field.",
+    "units": "kHz",
+    "range": {
+      "min": 1400000,
+      "max": 3000000,
+      "step": 100000,
+      "note": "FACT (customize.cpp:27). The Wizard dictionary gives 1400…3000 MHz with a step of 100, the Ebal dictionary — 1428…2600 MHz. Named points: 2000000=E, 2500000=D, 3000000=S; 1428000='CPU-HI uV DEBUG', 1785000='CPU-LOW uV DEBUG'."
+    },
+    "depends_on": [
+      {
+        "offset": 28,
+        "must_be": "high enough (Mariko CPU Vmax)",
+        "why": "HYPOTHESIS: the frequency is reachable only if the voltage ceiling allows the required mV from the CVB table. At Vmax=1150 mV the table rows above ~1963 MHz require more and will be limited. There is no direct quote."
+      },
+      {
+        "offset": null,
+        "must_be": "SoC revision / chip bin",
+        "why": "FACT: marikoCpuDvfsTable ends at 2602000 kHz, while marikoCpuDvfsTableSLT ends at 3009000 (customize.cpp:147,182). HYPOTHESIS: values of 2700–3000 MHz make sense only on units to which the kip assigns the SLT table."
+      },
+      {
+        "offset": null,
+        "must_be": "sys-clk: override_boost_mode=0",
+        "why": "FACT: Ebal has a toggle 'Override Boost Mode?sys-clk' marked 'NOT recommended' (sys-clk_settings.ini:20-27) and 'Auto CPU Boost' (:29-34). HYPOTHESIS: with override_boost_mode=1 the boost mode is intercepted by sys-clk, and the value from the kip stops determining the behaviour."
+      }
+    ],
+    "affects": [],
+    "auto_value": "FACT: 0 = eBAMATIC. In both dictionaries the entry '000000'/'00' is labelled 'eBAMATIC'. A manual value is not stored anywhere when 0 is set — the field is zeroed entirely and the kip picks the frequency itself. UNKNOWN which frequency the automatic mode picks and whether it depends on the eBAMATIC Stage (12436).",
+    "ram_relation": "NOT FOUND. Neither the help, nor the info pages, nor the source connect the boost clock with the memory frequency.",
+    "current_in_kip": "00 00 00 00 → 0 = eBAMATIC (in customize.cpp the default value is 3000000, i.e. the shipped kip differs from the source)",
+    "danger": "Low risk in itself (Ebal: 'No testing'). The risk is indirect: a high boost means peak power draw and heating during loads; on a non-SLT chip values >2602 MHz are meaningless. Wizard directly advises leaving eBAMATIC ('eBamatic - more stable').",
+    "help_quote": "CPU Boost Mode controls the maximum possible CPU frequency, used by system in boost mode (game loadings, tinfoil downloads, etc.)",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:27",
+      "Wizard/4IFIR-Wizard-update/customize.cpp:28",
+      "Wizard/4ifir Wizard source code/Help/CPU/CPU Boost Clock.txt:1",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/config.ini:23",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/json/cpu boost.json:1",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:31",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:111",
+      "Ebal/switch/.packages/Ebal Tuner/json/cpu_boost.json:1",
+      "Ebal/switch/.packages/Ebal Tuner/sys-clk_settings.ini:20",
+      "Wizard/docs/WIZARD_GUIDE_UV.md:74"
+    ]
+  },
+
+  {
+    "offset": 20,
+    "name": "CPU Voltage Limit (Erista CPU Vmax)",
+    "struct_field": "eristaCpuMaxVolt",
+    "what": "FACT: the upper ceiling of the CPU core voltage — the maximum the system is allowed to supply. Higher ceiling → higher reachable frequency and higher consumption. Erista (v1) ONLY. On Mariko this field is not read — offset 28 works there.",
+    "units": "mV",
+    "range": {
+      "min": 1180,
+      "max": 1350,
+      "step": 5,
+      "note": "FACT (customize.cpp:33): '1200 ECO // 1250-1350 STAGE 1-3 // 1180-1350 MANUAL 5mV STEP'. DISCREPANCY: the Ebal dictionary voltage_erista.json goes up to 1375 mV — beyond the documented range."
+    },
+    "depends_on": [
+      {
+        "offset": null,
+        "must_be": "console revision = Erista",
+        "why": "FACT: the item is marked ';system=erista' (Ebal CPU.ini:52) and '; Erista' (Wizard 4Advanced/CPU/config.ini:44); the field name in the source is eristaCpuMaxVolt."
+      }
+    ],
+    "affects": [
+      {
+        "offset": 12,
+        "how": "HYPOTHESIS: limits the actually reachable frequency, including the boost frequency. There is no direct quote; inferred from the help text 'The higher the voltage, the higher the maximum available processor frequency'."
+      },
+      {
+        "offset": 48,
+        "how": "FACT (structural): 48 is the lower clamp, 20 the upper one. Together they form a corridor; on Erista the lower one is additionally shifted (+205 mV, see 48)."
+      }
+    ],
+    "auto_value": "FACT: 0 = eBAMATIC ('eBamatic (automatic)' = 000000 in voltage_erista.json). UNKNOWN which number the automatic mode substitutes.",
+    "ram_relation": "NOT FOUND.",
+    "current_in_kip": "D3 04 00 00 → 1235 (mV). Matches .eristaCpuMaxVolt = 1235 in customize.cpp:34. On a Mariko console the value is simply not used.",
+    "danger": "Raising it = more power draw and core heating. The documented maximum is 1350 mV, the Ebal dictionary allows 1375 — one should not go beyond 1350. Tested with a CPU-heavy game at maximum load.",
+    "help_quote": "This menu allows you to set the maximum allowable CPU voltage. The higher the voltage, the higher the maximum available processor frequency, but the higher the consumption. It is recommended to increase it if there is a lack of maximum frequency for processor-intensive games.",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:33",
+      "Wizard/4IFIR-Wizard-update/customize.cpp:34",
+      "Wizard/4ifir Wizard source code/Help/CPU/CPU Voltage Limit.txt:1",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/config.ini:44",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:52",
+      "Ebal/switch/.packages/Ebal Tuner/json/voltage_erista.json:1",
+      "Ebal/switch/.packages/Ebal Tuner/info_4IFIR.ini:35",
+      "4ifir/atmosphere/kips/loader.kip:0x63428"
+    ]
+  },
+
+  {
+    "offset": 28,
+    "name": "CPU Maximum Voltage (Mariko CPU Vmax)",
+    "struct_field": "marikoCpuMaxVolt",
+    "what": "FACT: the upper ceiling of the CPU core voltage for Mariko (v2/Lite/OLED). Same purpose as 20, but for the other SoC. Ebal help: 'The maximum voltage available for cpu'.",
+    "units": "mV",
+    "range": {
+      "min": 1130,
+      "max": 1280,
+      "step": 5,
+      "note": "FACT (customize.cpp:47): '1150 ECO // 1180-1250 STAGE 1-3 // 1130-1280 MANUAL 5mV STEP'. DISCREPANCY BETWEEN THREE SOURCES: the voltage_mariko.json dictionary goes up to 1375 mV, marking 1160 as 'Max recommended' and 1170…1240 as 'Warning', while 1250…1375 carry no marks at all; Ebal info says 'Do not raise above 1160 mV'."
+    },
+    "depends_on": [
+      {
+        "offset": null,
+        "must_be": "console revision = Mariko",
+        "why": "FACT: ';system=mariko' (Ebal CPU.ini:14), '; Mariko' (Wizard 4Advanced/CPU/config.ini:8); field name marikoCpuMaxVolt."
+      }
+    ],
+    "affects": [
+      {
+        "offset": 12,
+        "how": "HYPOTHESIS: determines whether the configured boost frequency is reachable (the high rows of the CVB table require >1235 mV)."
+      },
+      {
+        "offset": 12340,
+        "how": "HYPOTHESIS: High MHz Undervolt and Vmax pull the same high-frequency region in opposite directions; an aggressive UV can compensate for a low Vmax and vice versa. There is no direct quote."
+      }
+    ],
+    "auto_value": "FACT: 0 = eBAMATIC (voltage_mariko.json '0000'). The shipped kip holds exactly 0.",
+    "ram_relation": "NOT FOUND.",
+    "current_in_kip": "00 00 00 00 → 0 = eBAMATIC (default 1150 in customize.cpp)",
+    "danger": "THE MOST DANGEROUS FIELD OF THE SUBSYSTEM in terms of consequences for the hardware: this is a long-term voltage on the core. Ebal: 'Do not raise above 1160 mV'. The Wizard dictionary physically allows setting 1375 mV on Mariko — that is far beyond the recommendations of both projects. In our UI such values must be behind a confirmation.",
+    "help_quote": "CPU VMAX mode controls the max voltage available to the CPU by the system. The higher value- the more power can be drawn by the CPU, and the higher frequencies it can reach.",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:47",
+      "Wizard/4IFIR-Wizard-update/customize.cpp:48",
+      "Wizard/4ifir Wizard source code/Help/CPU/CPU Maximum Voltage.txt:1",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/config.ini:8",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/json/voltage_mariko.json:1",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:14",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:90",
+      "4ifir/atmosphere/kips/loader.kip:0x63430"
+    ]
+  },
+
+  {
+    "offset": 40,
+    "name": "CPU Low MHz Undervolt Mode",
+    "struct_field": "marikoCpuUV",
+    "what": "FACT: the undervolt aggressiveness level for the LOWER half of the CPU frequency grid. Wizard help: 'frequencies from 16XX MHz and down'; Ebal info: 'Lowers the voltages on 0-15xx freqs'. The higher the number, the lower the voltage. Not millivolts — a level code.",
+    "units": "code",
+    "range": {
+      "min": 0,
+      "max": 6,
+      "step": 1,
+      "note": "FACT (customize.cpp:68): '0 ECO ALT-MODE (low=0 & high=0) // 1 AUTO ECO ST1 // 3 AUTO ECO ST2 // 5 AUTO ECO ST3 // 1-6 MANUAL'. Both dictionaries give exactly 0…6."
+    },
+    "depends_on": [
+      {
+        "offset": 12340,
+        "must_be": "0 — simultaneously with 40=0",
+        "why": "FACT, the key linkage: the comment 'ECO ALT-MODE (low=0 & high=0)' stands both at marikoCpuUV (customize.cpp:68) and at marikoCpuHUV (:308). The value 0 in this field is NOT 'no undervolt' but an entry into a separate alternative ECO mode, and it is enabled only when BOTH fields are zero. If 12340 != 0, then 40=0 already means something else (UNKNOWN what exactly — base undervolt by the table). This is a direct analogue of the GPU 44=03 trap."
+      },
+      {
+        "offset": null,
+        "must_be": "console revision = Mariko",
+        "why": "FACT by the field name (marikoCpuUV) and by ';system=mariko' in Ebal CPU.ini:36. DISCREPANCY: info_4IFIR.ini:37 shows this field in the erista section as well — probably a copy-paste."
+      }
+    ],
+    "affects": [
+      {
+        "offset": 48,
+        "how": "HYPOTHESIS: both cut the voltage in the lower part of the grid; 48 is a hard floor, 40 is the slope/shift of the curve. The floor from 48 cannot be broken through by undervolting. There is no direct quote; inferred from the names ('minimum voltage available' vs 'lowers the voltages')."
+      },
+      {
+        "offset": 12336,
+        "how": "HYPOTHESIS: SpeedShift moves the starting point of the UV calculation for all frequencies, therefore a level tuned in 40 may stop being stable after SpeedShift is changed. That is exactly why TuningGuide puts SpeedShift AFTER both UV fields."
+      }
+    ],
+    "auto_value": "FACT, but with a caveat: 0 here is NOT 'eBAMATIC'. Both dictionaries label it '0 - Base undervolting' / '0 - Base UV' / 'Default - 0', while the source says 'ECO ALT-MODE'. That is, 0 is a specific mode, not 'hand it over to the automatic'. The only CPU field where zero does not mean automatic.",
+    "ram_relation": "NOT FOUND.",
+    "current_in_kip": "00 00 00 00 → 0. Together with 12340=0 this means that ECO ALT-MODE is ACTIVE in the shipped kip.",
+    "danger": "Overdoing it → hang/freeze at low and mid CPU frequencies. Test: a game with the frequency pinned at 1020–15xx MHz and the CPU Freq Governor turned off. Ebal presets go up to 6 (High), Wizard profiles — up to 5.",
+    "help_quote": "This menu allows you to set undervolting mode for frequencies from 16XX MHz and down. The higher the value, the more agressive undervolting is appied to the CPU.",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:68",
+      "Wizard/4IFIR-Wizard-update/customize.cpp:69",
+      "Wizard/4ifir Wizard source code/Help/CPU/Low MHz Undervolt.txt:1",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/config.ini:30",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/json/undervolt_low.json:1",
+      "Wizard/4ifir Wizard source code/Profiles/config.ini:6",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:36",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:122",
+      "Ebal/switch/.packages/Ebal Tuner/Presets/Mariko/High.ini:2",
+      "4ifir/atmosphere/kips/loader.kip:0x6343C"
+    ]
+  },
+
+  {
+    "offset": 48,
+    "name": "CPU Minimal Voltage (CPUv)",
+    "struct_field": "CPUv",
+    "what": "FACT: the lower clamp of the CPU core voltage — the minimum below which the system will not go when lowering the frequency. Help: 'controls the lowest voltage available for CPU underclocking'. The field is TWO-DOMAIN: small numbers 1..3 are automatic stages, numbers 430+ are absolute millivolts.",
+    "units": "mV|code",
+    "range": {
+      "min": 430,
+      "max": 670,
+      "step": 5,
+      "note": "FACT (customize.cpp:75): '3 AUTO ECO ST1 // 2 AUTO ECO ST2 // 1 AUTO ECO ST3 // 430-670 MANUAL 5-10mV STEP', ':77' — '620mV DEFAULT'. ATTENTION: the stage numbering is REVERSED — 3 is ST1 (mild, default), 1 is ST3 (the most aggressive). DISCREPANCY: the Ebal dictionary cpu_low_vmin.json goes up to 750 mV, with a step of 10 mV in the 430-590 range and 5 mV in 590-750."
+    },
+    "depends_on": [
+      {
+        "offset": null,
+        "must_be": "console revision (Erista gives a SHIFT of +205 mV)",
+        "why": "FACT (customize.cpp:77): 'MARIKO CPU VOLT MIN = CPUv, ERISTA CPU VOLT MIN = CPUv + 205mV'. This means that the dictionary labels ('530mV', '620mV') are correct ONLY for Mariko; on Erista the same number gives 635 mV and 825 mV respectively. Neither of the two packages shows this in the UI."
+      },
+      {
+        "offset": null,
+        "must_be": "RAM frequency — for ABSOLUTE values",
+        "why": "See ram_relation. With stages (1/2/3) the kip apparently accounts for the memory mode itself; with absolute mV it does not."
+      }
+    ],
+    "affects": [
+      {
+        "offset": 52,
+        "how": "HYPOTHESIS, REQUIRES CONFIRMATION FROM THE DEVELOPER: the comment on .GPUv reads 'MARIKO GPU VOLT MIN = CPUv, ERISTA GPU VOLT MIN = CPUv + 100mV' (customize.cpp:81). If this is not a typo ('GPUv' would be expected), then CPU Vmin directly sets the GPU voltage floor as well — and that would explain why CPU Vmin affects RAM stability (GPU Vmin is documented to depend on the RAM frequency). If it is a typo, there is no link."
+      },
+      {
+        "offset": 40,
+        "how": "HYPOTHESIS: the floor from 48 limits the effect of undervolt 40 at the very lowest frequencies — the voltage will not go below the floor no matter how many levels are set."
+      }
+    ],
+    "auto_value": "FACT: 0 = eBAMATIC ('eBamatic (automatic)' = 0000). IMPORTANT: in the SmartMode menu of both packages the eBAMATIC entry for this field is ABSENT — only the stages 1/2/3 are there (7CPUv.json). The automatic mode can be restored only from 4Advanced. A manual value is not preserved when 0 is written.",
+    "ram_relation": "THIS IS THE KEY QUESTION OF THE SUBSYSTEM. Two independent statements, and they DO NOT AGREE quantitatively. (1) FACT — the Ebal info page (CPU.ini:81-82): 'Freqs: 6xx-8xx. Affects RAM stability, raise by 20 mV for every additional 200 mhz of RAM' → 10 mV per 100 MHz of RAM. (2) FACT — the dictionary labels of both packages: '530mV - RAM <= 1734Mhz', '560mV - RAM 1862Mhz', '590mV - RAM 1996Mhz' → +30 mV per ~134 MHz of RAM, i.e. ~22 mV per 100 MHz, twice as steep. (3) CONTRADICTION — the 4IFIR guide (WIZARD_GUIDE_UV.md:32) states the opposite directly: 'the CPU does not depend on RAM and GPU', and recommends tuning the CPU first and not touching it again. (4) HYPOTHESIS about the mechanism — by direct analogy with the GPU: Ebal GPU.ini:94-97 says that the STAGES 'set automatic Vmins for [optimized] and [max RAM] ram freqs', while '[xxx mV] options set the vmin for all ram freqs'. If the CPU is arranged the same way, then the stages 1/2/3 in 48 are adaptive to the memory mode, while absolute mV are fixed, and that is exactly why the RAM binding had to be moved into the label text. (5) UNKNOWN why physically the CPU core voltage affects memory stability — no source explains this.",
+    "current_in_kip": "03 00 00 00 → 3 = 'ECO ST1 - Default' (an AUTOMATIC stage, not millivolts). Matches .CPUv = 3 in customize.cpp:76.",
+    "danger": "Too low a floor → freeze/hang after the Atmosphere logo or in a game at the minimum CPU frequency. Rollback only via KipTool/backup. A separate trap: mixing up the domains — '3' is a stage while '430' is millivolts, and in one list they follow each other.",
+    "help_quote": "The CPUv Mode controls the lowest voltage available for CPU underclocking. To test this setting - play some games.",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:75",
+      "Wizard/4IFIR-Wizard-update/customize.cpp:76",
+      "Wizard/4IFIR-Wizard-update/customize.cpp:77",
+      "Wizard/4IFIR-Wizard-update/customize.cpp:81",
+      "Wizard/4ifir Wizard source code/Help/CPU/CPU Minimal Voltage.txt:1",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/config.ini:1",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/json/cpuv.json:1",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:7",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:78",
+      "Ebal/switch/.packages/Ebal Tuner/json/cpu_low_vmin.json:1",
+      "Ebal/switch/.packages/Ebal Tuner/GPU.ini:94",
+      "Wizard/docs/WIZARD_GUIDE_UV.md:32",
+      "4ifir/atmosphere/kips/loader.kip:0x63444"
+    ]
+  },
+
+  {
+    "offset": 12336,
+    "name": "Speed Shift",
+    "struct_field": "SpeedShift",
+    "what": "FACT: a shift of the 'speedo target' — the target value of the silicon bin that is substituted into the CVB voltage calculation. Ebal: 'Adjusts speedo target in calculations for UV. Higher number = lower voltages overall.' That is, this is not a correction for a particular frequency but a shift of the whole voltage curve. The real speedo of the chip is visible in the overlay as {cpu_speedo} / {gpu_speedo}.",
+    "units": "code",
+    "range": {
+      "min": 1,
+      "max": 200,
+      "step": 1,
+      "note": "FACT (customize.cpp:304): '0 DEFAULT // 50 AUTO SRT // 100 AUTO ECO ST1 // 125 AUTO ECO ST2 // 150 AUTO ECO ST3 // 1-200 MANUAL'; ':306' — 'Ov << 100 >> uV', i.e. 100 is the border between the overvolt and undervolt directions. The dictionaries give only 8 points: 0, 1(Auto/D), 25, 50(Sport/SRT), 100, 125, 150, 175 — a 1..200 trackbar is implemented nowhere in the UI."
+    },
+    "depends_on": [
+      {
+        "offset": null,
+        "must_be": "no hard gates",
+        "why": "The field is marked neither with ';system=' nor with a mariko/erista prefix in the source → it works on both revisions (FACT by the absence of a gate; Ebal shows it both in the mariko and in the erista section of info_4IFIR.ini)."
+      }
+    ],
+    "affects": [
+      {
+        "offset": 40,
+        "how": "HYPOTHESIS (strong): by changing the base of the UV calculation it shifts the result for all frequencies, therefore previously tuned Low/High UV levels may become unstable. Indirect confirmation — the tuning order: SpeedShift is the LAST item (TuningGuide.ini:77)."
+      },
+      {
+        "offset": 12340,
+        "how": "the same — see above"
+      },
+      {
+        "offset": 48,
+        "how": "HYPOTHESIS: the Vmin floor is set in absolute terms, therefore SpeedShift probably CANNOT break through it, but it can remove the gap between the working voltage and the floor. NOT VERIFIED."
+      },
+      {
+        "offset": null,
+        "how": "UNKNOWN whether it is CPU only. Ebal writes the test type as '[CPU?]' — with a question mark, i.e. the author himself is not sure. The Russian 4IFIR documentation calls it 'lowering the consumption of the SECONDARY components of the console', which hints at a scope wider than the CPU."
+      }
+    ],
+    "auto_value": "FACT: 0 = eBAMATIC/DEFAULT. A subtlety: 0 and 1 are DIFFERENT things: 0 is labelled 'eBamatic', 1 — 'Auto' (Ebal) / 'D' (Full Assist 4IFIR). That is, the field has two different 'automatics', and what the difference between them is — UNKNOWN.",
+    "ram_relation": "NOT FOUND — no direct indications. HYPOTHESIS: if the speedo shift is applied to all CVB tables, it also affects the voltages critical for memory. NOT VERIFIED.",
+    "current_in_kip": "00 00 00 00 → 0 = eBAMATIC/DEFAULT. Matches .SpeedShift = 0 (customize.cpp:305).",
+    "danger": "Wizard recommends leaving eBAMATIC. Test — a game on the '4IFIR Optimised' profile, 5 minutes. UI trap: the values 25/50 are labelled 'Sport'/'SRT' — that is the direction of RAISING the voltage, not lowering it, although they are numerically smaller than 'ECO Stage 1' = 100. A plain '0…175' slider will mislead the user.",
+    "help_quote": "Speed Shift is the secret component of 4IFIR, that allows you to open the full potential of your console. The higher the value, the lower the consumption.",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:304",
+      "Wizard/4IFIR-Wizard-update/customize.cpp:305",
+      "Wizard/4IFIR-Wizard-update/customize.cpp:306",
+      "Wizard/4ifir Wizard source code/Help/CPU/Speed Shift.txt:1",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/config.ini:51",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/json/SpeedShift.json:1",
+      "Wizard/4ifir Wizard source code/4Advanced/Full Assist/json/17SpeedShift.json:1",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:59",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:145",
+      "Ebal/switch/.packages/Ebal Tuner/backup.ini:50",
+      "Ebal/switch/.packages/Ebal Tuner/TuningGuide.ini:77",
+      "Wizard/README_old.md:369"
+    ]
+  },
+
+  {
+    "offset": 12340,
+    "name": "CPU High MHz Undervolt Mode",
+    "struct_field": "marikoCpuHUV",
+    "what": "FACT: the undervolt aggressiveness level for the UPPER half of the CPU frequency grid. Wizard help: 'frequencies from 16XX MHz and up'; Ebal info: 'Lowers the voltages on 16xx-MAX freqs'. A mirror of offset 40, but with a range one level wider.",
+    "units": "code",
+    "range": {
+      "min": 0,
+      "max": 7,
+      "step": 1,
+      "note": "FACT (customize.cpp:308): '0 ECO ALT-MODE (low=0 & high=0) // 1 AUTO ECO ST1 // 3 AUTO ECO ST2 // 5 AUTO ECO ST3 // 1-7 MANUAL'. Both dictionaries give 0…7 — one more than 40 (0…6)."
+    },
+    "depends_on": [
+      {
+        "offset": 40,
+        "must_be": "0 — simultaneously with 12340=0",
+        "why": "FACT: the same comment 'ECO ALT-MODE (low=0 & high=0)' is duplicated here (customize.cpp:308). A zero in one field without a zero in the other does not give ALT-MODE."
+      },
+      {
+        "offset": null,
+        "must_be": "console revision = Mariko",
+        "why": "FACT by the field name marikoCpuHUV and ';system=mariko' (Ebal CPU.ini:44). DISCREPANCY: info_4IFIR.ini:37 shows the field in the erista section as well."
+      }
+    ],
+    "affects": [
+      {
+        "offset": 12348,
+        "how": "HYPOTHESIS: both work in the upper part of the grid — 12348 sets the floor, 12340 lowers the curve. The floor is not broken through by undervolting. The tuning order in TuningGuide confirms the linkage: 'High freq Vmin' (step 2) is set BEFORE 'High MHz Undervolt Mode' (step 5)."
+      },
+      {
+        "offset": 28,
+        "how": "HYPOTHESIS: an aggressive UV at high frequencies reduces the chance of hitting the Vmax ceiling."
+      }
+    ],
+    "auto_value": "FACT with a caveat: 0 is 'Base undervolting' / 'ECO ALT-MODE', NOT an automatic in the eBAMATIC sense. But the Full Assist 4IFIR dictionary (18CPU_HIGH_UV.json) and the Ebal dictionary 18CPU_HIGH_UV.json label the zero entry exactly 'eBamatic' — a DISCREPANCY with the main dictionaries, where the same entry is called '0 - Base undervolting'.",
+    "ram_relation": "NOT FOUND.",
+    "current_in_kip": "00 00 00 00 → 0. In customize.cpp the default is 1 (ECO ST1) — the shipped kip differs from the source, and that is exactly why ALT-MODE is activated in it.",
+    "danger": "Overdoing it → a failure at high frequencies, most often in CPU-heavy games and emulators. Test: a game on 4IFIR MAXIMIZED with the CPU Freq Governor turned off. TRAP IN THE EBAL INFO: the test line is copied from the Low block ('freqs: 1020-15xx') — testing High UV at those frequencies is meaningless.",
+    "help_quote": "This menu allows you to set undervolting mode for frequencies from 16XX MHz and up. The higher the value, the more agressive undervolting is appied to the CPU.",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:308",
+      "Wizard/4IFIR-Wizard-update/customize.cpp:309",
+      "Wizard/4ifir Wizard source code/Help/CPU/High MHz Undervolt.txt:1",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/config.ini:37",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/json/undervolt_high.json:1",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:44",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:133",
+      "Ebal/switch/.packages/Ebal Tuner/TuningGuide.ini:76",
+      "4ifir/atmosphere/kips/loader.kip:0x66448"
+    ]
+  },
+
+  {
+    "offset": 12348,
+    "name": "dCPUv (CPU Min-High Voltage / High Freq Vmin)",
+    "struct_field": "dCPUv",
+    "what": "FACT: the SECOND CPU voltage floor — for the upper/middle part of the frequency grid, in addition to the floor from offset 48. Source: 'MARIKO CPU MIN-HIGH LOGIC'. Wizard help: 'controls the median voltage available for CPU'. In the erista section Ebal labels it 'CPU Mid (dCPUv)'.",
+    "units": "mV|code",
+    "range": {
+      "min": 750,
+      "max": 850,
+      "step": 10,
+      "note": "DISCREPANCY BETWEEN SOURCES. The source (customize.cpp:314): '0 AUTO // 1 AUTO ECO ST1 // 2 AUTO ECO ST2 // 3 AUTO ECO ST3 // 750-850 MANUAL'. Both dictionaries meanwhile offer 700…890 mV with a step of 10 — wider than documented. The stage numbering here is DIRECT (1=ST1, 3=ST3) — unlike offset 48, where it is reversed."
+    },
+    "depends_on": [
+      {
+        "offset": null,
+        "must_be": "console revision = Mariko",
+        "why": "FACT by the comment 'MARIKO CPU MIN-HIGH LOGIC' (customize.cpp:314) and ';system=mariko' (Ebal CPU.ini:21). DISCREPANCY: info_4IFIR.ini:34 shows the field in the erista section as 'CPU Mid (dCPUv)'."
+      },
+      {
+        "offset": 48,
+        "must_be": "configured earlier",
+        "why": "FACT by the tuning order: TuningGuide.ini:72-73 — first 'CPU Min/Max voltage', then 'High freq Vmin'. Two floors on one curve; the lower one is set first."
+      }
+    ],
+    "affects": [
+      {
+        "offset": 12340,
+        "how": "HYPOTHESIS: bounds the effect of High MHz Undervolt from below — undervolting will not push the voltage below this floor."
+      }
+    ],
+    "auto_value": "FACT: 0 = eBAMATIC/AUTO (both dictionaries, '000000'/'0000'). Wizard recommends leaving it exactly so.",
+    "ram_relation": "NOT FOUND. HYPOTHESIS by analogy with 48: the stages 1/2/3 are adaptive, absolute mV are fixed. NOT CONFIRMED by any quote.",
+    "current_in_kip": "00 00 00 00 → 0 = eBAMATIC. Matches .dCPUv = 0 (customize.cpp:315).",
+    "danger": "Wizard marks the item as risky: 'One must act with caution and at one's own risk... It will not be possible to roll the changes back in the configurator' — that is, a backup is mandatory before editing. The frequency range to which the floor applies is CONTRADICTORY: Ebal — 'The minimum voltage for 1785+ freqs', the Russian 4IFIR documentation — 'voltage correction in the frequency range from 12xx to 18xx MHz'. These are different bands, and for user warnings the question must be settled with the developer.",
+    "help_quote": "The CPUv Mode controls the median voltage available for CPU.",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:314",
+      "Wizard/4IFIR-Wizard-update/customize.cpp:315",
+      "Wizard/4ifir Wizard source code/Help/CPU/dCPUv.txt:1",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/config.ini:16",
+      "Wizard/4ifir Wizard source code/4Advanced/CPU/json/dcpuv.json:1",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:21",
+      "Ebal/switch/.packages/Ebal Tuner/CPU.ini:100",
+      "Ebal/switch/.packages/Ebal Tuner/json/cpu_high_vmin.json:1",
+      "Ebal/switch/.packages/Ebal Tuner/info_4IFIR.ini:34",
+      "Wizard/docs/WIZARD_GUIDE_UV.md:63",
+      "4ifir/atmosphere/kips/loader.kip:0x66450"
+    ]
+  }
+]

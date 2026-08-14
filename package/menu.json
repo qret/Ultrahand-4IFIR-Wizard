@@ -1,0 +1,447 @@
+{
+  "_meta": {
+    "description": "The menu structure of our tuner in machine-readable form. The package is generated from it, and it is what coverage of the field map is checked against.",
+    "design_doc": "docs/MENU-DESIGN.md",
+    "fields_map": "package/fields.json",
+    "rules": [
+      "every offset in fields.json is attached to exactly one item (explicit aliases aside)",
+      "an alias is a deliberate second way into the same offset (pMeh/sMeh as emergency access through the hekate KIP tool)",
+      "the custom table gate is written once when the mode is picked, not by every point of the curve"
+    ]
+  },
+  "root_help": {
+    "note": "Help on the second page of the root menu. Written for someone opening the overlay for the first time: what these sections are and where to start. No numbers, no offsets, no internal concepts — the details live in each section's own help page.",
+    "blocks": [
+      {
+        "title": "What this is",
+        "lines": [
+          "Overclock settings for your Switch.",
+          "Everything you change here is written to the kip file the console reads at boot.",
+          "Nothing takes effect until you restart."
+        ]
+      },
+      {
+        "title": "eBAMATIC Stage",
+        "lines": [
+          "The easy way. One setting for everything.",
+          "The kip works out the voltages for CPU, GPU and memory on its own - you only pick how far it goes.",
+          "Default is calm, Stage 3 is the most aggressive.",
+          "If you are not sure what to change, change only this."
+        ]
+      },
+      {
+        "title": "Current Settings",
+        "lines": [
+          "What is in the kip right now.",
+          "Read-only - nothing here changes anything.",
+          "Press L or R for the second page with timings and fine tuning.",
+          "Handy after restoring a backup or editing the kip from hekate."
+        ]
+      },
+      {
+        "title": "Advanced",
+        "lines": [
+          "Every setting one by one: CPU, GPU, RAM and fine tuning.",
+          "Use it when eBAMATIC is not enough and you know what you are after.",
+          "Each section has its own help page - press L or R.",
+          "Change one thing at a time and test it."
+        ]
+      },
+      {
+        "title": "Service",
+        "lines": [
+          "Backups, reset and system info.",
+          "Make a backup before your first change. It takes a second and saves an evening.",
+          "Backups are kept per console revision, so you can only restore your own."
+        ]
+      },
+      {
+        "title": "If it stops booting",
+        "lines": [
+          "Hold the volume keys to enter hekate, open Tools - KIP tool, and set the value back.",
+          "Or copy a backup over the kip from a PC.",
+          "The pMeh and sMeh numbers here are the same numbers hekate shows."
+        ]
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "ebamatic",
+      "title": "eBAMATIC Stage",
+      "kind": "item",
+      "mode": "option",
+      "help": "Automatic mode: the kip calculates voltages itself. The stage sets how aggressive it is. Same field is available as pMeh 18 in Micro-Enhance Logic and via KIP tool in hekate.",
+      "offsets": [
+        12436
+      ],
+      "note": "values 0 / 1-Min / 2-Mid / 3-Max"
+    },
+    {
+      "id": "advanced",
+      "title": "Advanced",
+      "kind": "section",
+      "children": [
+        {
+          "id": "cpu",
+          "title": "CPU",
+          "header_context": "Speedo {cpu_speedo}",
+          "children": [
+            {
+              "id": "cpu_boost",
+              "title": "Boost Clock",
+              "offsets": [
+                12
+              ],
+              "units": "kHz"
+            },
+            {
+              "id": "cpu_vmin",
+              "title": "Min Voltage",
+              "offsets": [
+                48
+              ],
+              "units": "mV"
+            },
+            {
+              "id": "cpu_vmax",
+              "title": "Max Voltage",
+              "offsets": [
+                28
+              ],
+              "units": "mV"
+            },
+            {
+              "id": "cpu_vlimit",
+              "title": "Voltage Limit",
+              "offsets": [
+                20
+              ],
+              "units": "mV"
+            },
+            {
+              "id": "cpu_dcpuv",
+              "title": "dCPUv",
+              "offsets": [
+                12348
+              ]
+            },
+            {
+              "id": "cpu_uv_low",
+              "title": "Low MHz Undervolt",
+              "offsets": [
+                40
+              ]
+            },
+            {
+              "id": "cpu_uv_high",
+              "title": "High MHz Undervolt",
+              "offsets": [
+                12340
+              ]
+            },
+            {
+              "id": "cpu_speedshift",
+              "title": "Speed Shift",
+              "offsets": [
+                12336
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gpu",
+          "title": "GPU",
+          "header_context": "Speedo {gpu_speedo}",
+          "children": [
+            {
+              "id": "gpu_uv_mode",
+              "title": "Undervolt Mode",
+              "mode": "option",
+              "offsets": [
+                44
+              ],
+              "help": "Eco ST1/ST2/ST3 - the kip calculates voltages itself. Custom Table - your own value per frequency, opens the Voltage Curve section. On Erista it works differently: a -12.5 mV multiplier.",
+              "note": "THIS is the gate: value 03 switches the curve on. Written once by picking the mode, not through 31 side writes as in the original"
+            },
+            {
+              "id": "gpu_vmin",
+              "title": "Min Voltage",
+              "mode": "option",
+              "offsets": [
+                52
+              ],
+              "units": "mV",
+              "help": "Stages 1-3 set an automatic floor (on Erista derived from CPU Vmin +100 mV). Absolute values 430-970 mV set the threshold directly."
+            },
+            {
+              "id": "gpu_vmax",
+              "title": "Max Voltage",
+              "offsets": [
+                12344
+              ],
+              "units": "mV",
+              "help": "The ceiling for GPU voltage. Left on eBamatic the kip picks it, and that is what the firmware ships with. Set by hand it is a plain millivolt value: the firmware accepts 750-1200 mV on Mariko and 850-1300 mV on Erista. Raising the ceiling adds no performance by itself - it only allows more voltage where the curve asks for it, and more voltage means more heat."
+            },
+            {
+              "id": "gpu_vmin_offset",
+              "title": "vMin Offset",
+              "offsets": [
+                12440
+              ],
+              "also_in": "pMeh 19 vMINetune ST",
+              "help": "Same field is available as pMeh 19 in Micro-Enhance Logic and via KIP tool in hekate."
+            },
+            {
+              "id": "gpu_vmin_maxram",
+              "title": "vMin Offset (max RAM)",
+              "offsets": [
+                12448
+              ],
+              "also_in": "pMeh 21 gVMINDick",
+              "help": "Same field is available as pMeh 21 in Micro-Enhance Logic and via KIP tool in hekate."
+            },
+            {
+              "id": "gpu_curve_mariko",
+              "title": "GPU Voltage Table",
+              "platform": "mariko",
+              "visible_when": {
+                "offset": 44,
+                "value": "03",
+                "why": "the table only applies in Custom Table mode"
+              },
+              "series": "gpu_curve_mariko",
+              "units": "mV",
+              "note": "the 307…1190 MHz points are set and monotonic; 1228…1420 are zeros in the current kip — where the series really ends still needs confirming"
+            },
+            {
+              "id": "gpu_curve_erista",
+              "title": "GPU Voltage Table",
+              "platform": "erista",
+              "series": "gpu_curve_erista",
+              "units": "uV",
+              "note": "a 24-byte write: the voltage in uV plus zeroing of the polynomial coefficients",
+              "help": "The table Erista actually reads. It is always live — there is no mode switch here. GPU Undervolt Mode above is a multiplier on Erista: each step takes 12.5 mV off the whole curve at once."
+            }
+          ]
+        },
+        {
+          "id": "ram",
+          "title": "RAM",
+          "header_context": "{ram_vendor} {ram_model}",
+          "children": [
+            {
+              "id": "ram_mhz_erista",
+              "title": "Frequency",
+              "platform": "erista",
+              "offsets": [
+                24
+              ],
+              "units": "kHz"
+            },
+            {
+              "id": "ram_mhz_mariko",
+              "title": "Frequency",
+              "platform": "mariko",
+              "offsets": [
+                32
+              ],
+              "units": "kHz"
+            },
+            {
+              "id": "ram_vdd2",
+              "title": "Vdd2",
+              "offsets": [
+                16
+              ],
+              "units": "mV",
+              "help": "Memory supply voltage (Vdd2). Which voltage the kip uses on its own is decided by the RAM speed together with the eBal mode - it is a lookup, not a fixed number, and it differs from console to console. Setting a value here overrides that choice. ECO, DEFAULT and SRT are the names the firmware gives those three presets; none of them is \"what your console shipped with\". Range 950-1400 mV, step 12.5 mV."
+            },
+            {
+              "id": "ram_vddq",
+              "title": "Vddq",
+              "offsets": [
+                36
+              ],
+              "units": "mV",
+              "help": "Memory interface voltage (Vddq). Which voltage the kip uses on its own is decided by the RAM speed together with the eBal mode - it is a lookup, not a fixed number, and it differs from console to console. Setting a value here overrides that choice. ECO, DEFAULT and SRT are the names the firmware gives those three presets; none of them is \"what your console shipped with\". Range 300-800 mV, step 5 mV."
+            },
+            {
+              "id": "emc_dvb",
+              "title": "EMC DVB Mode",
+              "offsets": [
+                56
+              ],
+              "help": "Voltage of the SoC domain the memory controller lives in. Mariko only. Values 0-3 pick an automatic mode, values from 300 up are a manual voltage in millivolts. CAUTION: what 0 means is not settled - both donor packages label it automatic, while the firmware source calls 0 the most aggressive undervolt and 3 the plain automatic one. If the console is unstable on the shipped value, try 3 before anything else."
+            },
+            {
+              "id": "emc_balance",
+              "title": "EMC Balance",
+              "offsets": [
+                12352
+              ]
+            },
+            {
+              "id": "eba_shift",
+              "title": "EBA-Shift",
+              "offsets": [
+                12360
+              ],
+              "help": "Shifts the eBal mode for one family of derived values. Its practical use is the eighth core timing: the smaller the distance between eBal and this shift, the further that timing can be raised. The trade-off runs the opposite way to eBal itself - towards frequency rather than efficiency."
+            },
+            {
+              "id": "ram_optimized",
+              "title": "Optimized Mode (1600 MHz)",
+              "note": "Three fields that belong not to overclocking in general but to one mode — Optimized. The operator asked for them to be split out: in the common list they looked like three more knobs for who knows what.",
+              "children": [
+                {
+                  "id": "ram_opt_1600",
+                  "title": "Optimized Target",
+                  "offsets": [
+                    12524
+                  ],
+                  "also_in": "sMeh 16 SYK-LOH",
+                  "help": "Sets the RAM Optimized target to 1600 MHz. The safe, low-heat mode the other two settings here belong to. Same field is sMeh 16 in Micro-Enhance Logic and in the hekate KIP tool."
+                },
+                {
+                  "id": "ram_vddq_vdd2",
+                  "title": "VDDQ-VDD2 Voltage",
+                  "offsets": [
+                    12444
+                  ],
+                  "also_in": "pMeh 20 rVDDick",
+                  "help": "Memory voltage used in Optimized mode. Higher value means higher voltage. Same field is pMeh 20 in Micro-Enhance Logic and in the hekate KIP tool."
+                },
+                {
+                  "id": "emc_efficiency",
+                  "title": "Efficiency Stages",
+                  "offsets": [
+                    12492
+                  ],
+                  "also_in": "sMeh 8 E-Boost",
+                  "help": "Memory efficiency stages in Optimized mode. Higher value means more performance. Same field is sMeh 8 in Micro-Enhance Logic and in the hekate KIP tool."
+                }
+              ]
+            },
+            {
+              "id": "core_timings",
+              "title": "Core Timings",
+              "series": "core_timings",
+              "own_package": true,
+              "help": "Fine memory timings T1-T8. Leave them alone unless you know what each one does - the kip works them out from the eBAL stage on its own.",
+              "note": "T1…T8; offset 12356 breaks out of the 60…84 run. own_package: eight items in a row clogged the RAM list, so the operator asked to fold them away like Optimized mode"
+            }
+          ]
+        },
+        {
+          "id": "micro_enhance",
+          "title": "Micro-Enhance Logic",
+          "preserve_as_is": true,
+          "help": "Fine tuning and emergency access. The same fields can be edited via KIP tool in hekate by these numbers when the system does not boot. Numbering is a contract with hekate - do not change it.",
+          "children": [
+            {
+              "id": "pmeh",
+              "title": "pMeh 0-22",
+              "series": "pMeh",
+              "aliases_of": {
+                "12436": "ebamatic"
+              }
+            },
+            {
+              "id": "smeh",
+              "title": "sMeh 0-17",
+              "series": "sMeh"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "profiles",
+      "title": "Profiles",
+      "kind": "section",
+      "note": "RAM presets go by chip model; a one-size-fits-all preset is meaningless (idea taken from Ebal)",
+      "children": []
+    },
+    {
+      "id": "service",
+      "title": "Service",
+      "kind": "section",
+      "children": [
+        {
+          "id": "backup",
+          "title": "Create backup",
+          "backup_restore": true,
+          "note": "Produces three items per console revision: create, restore, delete. A backup is an ini holding the values of every field in the map, not a kip image: an image would roll the bootloader back too after a 4IFIR update. The revision directories are separate and the items are tagged ;system=, so applying a backup from the other revision is impossible.",
+          "warning": "A backup preserves intent, not outcome: fields left on automatic hold zeros, and the values the device computes never make it into the file"
+        },
+        {
+          "id": "reset_ask",
+          "title": "Reset to defaults",
+          "commands": [],
+          "note": "a warning item that does nothing by itself — the confirmation is the item below"
+        },
+        {
+          "id": "reset_do",
+          "title": "Restore Factory Defaults",
+          "forwarder_to": "./reset.ini",
+          "note": "Opens a page showing what Default.ini holds, the same way Current Settings shows the kip. Applying is a separate item there, on hold-A. The forced kip copy was dropped at the operator's request — the preview replaces it: a mistake is now prevented rather than recovered from"
+        },
+        {
+          "id": "sysinfo",
+          "title": "System Info",
+          "info_table": [
+            "'Atmosphere'='{ams_version}'",
+            "'Firmware'='{hos_version}'",
+            "'Bootloader'='{hekate_version}'",
+            "'RAM'='{ram_vendor} {ram_model}'",
+            "'Size'='{ram_size_gb} GB'",
+            "'CPU speedo'='{cpu_speedo}'",
+            "'CPU iddq'='{cpu_iddq}'",
+            "'GPU speedo'='{gpu_speedo}'",
+            "'GPU iddq'='{gpu_iddq}'",
+            "'SoC speedo'='{soc_speedo}'"
+          ],
+          "note": "live context: you can see what hardware you are dealing with (idea taken from Ebal)"
+        }
+      ]
+    }
+  ],
+  "unassigned": {
+    "note": "offsets with no place assigned yet — work them out before generating",
+    "offsets": [
+      {
+        "offset": 170,
+        "why": "exists only in Ebal and only in its backup section; the menu writes to 172. Looks like a bug in the reference rather than a real field"
+      },
+      {
+        "offset": 184,
+        "why": "NOT the GPU curve. Per customize.cpp:95 the marikoGpuVoltArray array has exactly 24 elements (88…183). eristaCpuDvfsTable, the Erista CPU frequency table, starts here. Both original packages write here by mistake and corrupt the CPU table"
+      },
+      {
+        "offset": 188,
+        "why": "eristaCpuDvfsTable[1] — see 184"
+      },
+      {
+        "offset": 192,
+        "why": "eristaCpuDvfsTable[2] — see 184"
+      },
+      {
+        "offset": 196,
+        "why": "eristaCpuDvfsTable[3] — see 184"
+      },
+      {
+        "offset": 200,
+        "why": "eristaCpuDvfsTable[4] — see 184"
+      },
+      {
+        "offset": 204,
+        "why": "eristaCpuDvfsTable[5] — see 184"
+      },
+      {
+        "offset": 208,
+        "why": "eristaCpuDvfsTable[6] — see 184"
+      }
+    ]
+  }
+}

@@ -1,0 +1,242 @@
+{
+  "_meta": {
+    "description": "Mapping table: an Uberhand/4IFIR Wizard settings backup -> the CUST offsets of our field map. USED BY scripts/make-factory-defaults.mjs to turn the firmware's own Default.json into package/factory-defaults.json, which the generator then turns into service/Default.ini. It is also the groundwork for importing users' old backups - see docs/CONVERTER-CONCEPT.md; that import is deferred and NO menu section is generated from this file today.",
+    "source_format": "atmosphere/kips/kip-json/*.json — an array of 54 entries, each with a parameter name, a hex value and the internal fields extent/filler_before/page. The entry order is stable, verified on Default.json and Eclipse.json.",
+    "why_explicit": "The mapping is spelled out EXPLICITLY rather than matched by name. Automatic matching sends the voltage curve points to the wrong places: the point names of the Mariko and Erista curves are identical (\"307MHz\"), so a name match picks an arbitrary one. The converter writes into a live kip, and a miss here corrupts a table nobody will ever find afterwards.",
+    "platform": "There is NO need to work out the revision from the file: the converter runs on the console, and the engine filters out the other revision's fields by the ;system= tag. Fields with platform mariko/erista are applied only on their own revision.",
+    "length": "Where the backup has 4 bytes and the map has 3 — the top byte is always zero, the value is little-endian, and the first three bytes are taken. Verified against both reference files.",
+    "verified_against": [
+      "4ifir/atmosphere/kips/kip-json/Default.json",
+      "4ifir/atmosphere/kips/kip-json/Eclipse.json"
+    ]
+  },
+  "singles": [
+    {
+      "index": 0,
+      "backup_name": "CPU Minimum Voltage",
+      "offset": 48,
+      "note": "CPUv. Both stages and millivolts — carried over as is"
+    },
+    {
+      "index": 1,
+      "backup_name": "CPU Maximum Voltage",
+      "offset": 28,
+      "note": "marikoCpuMaxVolt. On Erista the maximum lives at 20 — the engine filters by ;system="
+    },
+    {
+      "index": 2,
+      "backup_name": "dCPUv",
+      "offset": 12348
+    },
+    {
+      "index": 3,
+      "backup_name": "CPU Boost Clock",
+      "offset": 12,
+      "note": "commonCpuBoostClock, both revisions"
+    },
+    {
+      "index": 4,
+      "backup_name": "Low MHz Undervolt Mode",
+      "offset": 40
+    },
+    {
+      "index": 5,
+      "backup_name": "High MHz Undervolt Mode",
+      "offset": 12340
+    },
+    {
+      "index": 6,
+      "backup_name": "Speedshift",
+      "offset": 12336
+    },
+    {
+      "index": 7,
+      "backup_name": "GPU Eco Mode",
+      "offset": 44,
+      "note": "marikoGpuUV. WARNING: value 03 switches the voltage table on. Carried over as is — the state has to match the source"
+    },
+    {
+      "index": 8,
+      "backup_name": "GPUv",
+      "offset": 52
+    },
+    {
+      "index": 9,
+      "backup_name": "GPU Over Mode",
+      "offset": 12344,
+      "note": "hGPUv"
+    },
+    {
+      "index": 10,
+      "backup_name": "RAM MHz",
+      "offset": 32,
+      "note": "marikoEmcMaxClock. On Erista the frequency is at 24 — the Uberhand backup has no separate entry for it"
+    },
+    {
+      "index": 11,
+      "backup_name": "RAM Vddq",
+      "offset": 36
+    },
+    {
+      "index": 12,
+      "backup_name": "RAM Vdd2",
+      "offset": 16
+    },
+    {
+      "index": 13,
+      "backup_name": "EMC Balance",
+      "offset": 12352,
+      "note": "eBAL"
+    },
+    {
+      "index": 14,
+      "backup_name": "  eBm ST",
+      "offset": 12436,
+      "note": "eBAMATIC Stage = pMEH[18]. The backup name has two leading spaces — that is how the original spells it"
+    },
+    {
+      "index": 15,
+      "backup_name": "EMC DVB Mode",
+      "offset": 56
+    },
+    {
+      "index": 17,
+      "backup_name": "Eba-shift",
+      "offset": 12360,
+      "note": "eBAS"
+    }
+  ],
+  "series": [
+    {
+      "index": 16,
+      "backup_name": "Core Timings",
+      "count": 8,
+      "offsets": [
+        60,
+        64,
+        68,
+        72,
+        76,
+        80,
+        84,
+        12356
+      ],
+      "note": "THE RUN IS NOT CONTIGUOUS. drochr01..07 sit back to back at 60…84, but the eighth (drochr08) lives apart at 12356. A \"start plus stride\" calculation would land on 88 — the first point of the Mariko curve."
+    },
+    {
+      "index": 18,
+      "backup_name": "pMEH(0-11)",
+      "count": 12,
+      "offsets": [
+        12364,
+        12368,
+        12372,
+        12376,
+        12380,
+        12384,
+        12388,
+        12392,
+        12396,
+        12400,
+        12404,
+        12408
+      ]
+    },
+    {
+      "index": 19,
+      "backup_name": "pMEH(12-21)",
+      "count": 10,
+      "offsets": [
+        12412,
+        12416,
+        12420,
+        12424,
+        12428,
+        12432,
+        12436,
+        12440,
+        12444,
+        12448
+      ],
+      "note": "Element 18 of the array (offset 12436) is the same eBAMATIC Stage as entry 14. The values must agree; if they disagree, trust this entry — it comes from the pMEH array itself."
+    },
+    {
+      "index": 20,
+      "backup_name": "sMEH(0-11)",
+      "count": 12,
+      "offsets": [
+        12460,
+        12464,
+        12468,
+        12472,
+        12476,
+        12480,
+        12484,
+        12488,
+        12492,
+        12496,
+        12500,
+        12504
+      ]
+    },
+    {
+      "index": 21,
+      "backup_name": "sMEH(12-16)",
+      "count": 5,
+      "offsets": [
+        12508,
+        12512,
+        12516,
+        12520,
+        12524
+      ]
+    }
+  ],
+  "skipped": [
+    {
+      "indexes": [
+        22
+      ],
+      "backup_name": "> GPU Voltage Table",
+      "why": "A separator heading, carries no value"
+    },
+    {
+      "indexes": [
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53
+      ],
+      "backup_name": "voltage curve points (307mhz … 1420mhz, MAXmhz)",
+      "why": "The values are stored in MICROvolts (307 MHz → 485000) while marikoGpuVoltArray holds millivolts (factory 395, 420, 445…). The numbers match neither in scale nor in value — this is not the same field. Until we work out where Uberhand got them from, the curve is not imported at all: the existing one is left untouched.",
+      "status": "open question, see docs/ANCHORS.md"
+    }
+  ]
+}

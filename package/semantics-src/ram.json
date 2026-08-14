@@ -1,0 +1,393 @@
+[
+  {
+    "offset": 8,
+    "name": "mtcConf (DRAM timing mode)",
+    "what": "FACT: the first field of the CustomizeTable structure, right after 'CUST'(0..3) and kipVer(4..7). The master mode for applying the DRAM timing table. In 4IFIR the mode labels are: eBAMATIC / CUSTOM_ADJ_ALL / NO_ADJ_ALL / CUSTOMIZED_ALL. HYPOTHESIS (strong, upstream Switch-OC-Suite): the numeric codes are 0=AUTO_ADJ_ALL (renamed to eBAMATIC in 4IFIR), 1=CUSTOM_ADJ_ALL, 2=NO_ADJ_ALL; the code for CUSTOMIZED_ALL is unknown (probably 3). ATTENTION: this is a potential gate of the same class as offset 44 for the GPU — with NO_ADJ_ALL the timing table may not be applied at all. Neither Wizard nor Ebal writes into this offset.",
+    "units": "code",
+    "range": {"min": 0, "max": 3, "step": 1},
+    "depends_on": [],
+    "affects": ["60", "64", "68", "72", "76", "80", "84", "12356", "12352", "12360"],
+    "ram_model_specific": "no data",
+    "current_in_kip": "0x00000000 = 0 (eBAMATIC / AUTO_ADJ_ALL)",
+    "danger": "UNKNOWN. A wrong code may switch off the whole timing block or apply a raw user table. Do not touch until the author answers.",
+    "help_quote": "// eBAMATIC; CUSTOM_ADJ_ALL; NO_ADJ_ALL; CUSTOMIZED_ALL",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:24-25",
+      "Ultrahand vanila/examples/OC Toolkit/mariko/ram_dram_timing.json:1-14",
+      "Ultrahand vanila/examples/OC Toolkit/README.md (section 'RAM Timings (DRAM)': CUST 8)",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+8"
+    ]
+  },
+  {
+    "offset": 16,
+    "name": "RAM Vdd2 (commonEmcMemVolt)",
+    "what": "FACT: the main supply of the LPDDR4X array (VDD2). The value is in microvolts, u32 little-endian (3 bytes are written): 850mV = 50F80C = 0x0CF850 = 850000. FACT: the hardware step of the regulator is 12500 uV (12.5 mV). FACT: the only memory voltage that works both on Erista and on Mariko (RAM.ini does not mark the item with ;system=). FACT: Vdd2 takes part in the selection of timings — the higher the Vdd2, the higher the 6th (tWTR) and the 7th (tRTW) timing can be taken.",
+    "units": "uV",
+    "range": {"min": 950000, "max": 1400000, "step": 12500},
+    "depends_on": ["24/32 (RAM frequency: the higher the frequency, the higher the required Vdd2)", "12352 (eBAL 1 requires a higher Vdd2 than eBAL 2)"],
+    "affects": ["80 (T6/tWTR)", "84 (T7/tRTW)", "memory power draw and heating"],
+    "ram_model_specific": "YES. The Ebal presets for 8 chip models use only two values: 1250000 (AA-MGCL Root, AB-MGCL Dominant, WTE Root, Default) and 1350000 (all the rest). No preset goes below 1250 mV.",
+    "current_in_kip": "709914 = 1350000 uV = 1350 mV",
+    "danger": "HIGH. The Wizard dictionary (Vdd2.json) offers values starting from 850 mV, which is BELOW the documented minimum of 950000 uV from customize.cpp:30. The upper bound of 1400 mV is labelled in Ebal as '1400mV - Pizdec!!!' and highlighted with colour. Too low a value means data corruption / a dead emuNAND, too high means chip degradation. Set it AFTER tuning the timings (the timings depend on Vdd2).",
+    "help_quote": "VDD2 is a secondary voltage supply for specific components. Higher values might improve stabilty. Recommendations for Erista: 1868Mhz - 1150mv; 1996Mhz - 1250mv; 2131Mhz - 1350mv; 2265Mhz - 1350mv",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:30-31",
+      "Wizard/4ifir Wizard source code/Help/RAM/RAM Vdd2.txt:1-8",
+      "Wizard/docs/WIZARD_GUIDE_RAM.md:65-71",
+      "Wizard/docs/TIMINGS.md:8-9",
+      "Ebal/switch/.packages/Ebal Tuner/RAM.ini:40-45,102-105",
+      "Ebal/switch/.packages/Ebal Tuner/json/Vdd2.json:1-80",
+      "Wizard/4ifir Wizard source code/4Advanced/RAM/json/Vdd2.json (23 entries, 850..1400 mV, step 25 mV)",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+16"
+    ]
+  },
+  {
+    "offset": 24,
+    "name": "RAM MHz — Erista (eristaEmcMaxClock)",
+    "what": "FACT: the target EMC frequency for the UPPER memory step (the '4IFIR Optimized S' profile in the overlay). Units are kHz, u32 LE: 1600 MHz = 006A18 = 0x186A00 = 1600000. FACT: 0 = eBamatic (automatic selection). FACT: the hardware grid step is 38.4 MHz. FACT: applies only on Erista (RAM.ini:25 ;system=erista).",
+    "units": "kHz",
+    "range": {"min": 1600000, "max": 2649600, "step": 38400},
+    "depends_on": ["12352 (with eBAL=0 the frequency determines the automatic eBAL selection)", "16 (Vdd2 must match the frequency)", "48 (CPU Vmin: 530mV at RAM<=1734, 560mV at 1862, 590mV at 1996)"],
+    "affects": ["12352 (through eBamatic)", "the timings (all the formulas take values from arrays by the frequency index)", "GPU vMin (FACT, Ebal RAM.ini:94 '!!!Higher freq needs higher GPU vMin')"],
+    "ram_model_specific": "YES (indirectly). There are NO Erista presets in Ebal (the Presets/Erista directory is absent), although RAM Preset E.json lists Core/Mega/Ultra/Red. That is, selection by chip model is not implemented for Erista.",
+    "current_in_kip": "000000 = 0 = eBamatic (automatic selection)",
+    "danger": "HIGH. Exceeding it means data corruption (including emuNAND) and artefacts. Recovery: Hekate Safe Mode / KipTool. If it hangs right after selecting the Optimized S profile — lower it by one step.",
+    "help_quote": "RAM MHz measures your console's memory speed. Higher MHz means faster performance, but excessive values can lead to issues like corrupted data (e.g., emuNAND) and visual artifacts. Ensure compatibility and consider your RAM model when setting.",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:36-45",
+      "Wizard/4ifir Wizard source code/Help/RAM/RAM MHz.txt:1-4",
+      "Wizard/docs/WIZARD_GUIDE_RAM.md:26-41",
+      "Ebal/switch/.packages/Ebal Tuner/RAM.ini:24-30",
+      "Ebal/switch/.packages/Ebal Tuner/json/MHz_erista.json:1-8",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+24"
+    ]
+  },
+  {
+    "offset": 32,
+    "name": "RAM MHz — Mariko (marikoEmcMaxClock)",
+    "what": "FACT: the same for Mariko. kHz, u32 LE. 0 = eBamatic. FACT: the grid step is 38.4 MHz. FACT (PROBLEM.md:22): if the field is not set (0), the factory frequency of the upper step is ~26xx MHz — that is exactly why the frequent breakage 'hangs after selecting Optimized S' is cured by explicitly setting 2400.",
+    "units": "kHz",
+    "range": {"min": 1333000, "max": 3309000, "step": 38400},
+    "depends_on": ["12352 (eBamatic automatic eBAL selection by frequency)", "16 Vdd2", "36 Vddq", "48 CPU Vmin", "12436 (the eBamatic stage changes the selected eBAL)"],
+    "affects": ["12352", "all the timings", "GPU vMin (12448 pMeh21 — the vMin offset specifically for the Optimized S modes)"],
+    "ram_model_specific": "YES, EXPLICITLY. The ceilings from the Ebal presets (Dominant): NEE 2665600; AB-MGCL 2592000; NME 2592000; AA-MGCL/AM-MGCJ/WTB/WTE/WTF 2534400. Root level: AB-MGCL 2131200, the rest 2265600. customize.cpp:62 separately notes the families: 'MICRON E/H eBAL 4 < 3.8GHz // SAMSUNG B eBAL 4 < 3.9GHz // HYNIX CJR/DJR eBAL 4 < 3.8GHz'.",
+    "current_in_kip": "000000 = 0 = eBamatic (automatic selection)",
+    "danger": "HIGH. The same as for 24. Plus: the dictionaries offer up to 2934/3309 MHz, whereas customize.cpp of the same line declares a maximum of 2733000.",
+    "help_quote": "If the frequency you have chosen does not boot - try raising eBalance (eBal) manually; the higher the eBal value, the higher the frequency you can take.",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:50-63",
+      "Wizard/docs/WIZARD_GUIDE_RAM.md:26-41",
+      "Wizard/docs/PROBLEM.md:21-23",
+      "Ebal/switch/.packages/Ebal Tuner/RAM.ini:15-21",
+      "Ebal/switch/.packages/Ebal Tuner/json/MHz_mariko.json",
+      "Ebal/switch/.packages/Ebal Tuner/Presets/Mariko/RAM/*/Root.ini, Subdominant.ini, Dominant.ini",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+32"
+    ]
+  },
+  {
+    "offset": 36,
+    "name": "RAM Vddq (marikoEmcVddqVolt)",
+    "what": "FACT: the supply of the memory DQ data lines. Microvolts, u32 LE: 650mV = 10EB09 = 0x09EB10 = 650000. FACT: Mariko ONLY (RAM.ini:33 ;system=mariko; the field is named marikoEmcVddqVolt). FACT (upstream OC Toolkit): the value 000000 means 'Do not override'.",
+    "units": "uV",
+    "range": {"min": 300000, "max": 800000, "step": 5000},
+    "depends_on": ["24/32 (frequency)", "12444 (pMeh 20 rVDDick shifts VDDQ/VDD2 for the middle profile 'Optimised')"],
+    "affects": ["data bus stability", "power draw"],
+    "ram_model_specific": "YES, but weakly. The Ebal presets use only 640000 (AA-MGCL Root, WTE Root, Default), 650000 (the overwhelming majority) and 675000 (AB-MGCL Dominant). No preset goes below 640 mV.",
+    "current_in_kip": "10EB09 = 650000 uV = 650 mV",
+    "danger": "VERY HIGH. A direct warning from the author: lowering Vddq risks losing the emuNAND while the gain is insignificant; before tuning a new kip it is recommended to reset the parameter to default. The Wizard dictionary gives values starting from 250 mV — BELOW the documented minimum of 300000 uV (customize.cpp:65). The Ebal dictionary is bounded from below at 500 mV.",
+    "help_quote": "IMPORTANT!!! 1. Do not lower this parameter too far, there will be no significant profit, but there is a risk of losing the EmuNand. 2. Before tuning a new kip, reset this parameter to default in order to minimise the risk of losing the EmuNand",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:65-66",
+      "Wizard/docs/WIZARD_GUIDE_RAM.md:57-64",
+      "Wizard/4ifir Wizard source code/Help/RAM/RAM Vddq.txt:1-3",
+      "Ebal/switch/.packages/Ebal Tuner/RAM.ini:32-38",
+      "Ultrahand vanila/examples/OC Toolkit/boot_package.ini:11 ('000000':'Do not override')",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+36"
+    ]
+  },
+  {
+    "offset": 56,
+    "name": "EMC DVB Mode (marikoEmcDvbShift)",
+    "what": "FACT: control of the DVB (Dynamic Voltage and frequency Boost) table of the memory controller — effectively the voltage of the SoC domain in which the EMC lives. FACT: Mariko ONLY. A two-mode field: the values 0..3 are automatic selection modes, the values >=300 are a manual voltage in MILLIvolts (not micro!): 250mV = FA0000 = 0x0000FA = 250. FACT (customize.cpp:83): '3 AUTO // 2 AUTO ECO ST1 // 1 AUTO ECO ST2 // 0 AUTO ECO ST3 // 300-1150 MANUAL mV'. DISCREPANCY: the dictionaries of both packages label 0 as 'eBamatic', while Ebal labels 3/2/1 as 'Eco ST1/ST2/ST3' — that is, the meaning 'auto' has been hung on 0 in the dictionary, whereas the source calls 0 the most aggressive undervolt. Check via InfoNX > SOC voltage.",
+    "units": "code|mV",
+    "range": {"min": 0, "max": 1150, "step": 25},
+    "depends_on": ["24/32 (the memory frequency determines the required SoC voltage)"],
+    "affects": ["the power draw of the whole SoC domain", "memory controller stability"],
+    "ram_model_specific": "no data",
+    "current_in_kip": "000000 = 0",
+    "danger": "HIGH. Ebal RAM.ini:150 — 'Not recommended to raise above 1000 mV'. The values 4..299 are defined neither as a mode nor as a voltage. CRITICAL BUG IN THE EBAL DICTIONARY: the entry '400 mV' has the hex '9100' = 145, and '800 mV' — the hex '2300' = 35; both fall into the undefined zone 4..299. In the Wizard dictionary the same items are correct: 400mV='900100'=0x190=400, 800mV='200300'=0x320=800.",
+    "help_quote": "The EMC DVB Table is responsible for managing memory voltage offsets, with a significant impact on power consumption, especially on the memory controller.",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:83-84",
+      "Wizard/4ifir Wizard source code/Help/RAM/EMC DVB Mode.txt:1-2",
+      "Wizard/docs/WIZARD_GUIDE_RAM.md:84-93",
+      "Ebal/switch/.packages/Ebal Tuner/RAM.ini:47-53,148-151",
+      "Ebal/switch/.packages/Ebal Tuner/json/dvb.json (400 mV -> 9100, 800 mV -> 2300 — ERROR)",
+      "Ebal/switch/.packages/Ebal Tuner/json/dvbV.json (the same error)",
+      "Wizard/4ifir Wizard source code/4Advanced/RAM/json/EMC DVB Table.json (400mV -> 900100 — correct)",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+56"
+    ]
+  },
+  {
+    "offset": 12352,
+    "name": "EMC Balance (eBAL)",
+    "what": "FACT: a set of operating profiles of the memory controller, a trade-off «efficiency <-> reachable frequency». Codes: 0 eBAMATIC (auto), 1 SYK-LOH, 2 ECO ST1, 3 DEFAULT, 4 SPR/SRT ST1, 5 SPR/SRT ST2. FACT: eBAL enters ALL the timing formulas as a SUMMAND (see TIMINGS.md), therefore changing eBAL shifts the whole set of timings at once. FACT: the LOWER the eBAL, the higher the bandwidth; the HIGHER the eBAL, the higher the reachable frequency. FACT: eBAL=1 gives maximum performance but requires a higher Vdd2 than eBAL=2, therefore it is beneficial only at frequencies up to ~2000 MHz.",
+    "units": "code",
+    "range": {"min": 0, "max": 5, "step": 1},
+    "depends_on": ["12436 (pMeh 18 eBAMATIC Stage — only when eBAL=0)", "24/32 (with eBAL=0 the frequency selects the eBAL from a table)"],
+    "affects": ["60,64,68,72,76,80,84,12356 — all eight timings through the formulas", "16 (Vdd2: eBAL 1 requires more)", "12360 (EBA-Shift works off the difference eBAL-eBAS)"],
+    "ram_model_specific": "PARTIALLY. customize.cpp:62: 'MICRON E/H eBAL 4 < 3.8GHz // SAMSUNG B eBAL 4 < 3.9GHz // HYNIX CJR/DJR eBAL 4 < 3.8GHz'. The meaning of the number 3.8/3.9 GHz is NOT ESTABLISHED (see the open questions).",
+    "current_in_kip": "000000 = 0 = eBAMATIC",
+    "danger": "MEDIUM. The field itself does not apply any voltage, but lowering the eBAL at a high frequency = inability to boot. Cured with Safe Mode.",
+    "help_quote": "EMC Balance – a set of memory optimizations in the ratio of energy efficiency to performance. 0(eBamatic) – smart mode, automatically selects the appropriate eBal for the selected frequency. 1 – adds performance, requires higher RAM voltages (try on low frequencies), 2 – loses performance (relative to eBal 1) but reduces consumption, 3 – Default, 4 – for high frequencies (for docked mode gaming).",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:317-319",
+      "Wizard/4ifir Wizard source code/Help/RAM/EMC Balance.txt:1",
+      "Wizard/docs/WIZARD_GUIDE_RAM.md:42-56",
+      "Wizard/docs/TIMINGS.md:3-10",
+      "Ebal/switch/.packages/Ebal Tuner/RAM.ini:7-12,125-129",
+      "Ebal/switch/.packages/Ebal Tuner/json/ebV.json",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+12352"
+    ]
+  },
+  {
+    "offset": 12360,
+    "name": "EBA-Shift (eBAS)",
+    "what": "FACT: a shift of the eBAL mode for a family of derived quantities. eBAL decomposes into three derivatives — eBAS, eBAW, eBAR; eBAS is increased precisely by this field. FACT: the SMALLER the difference (eBAL - eBAS), the HIGHER the 8th timing (tWTP) can be raised — eBAS enters the tWTP formula with a minus sign. FACT: the direction of the trade-off is opposite to eBAL: 'FREQUENCY << PRIORITY >> EFFICIENCY'. Codes: 0 Default, 1 AUTO ST1, 2 SYK-LOH, 3 AUTO ST3, 4 AUTO ST4, 5 LOH-C4C.",
+    "units": "code",
+    "range": {"min": 0, "max": 5, "step": 1},
+    "depends_on": ["12352 (works as the difference eBAL - eBAS)"],
+    "affects": ["12356 (T8 / tWTP — directly through the formula)", "bandwidth"],
+    "ram_model_specific": "no data",
+    "current_in_kip": "0x01 = 1",
+    "danger": "MEDIUM. Tuned by the gain in MemBench; if unstable, go back one step.",
+    "help_quote": "EBA-Shift - adjusts the eBal mode; setting it to 2 allows raising the 8th timing value. // Ebal: 'The lesser [EMC Balance - EBA-Shift] is the higher you can set the 8th timing.'",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:323-325",
+      "Wizard/4ifir Wizard source code/Help/RAM/Eba-shift.txt:2",
+      "Wizard/4ifir Wizard source code/Help/MICRO-ENHANCE LOGIC/pMeh 0 eBAS Sub-Zero.txt:1",
+      "Wizard/docs/TIMINGS.md:10",
+      "Wizard/docs/WIZARD_GUIDE_RAM.md:72-83",
+      "Ebal/switch/.packages/Ebal Tuner/RAM.ini:56-61,171-174",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+12360"
+    ]
+  },
+  {
+    "offset": 60,
+    "name": "Core Timings 1 (drochr01) -> tRCD",
+    "what": "FACT: the formula tRCD = tRCD_val[ONE] + e_bar[eBAL] - pMEH[8]. tRCD_val is an array of tRCD values by frequency from 1600 to 3200 MHz with a step of 266 MHz; drochr01 selects/shifts the position in it. FACT: 0 = DEBUG, 1 = AUTO SAFE, 2..9 = AUTO STAGE. FACT: the higher the value, the higher the performance (the timing is tightened).",
+    "units": "code",
+    "range": {"min": 0, "max": 9, "step": 1},
+    "depends_on": ["12352 (eBAL — a summand in the formula)", "12396 (pMeh 8 RCD Decret — the subtrahend, allows taking T1 higher)", "12380 (pMeh 4 eBAR Shift — lowering it stabilises the timing)"],
+    "affects": ["76 (T5: the effective drochr05 = drochr01 + drochr05 — the only EXPLICIT link between the timings)"],
+    "ram_model_specific": "YES. Presets by chip: WTE=1 (Micron E does not tolerate tuning), NME=1, WTB/WTF=2, AA-MGCL/AB-MGCL/AM-MGCJ=3, NEE=6.",
+    "current_in_kip": "010000 = 1 (AUTO SAFE)",
+    "danger": "MEDIUM. The value 0 = DEBUG, not a working mode. Tune strictly one timing at a time.",
+    "help_quote": "tRCD_val[ONE] + e_bar[eBAL] - pMEH[8]. Raising pmeh8 will allow taking the timing higher, or stabilising the upper value. Lowering pMeh 4 - allows taking it higher / stabilises the timing",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:86-87",
+      "Wizard/docs/TIMINGS.md:3",
+      "Ebal/switch/.packages/Ebal Tuner/coreTimings.ini:7-11",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+60"
+    ]
+  },
+  {
+    "offset": 64,
+    "name": "Core Timings 2 (drochr02) -> tRP",
+    "what": "FACT: tRP = tRP_val[ONE] + e_bar[eBAL] - pMEH[9]. FACT: 0 = DEBUG, 1 = AUTO SAFE, 2..8 = AUTO STAGE, 9 = ALT LOGIC (a separate algorithm, not simply 'even more aggressive').",
+    "units": "code",
+    "range": {"min": 0, "max": 9, "step": 1},
+    "depends_on": ["12352 (eBAL)", "12400 (pMeh 9 RP Decret)", "12380 (pMeh 4 eBAR Shift)"],
+    "affects": [],
+    "ram_model_specific": "YES. WTE=1, NME=2, AM-MGCJ=4, AA-MGCL/AB-MGCL=5, NEE=6, WTB/WTF=7.",
+    "current_in_kip": "010000 = 1 (AUTO SAFE)",
+    "danger": "MEDIUM. The value 9 is not 'the next step' but a different algorithm; test it separately.",
+    "help_quote": "tRP_val[ONE] + e_bar[eBAL] - pMEH[9]",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:88",
+      "Wizard/docs/TIMINGS.md:4",
+      "Ebal/switch/.packages/Ebal Tuner/coreTimings.ini:13-17",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+64"
+    ]
+  },
+  {
+    "offset": 68,
+    "name": "Core Timings 3 (drochr03) -> tRAS",
+    "what": "FACT: tRAS = tRAS_val[ONE] + e_bar[eBAL]*2 - pMEH[10]. Note: eBAL enters with a COEFFICIENT of 2 — this timing is twice as sensitive to eBAL as tRCD/tRP. FACT: the range is 0..10, where 10 = ALT LOGIC. DISCREPANCY: customize.cpp:89 calls 0 'DEBUG', while the dictionaries of both packages label 0 as 'eBamatic - Default'; the real 4IFIR kip contains exactly 0, and all 24 per-chip Ebal presets also set T3=0 (except AA-MGCL Dominant = 4/5). That is, in the current builds 0 is a working automatic mode, not a debug one.",
+    "units": "code",
+    "range": {"min": 0, "max": 10, "step": 1},
+    "depends_on": ["12352 (eBAL, coefficient x2)", "12404 (pMeh 10 RAS Decret)"],
+    "affects": [],
+    "ram_model_specific": "YES, but almost all the presets hold 0. The only exception is AA-MGCL Dominant: Common=4, ST=5.",
+    "current_in_kip": "000000 = 0",
+    "danger": "MEDIUM. Because of the x2 multiplier on eBAL the reaction to an eBAL change is stronger than for the neighbouring timings.",
+    "help_quote": "tRAS_val[ONE] + e_bar[eBAL]*2 - pMEH[10]. Raising pmeh10 will allow taking the timing higher",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:89",
+      "Wizard/docs/TIMINGS.md:5",
+      "Wizard/4ifir Wizard source code/4Advanced/RAM/json/core_timings3.json",
+      "Ebal/switch/.packages/Ebal Tuner/Presets/Mariko/RAM/*/*.ini",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+68"
+    ]
+  },
+  {
+    "offset": 72,
+    "name": "Core Timings 4 (drochr04) -> tRFC",
+    "what": "FACT: tRFC (the recovery time after regeneration/refresh) is controlled by drochr04. The formula is NOT given in the author's documentation — only the statement that this timing is controlled by drochr04. FACT: 0 = DEBUG, 1 = AUTO SAFE, 2..9 = AUTO STAGE.",
+    "units": "code",
+    "range": {"min": 0, "max": 9, "step": 1},
+    "depends_on": ["UNKNOWN — the formula is not published"],
+    "affects": [],
+    "ram_model_specific": "YES. WTE=1, NME=3, AB-MGCL/NEE/WTB/WTF=4, AA-MGCL/AM-MGCJ=6.",
+    "current_in_kip": "010000 = 1 (AUTO SAFE)",
+    "danger": "MEDIUM.",
+    "help_quote": "tRFC - the timing controlled by drochr04",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:90",
+      "Wizard/docs/TIMINGS.md:6",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+72"
+    ]
+  },
+  {
+    "offset": 76,
+    "name": "Core Timings 5 (drochr05) -> UNKNOWN, linked to T1",
+    "what": "PARTIALLY UNKNOWN. Which timing exactly is controlled has not been established: row 5 of the TIMINGS.md table is empty. FACT and KEY DEPENDENCY (customize.cpp:91): '! drochr05 = drochr01 + drochr05' — the effective value of T5 equals the SUM of T1 and T5. This directly refutes the guide's claim that the timings do not affect each other. FACT: 0 = DEBUG, 1 = AUTO SAFE, 2..9 = AUTO STAGE. HYPOTHESIS (from the summation with tRCD): T5 is a secondary/paired quantity of the same family as tRCD.",
+    "units": "code",
+    "range": {"min": 0, "max": 9, "step": 1},
+    "depends_on": ["60 (T1 — is added to T5 when the effective value is computed)"],
+    "affects": [],
+    "ram_model_specific": "YES. WTE=1, AM-MGCJ=4, AB-MGCL/NME=5, AA-MGCL=5, NEE/WTB/WTF=3.",
+    "current_in_kip": "010000 = 1 (AUTO SAFE)",
+    "danger": "MEDIUM. By raising T1 you automatically raise the effective T5 as well — with step-by-step 'one timing at a time' tuning this is invisible and may lead to a false conclusion that T1 is unstable.",
+    "help_quote": ".drochr05 = 1, // 0 DEBUG // 1 AUTO SAFE // 2-9 AUTO STAGE // ! drochr05 = drochr01 + drochr05",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:91",
+      "Wizard/docs/TIMINGS.md:7 (the row is empty)",
+      "Wizard/docs/WIZARD_GUIDE_RAM.md:97 ('The timings do not affect each other' — REFUTED)",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+76"
+    ]
+  },
+  {
+    "offset": 80,
+    "name": "Core Timings 6 (drochr06) -> tWTR",
+    "what": "FACT, the full formula: tWTR = 35 - 2*drochr06 + pMEH[6] + (eBAL + pMEH[3] - 5) * 4. Hence: each step of T6 removes 2 cycles from tWTR (a higher value = a tighter timing = more performance), and eBAL enters with a coefficient of 4. FACT: besides eBAL, this timing is affected by the VDD2 VOLTAGE — the higher the voltage, the higher the timing can be taken. FACT: the widest range of all — 0..14.",
+    "units": "code",
+    "range": {"min": 0, "max": 14, "step": 1},
+    "depends_on": ["12352 (eBAL, coefficient x4)", "16 (Vdd2 — named directly in the help)", "12388 (pMeh 6 eBAR/WTR Crement — a summand)", "12376 (pMeh 3 eBAW Shift — inside the bracket with eBAL)"],
+    "affects": [],
+    "ram_model_specific": "YES. WTE=1, AM-MGCJ=1, AA-MGCL/NEE=3, WTB/WTF=4, NME=5, AB-MGCL=6.",
+    "current_in_kip": "010000 = 1 (AUTO SAFE)",
+    "danger": "MEDIUM. Tune it BEFORE lowering Vdd2 — otherwise the value found will turn out to be unstable.",
+    "help_quote": "WTR = 35 - 2*drochr06 + pMEH[6] + (eBAL + pMEH[3] - 5) * 4; Besides eBAL, the VDD2 voltage matters. The higher the voltage — the higher the timing can be taken",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:92",
+      "Wizard/docs/TIMINGS.md:8",
+      "Wizard/4ifir Wizard source code/Help/MICRO-ENHANCE LOGIC/pMeh 6 eBAR Crement.txt:1",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+80"
+    ]
+  },
+  {
+    "offset": 84,
+    "name": "Core Timings 7 (drochr07) -> tRTW",
+    "what": "FACT, the full formula: tRTW = 43 - 2*drochr07 + pMEH[5] + (eBAL + pMEH[4] - 5) * 2. Each step of T7 removes 2 cycles; eBAL enters with a coefficient of 2. FACT: it also depends on VDD2 — the higher the voltage, the higher the timing can be taken. FACT: 0..10.",
+    "units": "code",
+    "range": {"min": 0, "max": 10, "step": 1},
+    "depends_on": ["12352 (eBAL, x2)", "16 (Vdd2)", "12384 (pMeh 5 eBAW/RTW Crement)", "12380 (pMeh 4 eBAR Shift)"],
+    "affects": [],
+    "ram_model_specific": "YES. AB-MGCL=2, WTB/WTF=5, AA-MGCL/AM-MGCJ=6, NEE=7, WTE=1, NME=5.",
+    "current_in_kip": "010000 = 1 (AUTO SAFE)",
+    "danger": "MEDIUM. The same remark about the order relative to Vdd2.",
+    "help_quote": "RTW = 43 - 2*drochr07 + pMEH[5] + (eBAL + pMEH[4] - 5) * 2. Besides eBAL, the VDD2 voltage matters",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:93",
+      "Wizard/docs/TIMINGS.md:9",
+      "Wizard/4ifir Wizard source code/Help/MICRO-ENHANCE LOGIC/pMeh 5 eBAW Crement.txt:1",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+84"
+    ]
+  },
+  {
+    "offset": 12356,
+    "name": "Core Timings 8 (drochr08) -> tWTP",
+    "what": "FACT, the full formula: tWTP = 47 - 2*drochr08 + pMEH[7] + (eBAL + 2 - eBAS + pMEH[0] - 5) * 4. The only timing in which eBAS (EBA-Shift) takes part: the smaller (eBAL - eBAS), the higher T8 can be raised. The coefficient on the bracket is 4. FACT: the range is 0..12; the value 1 is labelled 'Safe'. FACT: physically it lies NOT next to T1..T7 (60..84) but in the block 12356 — because in the C++ structure the field drochr08 is declared after eBAL.",
+    "units": "code",
+    "range": {"min": 0, "max": 12, "step": 1},
+    "depends_on": ["12352 (eBAL)", "12360 (eBAS/EBA-Shift — with a minus sign)", "12392 (pMeh 7 eBAS/WTP Crement)", "12364 (pMeh 0 eBAS Sub-Zero — the only way to DECREASE eBAS, and only by 1)"],
+    "affects": [],
+    "ram_model_specific": "YES. AB-MGCL/AM-MGCJ/NME/WTE=1, AA-MGCL/WTB/WTF=2, NEE=3, WTF Dominant=4.",
+    "current_in_kip": "010000 = 1 (Safe)",
+    "danger": "MEDIUM. Tuned together with EBA-Shift; the order in the guide: T8 -> EBA-Shift -> repeat.",
+    "help_quote": "WTP = 47 - 2*drochr08 + pMEH[7] + (eBAL + 2 - eBAS + pMEH[0] - 5)*4; The lower the value = (eBAL – eBAS), the higher the 8th timing can be raised. eBAS — ebashift",
+    "sources": [
+      "Wizard/4IFIR-Wizard-update/customize.cpp:321",
+      "Wizard/docs/TIMINGS.md:10",
+      "Wizard/4ifir Wizard source code/Help/MICRO-ENHANCE LOGIC/pMeh 7 eBAS Crement.txt:1",
+      "Ebal/switch/.packages/Ebal Tuner/coreTimings.ini:49-53",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+12356"
+    ]
+  },
+  {
+    "offset": 12444,
+    "name": "pMeh 20 rVDDick (VDDQ-VDD2 offset for the '4IFIR Optimised' profile)",
+    "what": "FACT: NOT an absolute voltage but a STEP of the VDDQ/VDD2 shift applied to the MIDDLE memory step — the 'EMC - 4IFIR Optimised' profile (not 'Optimised S'). The higher the value, the HIGHER the voltage. Range 0..6, default 4. FACT: pMeh20 is the standard cure for 'the console hangs almost immediately after power-on' (in that case return it to 4).",
+    "units": "code",
+    "range": {"min": 0, "max": 6, "step": 1},
+    "depends_on": ["memory profile: acts only in the 'Optimised' mode, not in 'Optimised S'", "16/36 (the base Vdd2/Vddq to which the shift is applied)"],
+    "affects": ["the actual Vdd2/Vddq in the middle memory profile", "the stability of the transition between memory steps (4VOLTSHIFT)"],
+    "ram_model_specific": "no data",
+    "current_in_kip": "0x04 = 4 (Default)",
+    "danger": "VERY HIGH (by a direct warning from the author). 'Carefully! If the value is too low, it may damage the emunand!!' This is the only RAM/EMC item where the word damage appears in the help. DISCREPANCY BETWEEN PACKAGES: in Ebal Tuner the menu item 'EMC-4IFIR Optimized > pMeh 20 rVDDick' writes NOT into 12444 but into 12448 (pMeh 21, GPU vMin for Optimised S) and takes its values from pMeh21.json. The correct path in Ebal is only Micro-Enhance Logic. In Wizard the item is correct.",
+    "help_quote": "pMeh 20 rVDDick - VDDQ/VDD2 for 4ifir Optimised (The higher the value, the higher the voltage) // VDDQ/VDD2 for 4ifir Optimised. Carefully! If the value is too low, it may damage the emunand!!",
+    "sources": [
+      "Wizard/4ifir Wizard source code/Help/MICRO-ENHANCE LOGIC/pMeh 20 rVDDick.txt:1",
+      "Wizard/4ifir Wizard source code/Help/EMC-4IFIR Optimized/VDDQ-VDD2.txt:1-3",
+      "Wizard/docs/PROBLEM.md:16-19",
+      "Wizard/docs/WIZARD_GUIDE_RAM.md:124-125",
+      "Wizard/4ifir Wizard source code/SmartMode/EMC-4IFIR Optimized/config.ini:11-12 (writes 12444 — correct)",
+      "Ebal/switch/.packages/Ebal Tuner/4opt.ini:21-25 (writes 12448 — ERROR)",
+      "Ebal/switch/.packages/Ebal Tuner/Micro-Enhance Logic/microP.ini:128 (writes 12444 — correct)",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+12444"
+    ]
+  },
+  {
+    "offset": 12492,
+    "name": "sMeh 8 E-Boost (EMC Efficiency Stages)",
+    "what": "FACT: memory efficiency steps. The higher the value, the more performance. Range 0..2. DISCREPANCY ABOUT THE PROFILE: the pMeh/sMeh help and PROBLEM.md say 'Optimized E' (the lower step), while the 'EMC-4IFIR Optimized' menu and WIZARD_GUIDE_RAM.md:120 say 'Optimized' (the middle one). It was not possible to resolve this.",
+    "units": "code",
+    "range": {"min": 0, "max": 2, "step": 1},
+    "depends_on": ["memory profile (Optimized E or Optimized — the sources disagree)"],
+    "affects": ["the bandwidth in the lower/middle memory steps", "image output in docked mode (a side effect)"],
+    "ram_model_specific": "no data",
+    "current_in_kip": "0x00 = 0",
+    "danger": "LOW for the hardware, but there is a known side effect: 'When playing in the dock, stripes appear on the TV screen' — cured by resetting sMeh 8 to 0. DISCREPANCY OF DEFAULTS: the dictionaries of both packages label 0 as Default, the 4IFIR kip contains 0, but WIZARD_GUIDE_RAM.md:121 recommends 'setting 2 right away', while the Ebal Backup Default.ini contains 01.",
+    "help_quote": "sMeh 8 E-Boost - Memory efficiency stages in Optimized E mode. The higher the value, the more performance. Because of sMeh 8, the screen may start to stripe in the dock. To solve this problem, reset sMeh 8 to 0.",
+    "sources": [
+      "Wizard/4ifir Wizard source code/Help/MICRO-ENHANCE LOGIC/sMeh 8 E-Boost.txt:1",
+      "Wizard/4ifir Wizard source code/Help/EMC-4IFIR Optimized/EMC Efficiency Stages.txt:1",
+      "Wizard/docs/WIZARD_GUIDE_RAM.md:120-121",
+      "Wizard/docs/PROBLEM.md:34-35",
+      "Ebal/switch/.packages/Ebal Tuner/4opt.ini:9-13",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+12492"
+    ]
+  },
+  {
+    "offset": 12524,
+    "name": "sMeh 16 SYK-LOH (Optimized-to-1600MHz)",
+    "what": "FACT: a boolean switch that sets the frequency of 1600 MHz for the MIDDLE memory step (the 'EMC - 4IFIR Optimized' profile). Range 0..1. This is the only found way to control the frequency of the middle step — the upper one is set by offset 24/32, the lower one (E) indirectly through pMeh 2.",
+    "units": "code",
+    "range": {"min": 0, "max": 1, "step": 1},
+    "depends_on": [],
+    "affects": ["the frequency of the 'Optimized' profile (the middle step)", "the required CPU Vmin (see offset 48: the labels 530/560/590 mV are bound to RAM 1734/1862/1996)"],
+    "ram_model_specific": "no data",
+    "current_in_kip": "0x01 = 1",
+    "danger": "LOW. DISCREPANCY OF DEFAULTS: Wizard labels 1 as Default (and Reset-to-default sets 01), Ebal labels 0 as Default. The real 4IFIR kip = 1, i.e. the Wizard version is right.",
+    "help_quote": "sMeh 16 SYK-LOH - Sets the value RAM Optimized - 1600 MHz. // Sets the value RAM for EMC - 4IFIR Optimized",
+    "sources": [
+      "Wizard/4ifir Wizard source code/Help/MICRO-ENHANCE LOGIC/sMeh 16 SYK-LOH.txt:1",
+      "Wizard/4ifir Wizard source code/Help/EMC-4IFIR Optimized/Optimized-to-1600MHz.txt:1",
+      "Wizard/4ifir Wizard source code/Dashboard/Reset to default/config.ini:110 (12524 = 01)",
+      "Ebal/switch/.packages/Ebal Tuner/4opt.ini:3-7",
+      "Ebal/switch/.packages/Ebal Tuner/Micro-Enhance Logic/json/sMeh16.json (labels 0 as Default)",
+      "4ifir/atmosphere/kips/loader.kip @0x63414+12524"
+    ]
+  }
+]
