@@ -30,15 +30,6 @@
         ]
       },
       {
-        "title": "Current Settings",
-        "lines": [
-          "What is in the kip right now.",
-          "Read-only - nothing here changes anything.",
-          "Press L or R for the second page with timings and fine tuning.",
-          "Handy after restoring a backup or editing the kip from hekate."
-        ]
-      },
-      {
         "title": "Advanced",
         "lines": [
           "Every setting one by one: CPU, GPU, RAM and fine tuning.",
@@ -53,6 +44,15 @@
           "Backups, reset and system info.",
           "Make a backup before your first change. It takes a second and saves an evening.",
           "Backups are kept per console revision, so you can only restore your own."
+        ]
+      },
+      {
+        "title": "Current Settings",
+        "lines": [
+          "What is in the kip right now.",
+          "Read-only - nothing here changes anything.",
+          "Press L or R for the second page with timings and fine tuning.",
+          "Handy after restoring a backup or editing the kip from hekate."
         ]
       },
       {
@@ -394,7 +394,8 @@
             "'Atmosphere'='{ams_version}'",
             "'Firmware'='{hos_version}'",
             "'Bootloader'='{hekate_version}'",
-            "'RAM'='{ram_vendor} {ram_model}'",
+            "'RAM'='{ram_vendor}'",
+            "'Model'='{ram_model}'",
             "'Size'='{ram_size_gb} GB'",
             "'CPU speedo'='{cpu_speedo}'",
             "'CPU iddq'='{cpu_iddq}'",
@@ -402,9 +403,18 @@
             "'GPU iddq'='{gpu_iddq}'",
             "'SoC speedo'='{soc_speedo}'"
           ],
-          "note": "live context: you can see what hardware you are dealing with (idea taken from Ebal)"
+          "note": "live context: you can see what hardware you are dealing with (idea taken from Ebal). Vendor and model are two rows, not one: together they ran past the right edge of the frame - the table wraps nothing, it just clips."
         }
       ]
+    },
+    {
+      "id": "reboot",
+      "title": "Reboot the console",
+      "kind": "item",
+      "commands": [
+        "reboot"
+      ],
+      "note": "Nothing written here takes effect until the console restarts, so the restart belongs next to the settings. Plain `reboot`, not `reboot boot <entry>`: hekate in 4IFIR has autoboot=1 / autoboot_list=0, so it starts the first entry of hekate_ipl.ini, which is [4mosphere]. Naming the entry would work on a stock 4IFIR and break for anyone who renamed or reordered it; letting hekate decide is both shorter and truer. It sits in the root list under Service, not inside it: a restart is not a service chore but the last step of every change made here. A plain press, no hold: a restart costs seconds and undoes nothing, and making the most routine step of the whole tuner the slowest one would be backwards."
     }
   ],
   "unassigned": {

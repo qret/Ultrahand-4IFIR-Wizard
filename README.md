@@ -40,7 +40,7 @@ you can read on a PC.
 | **eBAMATIC Stage** | the easy path. One setting for everything — the kip works out CPU, GPU and memory voltages itself, you only choose how far it goes. If unsure, change only this. |
 | **Current Settings** | what is in the kip right now, read-only. Press L or R for the second page with timings and fine tuning. |
 | **Advanced** | every parameter individually: CPU, GPU, RAM, Micro-Enhance. Each section has its own help page — press L or R. |
-| **Service** | backups, restore, full kip image, reset, system info. |
+| **Service** | backups, restore, import from the old Wizard, reset to defaults, system info. |
 
 Nothing takes effect until you restart the console.
 
@@ -120,6 +120,11 @@ A saved configuration records the layout it was taken on, and will not be applie
 **Voltage settings offer the range the firmware actually accepts.** Both donor packages
 shipped narrower lists — and on parts of the GPU curve the value the firmware itself ships
 was not in the list at all, so a changed point could not be put back.
+
+**Settings saved by the old 4IFIR Wizard can be carried over.** `Service -> Import old
+4IFIR backup` reads the copies it left in `atmosphere/kips/kip-json` and turns them into
+a copy in this package's own format. The import writes nothing to the kip: you review the
+result like any other copy and apply it from `Restore backup`.
 
 **Settings are filtered by revision.** Mariko consoles don't see Erista-only fields and
 vice versa. The original showed everything at once.
@@ -390,7 +395,7 @@ your console. Use at your own risk.
 | **eBAMATIC Stage** | лёгкий путь. Одна настройка на всё — kip сам считает напряжения CPU, GPU и памяти, вы выбираете только насколько далеко зайти. Если не уверены — меняйте только это. |
 | **Current Settings** | что сейчас в kip, только чтение. L или R — вторая страница с таймингами и тонкой настройкой. |
 | **Advanced** | каждый параметр отдельно: CPU, GPU, RAM, Micro-Enhance. У каждого раздела своя страница справки — L или R. |
-| **Service** | бэкапы, восстановление, полный образ kip, сброс, информация о консоли. |
+| **Service** | копии настроек, восстановление, импорт из старого визарда, сброс к заводским, информация о консоли. |
 
 Ничего не вступает в силу до перезагрузки консоли.
 
@@ -470,6 +475,11 @@ your console. Use at your own risk.
 **Настройки напряжения предлагают тот диапазон, который принимает прошивка.** Оба
 пакета-донора отгружали более узкие списки — а на части кривой GPU в списке отсутствовало
 даже то значение, которое ставит сама прошивка, и сдвинутую точку нельзя было вернуть.
+
+**Настройки, сохранённые старым 4IFIR Wizard, можно перенести.** `Service -> Import old
+4IFIR backup` читает копии, оставленные им в `atmosphere/kips/kip-json`, и превращает их
+в копию нашего формата. Импорт в kip ничего не пишет: результат вы смотрите как любую
+другую копию и применяете из `Restore backup`.
 
 **Настройки фильтруются по ревизии.** Mariko не видит полей, которые есть только у Erista,
 и наоборот. Оригинал показывал всё сразу.

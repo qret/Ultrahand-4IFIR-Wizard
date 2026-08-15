@@ -645,13 +645,19 @@ function emitBackup(item, lines) {
 
     lines.push(`[*Delete backup?${rev}]`)
     lines.push(';mode=option')
-    // Удержание A, как у применения. Удаление необратимо и подтверждения не спрашивает,
-    // а список копий стоит рядом со списком выбора — промахнуться на один пункт легко.
-    // Асимметрия была прямая: применить копию требовало удержания, стереть — одного нажатия.
+    // Удержание A остаётся: удаление необратимо и подтверждения не спрашивает,
+    // а список копий соседствует со списком выбора — промахнуться на пункт легко.
     lines.push(';hold=true')
     lines.push(`;system=${rev}`)
     lines.push(`file_source ${dir}/*.ini`)
     lines.push(`delete {file_source}`)
+    // ОТВЕТ НА ЭКРАНЕ — В ДОПОЛНЕНИЕ К УДЕРЖАНИЮ, А НЕ ВЗАМЕН.
+    //
+    // Раньше пункт не отвечал ВООБЩЕ ничем: строка списка у `;mode=option` текст
+    // не показывает (NOTES №115), и человек не знал, стёрлось ли. Удержание защищает
+    // от промаха ДО действия, сообщение подтверждает ПОСЛЕ — это разные роли, и одно
+    // другое не заменяет.
+    lines.push(`notify 'Done - Deleted' 22 4000`)
     lines.push('')
 
     emitImport(lines, rev, dir)
@@ -735,9 +741,19 @@ function emitImport(lines, rev, dir) {
   const freqRow = imp.find(r => r.name === 'RAM MHz')
   const balRow = imp.find(r => r.name === 'EMC Balance')
 
+  // УДЕРЖАНИЯ ЗДЕСЬ НЕТ — И ЭТО НЕ УПУЩЕНИЕ.
+  //
+  // Удержание — плата за необратимость, а импорт ничего не ломает: он читает чужой json
+  // и создаёт РЯДОМ копию в нашем формате. Kip он не трогает вовсе — применение остаётся
+  // отдельным шагом в «Restore backup». Случайное нажатие здесь стоит одного лишнего файла.
+  //
+  // Была и вторая причина, практическая. С удержанием правая колонка строки оставалась
+  // пустой: ни галочки, ни крестика, ни песочных часов, — то есть человек не понимал,
+  // сработало ли. Разбор в NOTES №113: у движка две копии логики завершения, и для
+  // пунктов `;mode=option` общая из них показывает не отметку, а сохранённую подпись.
+  // Поэтому подпись мы и ставим сами, последней командой.
   lines.push(`[*Import old 4IFIR backup?${rev}]`)
   lines.push(';mode=option')
-  lines.push(';hold=true')
   lines.push(`;system=${rev}`)
   lines.push(`file_source ${SRC}/*.json`)
   lines.push(`json_file '{file_source}'`)
@@ -761,7 +777,21 @@ function emitImport(lines, rev, dir) {
   lines.push(`set-ini-val '${path}' Meta source '{file_name}'`)
   lines.push(`set-ini-val '${path}' Meta fields '${rows.length}'`)
   for (const r of rows) lines.push(`set-ini-val '${path}' Fields ${r.off} '${r.expr}'`)
-  lines.push(`set-footer 'imported - apply it from Restore backup'`)
+  // ОТВЕТ ЧЕЛОВЕКУ — ЭКРАННЫМ СООБЩЕНИЕМ, А НЕ ПОДПИСЬЮ ПУНКТА.
+  //
+  // Подпись через `set-footer` садится НЕ туда, где человек её ждёт: движок пишет её
+  // на РОДИТЕЛЬСКИЙ пункт меню (`main.cpp:565-590`), а не на строку файла, где шла
+  // работа. На экране это выглядело как «done» рядом с названием раздела.
+  //
+  // `notify` рисует сообщение поверх открытого списка — в тот момент и на том экране,
+  // где человек находится. Оно не зависит ни от режима пункта, ни от правой колонки,
+  // ни от того, какая из двух копий логики завершения отработает.
+  //
+  // Приём не наш: так сделано в чужом пакете `Ebal/…/Memory Kit/memory_hack.ini:53-66`,
+  // в такой же секции-селекторе. И он снимает старое ограничение — узкая правая колонка
+  // длинный текст обрезала, а сообщение переносит по словам, поэтому подсказка про
+  // следующий шаг вернулась целиком.
+  lines.push(`notify 'Imported - apply it from Restore backup' 22 4000`)
   lines.push('')
   stats.imported = (stats.imported ?? 0) + rows.length
 }
@@ -789,6 +819,11 @@ function emitAction(item, lines) {
 
   // information table — live hardware context
   if (item.info_table?.length) {
+    // Отступ ОТДЕЛЬНОЙ пустой секцией перед таблицей, а не ключом `;gap=` внутри неё.
+    // `;gap=` отводит место ПОД таблицей, а рамка рисуется вокруг всей секции вместе
+    // с заголовком — и верхним краем наезжала на кнопку, стоящую выше. Тот же приём
+    // уже применён в сводке (`emitPage`), там его вызвала та же беда.
+    lines.push('[Gap]', ';mode=table', ';background=false', ';gap=14', '')
     lines.push(`[${title}]`)
     lines.push(';mode=table')
     lines.push(';alignment=left')
@@ -852,6 +887,11 @@ function emitAction(item, lines) {
 
   lines.push(`[${title}]`)
   if (item.mode) lines.push(`;mode=${item.mode}`)
+  // Удержание A читается из карты меню. Раньше `;hold=true` умели только те места,
+  // где строки собирались руками (копии, восстановление, импорт), а ключ `hold`
+  // из menu.json терялся молча: пункт генерировался, но срабатывал от касания.
+  // Для необратимых действий это разница между «подтвердил» и «задел».
+  if (item.hold) lines.push(';hold=true')
   for (const c of cmds) lines.push(c)
   lines.push('')
   stats.actions++
@@ -1111,6 +1151,20 @@ for (const s of menu.sections) {
 }
 
 /**
+ * ПОРЯДОК СТРОК ВНУТРИ ГРУППЫ, заданный человеком, а не структурой кипа.
+ *
+ * Ключ — имя группы, значение — смещения в том порядке, в каком их читают глазами.
+ * Всё, чего здесь нет, идёт как лежит в карте полей.
+ *
+ * Для RAM порядок задан оператором: сперва то, что человек крутит (частота, режим eBal,
+ * сдвиг), потом напряжения, и в конце режим DVB. Смещения 32 и 24 — одно и то же поле
+ * «Frequency» на разных ревизиях, поэтому стоят рядом: в готовую таблицу попадёт ровно одно.
+ */
+const GROUP_ORDER = {
+  RAM: [32, 24, 12352, 12360, 36, 16, 56],
+}
+
+/**
  * The "Current Settings" page — what is written in loader.kip right now.
  *
  * Nothing like it existed in 4IFIR Wizard or in Ebal: every section summarised on one screen,
@@ -1167,14 +1221,17 @@ if (kipRows.length) {
   const FROM_KIP = r => `{hex_file(CUST,${r.offset},${r.len})}`
   const FROM_INI = r => `{ini_file(Fields,${r.offset})}`
 
-  const emitGroupRows = (kl, rows, valueOf = FROM_KIP) => {
+  const emitGroupRows = (kl, rows, valueOf = FROM_KIP, scoped = false) => {
     const order = { both: 0, erista: 1, mariko: 2 }
-    const sorted = [...rows].sort((a, b) => (order[a.platform] ?? 0) - (order[b.platform] ?? 0))
-    let lastPlat = null
+    // `scoped` — таблица уже ограничена одной ревизией через `;system=`, метки внутри
+    // не нужны, а значит и сортировка по платформе не нужна: порядок строк свободен.
+    const sorted = scoped ? [...rows]
+                          : [...rows].sort((a, b) => (order[a.platform] ?? 0) - (order[b.platform] ?? 0))
+    let lastPlat = scoped ? 'skip' : null
     let lastMap = null
     for (const r of sorted) {
       const plat = r.platform === 'mariko' || r.platform === 'erista' ? r.platform : 'both'
-      if (plat !== lastPlat) {
+      if (!scoped && plat !== lastPlat) {
         if (plat !== 'both') kl.push(`${plat}:`)
         lastPlat = plat
         lastMap = null              // dictionary declarations do not survive a branch change
@@ -1199,26 +1256,80 @@ if (kipRows.length) {
       if (g && g.name === r.group) g.rows.push(r)
       else groups.push({ name: r.group, ctx: r.groupCtx, rows: [r] })
     }
-    for (const g of groups) {
-      // If EVERY row of a group belongs to one revision, the heading is tagged the same way.
-      // Without this, Mariko was left with a "Voltage Curve (Erista)" caption over an empty
-      // frame: the engine filtered the rows out but not the heading, which it cannot see.
-      const plats = new Set(g.rows.map(r => r.platform === 'mariko' || r.platform === 'erista' ? r.platform : 'both'))
-      const only = plats.size === 1 ? [...plats][0] : null
-      const sys = only && only !== 'both' ? [`;system=${only}`] : []
-
+    // Одна таблица группы: отступ, заголовок, строки.
+    const emitOne = (g, rows, sys, scoped) => {
       // A gap BEFORE the heading, not only between tables: without it the next section's
       // caption was printed flush against the previous frame and overlapped it.
       kl.push('[Gap]', ';mode=table', ';background=false', ...sys, ';gap=14', '')
       kl.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ...sys,
               `'${safeName(g.name)}' = '${g.ctx ?? ''}'`, '')
       kl.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ...sys, ...src)
-      emitGroupRows(kl, g.rows, valueOf)
+      emitGroupRows(kl, rows, valueOf, scoped)
       kl.push('')
+    }
+
+    const platOf = r => (r.platform === 'mariko' || r.platform === 'erista' ? r.platform : 'both')
+
+    for (const g of groups) {
+      // If EVERY row of a group belongs to one revision, the heading is tagged the same way.
+      // Without this, Mariko was left with a "Voltage Curve (Erista)" caption over an empty
+      // frame: the engine filtered the rows out but not the heading, which it cannot see.
+      const plats = new Set(g.rows.map(platOf))
+      const only = plats.size === 1 ? [...plats][0] : null
+      const wanted = GROUP_ORDER[g.name]
+      const inOrder = rows => wanted
+        ? [...rows].sort((a, b) => wanted.indexOf(a.offset) - wanted.indexOf(b.offset))
+        : rows
+
+      if (plats.size > 1) {
+        // СМЕШАННАЯ ГРУППА ПЕЧАТАЕТСЯ ДВУМЯ ТАБЛИЦАМИ, ПО ОДНОЙ НА РЕВИЗИЮ.
+        //
+        // Иначе порядок строк не наш, а движка: метка `mariko:` действует до следующей
+        // метки и НИКОГДА не возвращается к «обеим» (utils.hpp:1319), поэтому все общие
+        // строки вынуждены идти первыми. Пока таблица была одна, «Frequency» не могла
+        // стоять первой — она платформенная, а общие лезли вперёд.
+        //
+        // Ограничение таблицы через `;system=` снимает это целиком: внутри одной ревизии
+        // меток нет, порядок свободен, и он одинаков на обеих консолях. Цена — вторая
+        // таблица в файле, из которых читателю всегда видна ровно одна.
+        for (const rev of ['mariko', 'erista']) {
+          const rows = inOrder(g.rows.filter(r => platOf(r) === 'both' || platOf(r) === rev))
+          if (rows.length) emitOne(g, rows, [`;system=${rev}`], true)
+        }
+      } else {
+        const sys = only && only !== 'both' ? [`;system=${only}`] : []
+        emitOne(g, inOrder(g.rows), sys, false)
+      }
     }
   }
 
   const main = kipRows.filter(r => !isDeep(r))
+
+  /**
+   * ВЫКЛЮЧАТЕЛЬ БЛОКА «НАПРЯЖЕНИЯ ПО РЕЖИМУ». Пока `false` — блок не печатается.
+   *
+   * Замысел был такой: Vdd2 и Vddq в кипе это ПЕРЕОПРЕДЕЛЕНИЯ, и в заводском состоянии
+   * там нули. Какое напряжение уйдёт в память на самом деле, решает связка «частота памяти
+   * + уровень eBal», и таблица этого соответствия есть только у нас. Блок показывал именно
+   * её: не что записано в кипе, а что кип выберет сам.
+   *
+   * Почему спрятан — две причины, и обе честные.
+   *
+   * 1. **Пусто у большинства.** Строка заполняется, только если частота и eBal закреплены
+   *    руками. На автомате (а это состояние по умолчанию) движку неоткуда взять реальные
+   *    значения: ни `clkrstGetClockRate`, ни `pcvGetClockRate` ему не доступны, и прошивка
+   *    свой выбор нигде не записывает. Пустая строка на видном месте хуже отсутствующей.
+   * 2. **Заголовок ничего не объяснял.** «What the mode would give» не сообщает читателю
+   *    ни что за mode, ни что за give. Название придумано от механики, а не от вопроса,
+   *    на который блок отвечает.
+   *
+   * Что нужно, чтобы вернуть: заполнять строку и на автомате — то есть либо правка движка
+   * (доступ к реальным частотам), либо честная подпись «auto — kip decides at boot» вместо
+   * пустоты; и заголовок, названный по вопросу читателя, вроде «Memory voltage the kip picks».
+   * Данные для этого никуда не делись: `emc_mode_voltage_table` в dependencies.json.
+   */
+  const SHOW_MODE_VOLTAGES = false
+
   /**
    * НАПРЯЖЕНИЯ ПАМЯТИ, КОТОРЫЕ ВЫБИРАЕТ САМ KIP.
    *
@@ -1237,6 +1348,7 @@ if (kipRows.length) {
    * Vdd2 требует и частоту, и eBal, и в таблице часть сочетаний помечена как недоступные.
    */
   function emitModeVoltages(kl) {
+    if (!SHOW_MODE_VOLTAGES) return
     const table = DEPS?.emc_mode_voltage_table
     if (!table?.rows?.length) return
 
@@ -1390,7 +1502,8 @@ if (kipRows.length) {
       { name: 'General', offsets: [12436] },
       { name: 'CPU', offsets: [12, 48, 12340] },
       { name: 'GPU', offsets: [52, 12344] },
-      { name: 'RAM', offsets: [32, 24, 16, 36, 12352, 56] },
+      // Порядок RAM берётся из одного места на весь генератор — см. GROUP_ORDER.
+      { name: 'RAM', offsets: GROUP_ORDER.RAM },
     ]
 
     pl.push('[Gap]', ';mode=table', ';background=false', ';gap=14', '')
@@ -1406,10 +1519,13 @@ if (kipRows.length) {
         .filter(r => !only || only.has(r.offset))
         .filter(r => !seen.has(r.offset) && seen.add(r.offset))
         .map(r => ({ ...r, map: rebase(r.map, depth) }))
-        // Порядок как в emitGroupRows: сперва общие, потом Erista, потом Mariko —
-        // метка ревизии действует до следующей и пишется один раз.
-        .sort((a, b) => ({ both: 0, erista: 1, mariko: 2 }[a.platform] ?? 0)
-                      - ({ both: 0, erista: 1, mariko: 2 }[b.platform] ?? 0))
+        // Сортировка по платформе нужна ТОЛЬКО когда ревизия не задана: метка `mariko:`
+        // действует до следующей и не возвращается к «обеим». Превью копии всегда знает
+        // свою ревизию (`rev`), поэтому там метки не появляются вовсе и порядок остаётся
+        // тем, что задан в PREVIEW_GROUPS.
+        .sort((a, b) => rev ? 0
+          : ({ both: 0, erista: 1, mariko: 2 }[a.platform] ?? 0)
+          - ({ both: 0, erista: 1, mariko: 2 }[b.platform] ?? 0))
       if (!rows.length) continue
 
       // Отступ ПЕРЕД заголовком, а не только между таблицами. Без него подпись группы
@@ -1450,6 +1566,15 @@ if (kipRows.length) {
       pl.push('')
     }
 
+    // Отступ ПЕРЕД кнопкой, а не только перед заметкой.
+    //
+    // Подсветка выделенного пункта рисуется выше его строки и накрывала последнюю строку
+    // заметки, стоявшей вплотную. Та же беда, что с рамкой таблицы над кнопкой (NOTES №110),
+    // только с другой стороны: там секция лезет вниз, здесь пункт лезет вверх.
+    //
+    // Пустая секция без фона — единственный способ отвести место: `;gap=` заметки отводит
+    // его ПОД её собственной рамкой, а подсветке нужен зазор снаружи.
+    pl.push('[Gap]', ';mode=table', ';background=false', ';gap=14', '')
     pl.push(...apply, '')
     write(file, pl.join('\n'))
     stats.previewPages = (stats.previewPages ?? 0) + 1
@@ -1573,10 +1698,18 @@ if (kipRows.length) {
     })
   }
 
-  // The summary is the second item, right after eBAMATIC: people open it more often than they tune.
-  const at = rootLines.findIndex(l => l.startsWith('[*Advanced]'))
+  // СВОДКА СТОИТ ПОД `Service`, по расстановке оператора.
+  //
+  // Раньше она была вторым пунктом, сразу за eBAMATIC: «открывают чаще, чем крутят».
+  // Порядок сверху вниз теперь другой и честнее: сперва то, чем меняют (eBAMATIC,
+  // Advanced), потом обслуживание, и только потом то, чем смотрят.
+  //
+  // Ищем конец блока `[*Service]`, а не начало следующего пункта: следующий пункт
+  // может исчезнуть или переехать, а свой блок кончается пустой строкой всегда.
+  const svc = rootLines.findIndex(l => l.startsWith('[*Service]'))
+  const at = svc >= 0 ? rootLines.indexOf('', svc) + 1 : -1
   const entry = ['[*Current Settings]', ';mode=forwarder', `package_source './current.ini'`, '']
-  if (at >= 0) rootLines.splice(at, 0, ...entry)
+  if (at > 0) rootLines.splice(at, 0, ...entry)
   else rootLines.push(...entry)
   stats.kipRows = kipRows.length
 }
