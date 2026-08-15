@@ -416,7 +416,7 @@
         "delete ./updater/same.flag",
         "delete ./updater/cmp.ini",
         "try:",
-        "download 'https://raw.githubusercontent.com/qret/Ultrahand-4IFIR-Wizard/main/RELEASE.ini' './updater/remote.ini'",
+        "download 'https://github.com/qret/Ultrahand-4IFIR-Wizard/releases/latest/download/RELEASE.ini' './updater/remote.ini'",
         "path_exists ./updater/remote.ini",
         "ini_file './updater/remote.ini'",
         "set-ini-val './updater/cmp.ini' V remote '{ini_file(Release Info,latest_version)}'",
@@ -437,7 +437,7 @@
         "set-footer 'check failed'",
         "refresh"
       ],
-      "note": "Скачивает наш же RELEASE.ini с raw и сравнивает с тем, что лежит в пакете. Не GitHub API: там лимит 60 запросов в час без токена, который движку не подставить, плюс известная ошибка памяти в связке json_file+download. Три ветки try: не украшение - refresh обязан выполниться в любом исходе, иначе страница не перестроится и результат не будет виден. Двойной if_null не украшение тоже: без него любой сбой читается как «всё актуально», потому что null не больше null. Разбор - docs/ONLINE-WIZARD-UPDATE.md §11.2."
+      "note": "Скачивает RELEASE.ini ИЗ САМОГО РЕЛИЗА, а не из исходников: номер версии и архив тогда лежат в одном месте и не могут разойтись и сравнивает с тем, что лежит в пакете. Не GitHub API: там лимит 60 запросов в час без токена, который движку не подставить, плюс известная ошибка памяти в связке json_file+download. Три ветки try: не украшение - refresh обязан выполниться в любом исходе, иначе страница не перестроится и результат не будет виден. Двойной if_null не украшение тоже: без него любой сбой читается как «всё актуально», потому что null не больше null. Разбор - docs/ONLINE-WIZARD-UPDATE.md §11.2."
     },
     {
       "id": "update_install",
