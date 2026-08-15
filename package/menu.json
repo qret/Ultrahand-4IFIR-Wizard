@@ -408,13 +408,76 @@
       ]
     },
     {
+      "id": "update_check",
+      "title": "Check for updates",
+      "kind": "item",
+      "commands": [
+        "delete ./updater/newer.flag",
+        "delete ./updater/same.flag",
+        "delete ./updater/cmp.ini",
+        "try:",
+        "download 'https://raw.githubusercontent.com/qret/Ultrahand-4IFIR-Wizard/main/RELEASE.ini' './updater/remote.ini'",
+        "path_exists ./updater/remote.ini",
+        "ini_file './updater/remote.ini'",
+        "set-ini-val './updater/cmp.ini' V remote '{ini_file(Release Info,latest_version)}'",
+        "ini_file './RELEASE.ini'",
+        "set-ini-val './updater/cmp.ini' V local '{ini_file(Release Info,latest_version)}'",
+        "ini_file './updater/cmp.ini'",
+        "touch './updater/{if_null({ini_file(V,remote)},error,{if_null({ini_file(V,local)},error,{if_version_>({ini_file(V,remote)},{ini_file(V,local)},newer,same)})})}.flag'",
+        "delete ./updater/error.flag",
+        "path_exists ./updater/newer.flag",
+        "set-ini-val './config.ini' 'Install update' footer '{ini_file(V,remote)}'",
+        "set-footer '{ini_file(V,remote)} available'",
+        "refresh",
+        "try:",
+        "path_exists ./updater/same.flag",
+        "set-footer 'up to date'",
+        "refresh",
+        "try:",
+        "set-footer 'check failed'",
+        "refresh"
+      ],
+      "note": "Скачивает наш же RELEASE.ini с raw и сравнивает с тем, что лежит в пакете. Не GitHub API: там лимит 60 запросов в час без токена, который движку не подставить, плюс известная ошибка памяти в связке json_file+download. Три ветки try: не украшение - refresh обязан выполниться в любом исходе, иначе страница не перестроится и результат не будет виден. Двойной if_null не украшение тоже: без него любой сбой читается как «всё актуально», потому что null не больше null. Разбор - docs/ONLINE-WIZARD-UPDATE.md §11.2."
+    },
+    {
+      "id": "update_install",
+      "title": "Install update",
+      "kind": "item",
+      "hold": true,
+      "visible_when": "path_exists ./updater/newer.flag",
+      "commands": [
+        "try:",
+        "delete /config/ultrahand/downloads/4IFIR-Wizard.zip",
+        "delete '/switch/.packages/.4IFIR Wizard_old/'",
+        "download 'https://github.com/qret/Ultrahand-4IFIR-Wizard/releases/latest/download/4IFIR-Wizard.zip' '/config/ultrahand/downloads/'",
+        "move '/switch/.packages/4IFIR Wizard/' '/switch/.packages/.4IFIR Wizard_old/'",
+        "path_exists '/switch/.packages/.4IFIR Wizard_old/package.ini'",
+        "!path_exists '/switch/.packages/4IFIR Wizard/package.ini'",
+        "unzip '/config/ultrahand/downloads/4IFIR-Wizard.zip' '/'",
+        "path_exists '/switch/.packages/4IFIR Wizard/package.ini'",
+        "delete './updater/newer.flag'",
+        "delete '/switch/.packages/.4IFIR Wizard_old/'",
+        "delete /config/ultrahand/downloads/4IFIR-Wizard.zip",
+        "notify-now 'Updated. Restart the overlay to apply.' 26 center word 8000",
+        "try:",
+        "path_exists '/switch/.packages/.4IFIR Wizard_old/package.ini'",
+        "delete '/switch/.packages/4IFIR Wizard/'",
+        "move '/switch/.packages/.4IFIR Wizard_old/' '/switch/.packages/4IFIR Wizard/'",
+        "notify-now 'Update failed. Previous version restored.' 26 center word 8000",
+        "try:",
+        "notify-now 'Update failed. Check /switch/.packages/' 26 center word 10000"
+      ],
+      "note": "Каталог бэкапа начинается с точки НАМЕРЕННО: без неё уцелевший бэкап становится вторым пакетом в меню и навсегда прописывается в packages.ini. Откат начинается с проверки бэкапа - иначе при обрыве связи до переноса безусловное удаление снесло бы живой пакет. move и delete об ошибке не сообщают вовсе, поэтому после каждого шага стоит явная проверка. Разбор - docs/ONLINE-WIZARD-UPDATE.md §11.3.",
+      "warning": "hold A - заменяет сам пакет; при обрыве питания в середине бэкап остаётся рядом, в каталоге с точкой"
+    },
+    {
       "id": "reboot",
       "title": "Reboot the console",
       "kind": "item",
       "commands": [
         "reboot"
       ],
-      "note": "Nothing written here takes effect until the console restarts, so the restart belongs next to the settings. Plain `reboot`, not `reboot boot <entry>`: hekate in 4IFIR has autoboot=1 / autoboot_list=0, so it starts the first entry of hekate_ipl.ini, which is [4mosphere]. Naming the entry would work on a stock 4IFIR and break for anyone who renamed or reordered it; letting hekate decide is both shorter and truer. It sits in the root list under Service, not inside it: a restart is not a service chore but the last step of every change made here. A plain press, no hold: a restart costs seconds and undoes nothing, and making the most routine step of the whole tuner the slowest one would be backwards."
+      "note": "Nothing written here takes effect until the console restarts, so the restart belongs next to the settings. Plain `reboot`, not `reboot boot <entry>`: hekate in 4IFIR has autoboot=1 / autoboot_list=0, so it starts the first entry of hekate_ipl.ini, which is [4mosphere]. Naming the entry would work on a stock 4IFIR and break for anyone who renamed or reordered it; letting hekate decide is both shorter and truer. It sits in the root list under Service, not inside it: a restart is not a service chore but the last step of every change made here. A plain press, no hold: a restart costs seconds and undoes nothing, and making the most routine step of the whole tuner the slowest one would be backwards. СТОИТ ПОСЛЕДНИМ НАМЕРЕННО: перезагрузка — завершение работы с тюнером, а не одно из действий наравне. Порядок закреплён проверкой в check-generated, чтобы новый пункт не оттеснил его вниз списка незаметно."
     }
   ],
   "unassigned": {

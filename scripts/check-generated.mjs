@@ -116,6 +116,27 @@ if (dupTitles.length) {
   for (const [t, n] of dupTitles) problems.push({ sev: 'CRITICAL', what: `section name "${t}" occurs ${n} times — the [boot] footers will overwrite each other` })
 } else ok.push(`section names are unique (${titles.length})`)
 
+/**
+ * ПЕРЕЗАГРУЗКА — ПОСЛЕДНИЙ ПУНКТ КОРНЯ, И ЭТО ПРОВЕРЯЕТСЯ.
+ *
+ * Решение оператора: перезапуск — завершение работы с тюнером, а не одно из действий
+ * наравне с остальными. Порядок задан в menu.json, но порядком в файле его не удержать:
+ * любой новый пункт, дописанный в конец карты, молча оттеснит перезагрузку вверх,
+ * и заметить это можно будет только на консоли.
+ */
+{
+  const rootIni = join(DIST, 'package.ini')
+  const rootSections = readFileSync(rootIni, 'utf8').split(/\r?\n/)
+  // Только ПЕРВАЯ страница: за `[@Help]` идут блоки справки, они не пункты меню.
+  // Первая `[@…]` — заголовок самой страницы, вторая — начало справки. Режем по второй.
+  const pages = rootSections.map((l, i) => (/^\[@/.test(l) ? i : -1)).filter(i => i >= 0)
+  const menuItems = rootSections.slice(0, pages[1] ?? rootSections.length)
+    .filter(l => /^\[[^@]/.test(l))
+  const last = menuItems.at(-1)
+  if (last === '[Reboot the console]') ok.push('«Reboot the console» — последний пункт корня')
+  else problems.push({ sev: 'IMPORTANT', what: `«Reboot the console» должен быть последним пунктом корня, а последний — ${last}` })
+}
+
 // ---------------------------------------------------------------- 6. boot covers what is written
 
 const bootRead = new Set()
@@ -143,7 +164,19 @@ const badPaths = []
 for (const f of iniFiles) {
   const dir = dirname(f)
   const body = readFileSync(f, 'utf8')
+  // Файлы, которые пакет создаёт САМ, во время работы: скачивает, пишет, трогает.
+  // Проверять их существование на диске бессмысленно — их там нет и не должно быть.
+  // Обновление скачивает файл и тут же его читает; прежде это давало CRITICAL,
+  // то есть проверка ругалась на верный код. Ложная тревога дороже пропущенной:
+  // к ней привыкают и перестают читать вывод целиком.
+  const madeAtRuntime = new Set(
+    [...body.matchAll(/^(?:download|download-no-retry|touch|set-ini-val|set-ini-value|cp|copy|mv|move|rename)\s+(.*)$/gm)]
+      .flatMap(m => [...m[1].matchAll(/'([^']+)'|(\S+)/g)].map(a => (a[1] ?? a[2])))
+      .filter(a => a.startsWith('./'))
+      .map(a => a.slice(2)))
+
   for (const m of body.matchAll(/(?:set-ini-val|json_file)\s+'\.\/([^']+)'/g)) {
+    if (madeAtRuntime.has(m[1])) continue
     const target = join(dir, m[1])
     // config.ini is created by the engine, so check the directory rather than the file itself
     const probe = /config\.ini$/.test(m[1]) ? dirname(target) : target

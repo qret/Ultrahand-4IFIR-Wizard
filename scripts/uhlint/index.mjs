@@ -93,6 +93,17 @@ export function parseIni(text) {
 }
 
 /** Group the rows by section, attaching each section's directives to it. */
+/**
+ * Какая команда создаёт файл и каким по счёту аргументом. Нужно, чтобы не ругаться
+ * на чтение файла, который эта же секция строкой выше и записала.
+ */
+const MAKES_FILE = new Map([
+  ['download', 1], ['download-no-retry', 1],
+  ['touch', 0], ['set-ini-val', 0], ['set-ini-value', 0], ['set-ini-key', 0],
+  ['set-json-val', 0], ['set-json-value', 0],
+  ['cp', 1], ['copy', 1], ['mv', 1], ['move', 1], ['rename', 1],
+])
+
 function groupSections(rows) {
   const sections = []
   let cur = { name: null, at: 0, rows: [], commands: [], directives: new Map() }
@@ -260,6 +271,18 @@ export function lintFile(rows, filePath, ctx) {
     }
 
     // ---- commands (in data modes the section body is data, not commands)
+    // ФАЙЛЫ, КОТОРЫЕ СОЗДАЁТ САМА ЭТА СЕКЦИЯ.
+    //
+    // Собираются до прохода по командам, а не по ходу: список внутри секции читается
+    // сверху вниз, но нам достаточно знать, что файл вообще создаётся здесь. Точный
+    // порядок ловить незачем — команду чтения ставят после команды записи, иначе она
+    // не работала бы и на консоли.
+    const madeHere = new Set()
+    for (const row of s.commands) {
+      const i = MAKES_FILE.get(row.cmd)
+      if (i != null && row.args[i]) madeHere.add(row.args[i])
+    }
+
     for (const row of s.commands) {
       if (!row.cmd) continue
       // in ;mode=table / ;mode=text the whole section body is data to display
@@ -328,6 +351,15 @@ export function lintFile(rows, filePath, ctx) {
             if (isPkgCache) {
               add(row, SEV.INFO, 'PKG-CACHE',
                 `${c}: ${p} — package UI cache, created by the engine on first open; it should not be in the sources`)
+            } else if (madeHere.has(p)) {
+              // ФАЙЛ СОЗДАЁТСЯ ВЫШЕ, В ЭТОМ ЖЕ СПИСКЕ КОМАНД.
+              //
+              // Обновление скачивает файл и тут же его читает; на диске его при проверке
+              // нет и быть не может. Прежде это давало ERROR — то есть проверка ругалась
+              // на код, который верен. Ложная тревога дороже пропущенной: к ней привыкают
+              // и перестают читать вывод целиком.
+              add(row, SEV.INFO, 'MADE-AT-RUNTIME',
+                `${c}: ${p} — файл создаётся выше в этой же секции, на диске его нет и не должно быть`)
             } else {
               add(row, SEV.ERROR, 'MISSING-FILE', `${c}: file not found — ${p}`)
             }
