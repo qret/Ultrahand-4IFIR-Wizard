@@ -427,8 +427,21 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       const restorePath = join(DIST, 'service', `restore-${rev}.ini`)
       if (from < 0 || to < 0 || !existsSync(restorePath)) { bad.push(`нет секций для ${rev}`); continue }
       const saved = new Set([...text.slice(from, to).matchAll(/Fields (\d+) /g)].map(m => Number(m[1])))
-      const writes = [...readFileSync(restorePath, 'utf8').matchAll(/CUST (\d+) \{ini_file/g)].map(m => Number(m[1]))
+      // Секция применения ОДНА, а блоков `try:` внутри неё два: первый для копий
+      // нашей раскладки, второй для импортированных. Оба обязаны писать один и тот же
+      // набор. Сперва пунктов действительно было два, но оператор указал на беду:
+      // две кнопки рядом, одна из которых на твоей копии молча ничего не делает.
+      const text2 = readFileSync(restorePath, 'utf8')
+      const sections = [...text2.matchAll(/\[Apply [^\]]+\]([\s\S]*?)(?=\n\[|$)/g)].map(m => m[1])
+      if (sections.length !== 1) bad.push(`${rev}: секций применения ${sections.length}, ожидается одна`)
+      const writesOf = t => [...t.matchAll(/CUST (\d+) \{ini_file/g)].map(m => Number(m[1]))
+      const blocks = (sections[0] ?? '').split(/^try:$/m).filter(b => writesOf(b).length)
+      if (blocks.length !== 2) bad.push(`${rev}: блоков записи ${blocks.length}, ожидается 2 (своя раскладка и импортированная)`)
+      const writes = writesOf(blocks[0] ?? '')
       const wrote = new Set(writes)
+      if (blocks[1] && String(writesOf(blocks[1])) !== String(writes)) {
+        bad.push(`${rev}: блок для импортированных копий пишет не тот же набор`)
+      }
       const lost = [...saved].filter(o => !wrote.has(o))
       const extra = [...wrote].filter(o => !saved.has(o))
       if (lost.length) bad.push(`${rev}: сохраняется, но не восстанавливается — ${lost.join(', ')}`)

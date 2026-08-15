@@ -238,5 +238,1093 @@
       "why": "The values are stored in MICROvolts (307 MHz → 485000) while marikoGpuVoltArray holds millivolts (factory 395, 420, 445…). The numbers match neither in scale nor in value — this is not the same field. Until we work out where Uberhand got them from, the curve is not imported at all: the existing one is left untouched.",
       "status": "open question, see docs/ANCHORS.md"
     }
-  ]
+  ],
+  "import_map": {
+    "_why": "Выведено scripts/make-import-map.mjs из шаблонов старого визарда. Индекс — позиция записи в файле бэкапа, offsets — куда её писать. Разделы singles/series выше остаются как размеченный вручную разбор Mariko: там пояснения, здесь машинная таблица.",
+    "mariko_curve": {
+      "base": 88,
+      "step": 4,
+      "maxIndex": 23
+    },
+    "mariko": [
+      {
+        "index": 0,
+        "name": "CPU Minimum Voltage",
+        "key": "CPU Minimum Voltage",
+        "length": 3,
+        "offsets": [
+          48
+        ]
+      },
+      {
+        "index": 1,
+        "name": "CPU Maximum Voltage",
+        "key": "CPU Maximum Voltage",
+        "length": 4,
+        "offsets": [
+          28
+        ]
+      },
+      {
+        "index": 2,
+        "name": "dCPUv",
+        "key": "dCPUv",
+        "length": 4,
+        "offsets": [
+          12348
+        ]
+      },
+      {
+        "index": 3,
+        "name": "CPU Boost Clock",
+        "key": "CPU Boost Clock",
+        "length": 4,
+        "offsets": [
+          12
+        ]
+      },
+      {
+        "index": 4,
+        "name": "Low MHz Undervolt Mode",
+        "key": "Low MHz Undervolt Mode",
+        "length": 1,
+        "offsets": [
+          40
+        ]
+      },
+      {
+        "index": 5,
+        "name": "High MHz Undervolt Mode",
+        "key": "High MHz Undervolt Mode",
+        "length": 1,
+        "offsets": [
+          12340
+        ]
+      },
+      {
+        "index": 6,
+        "name": "Speedshift",
+        "key": "Speedshift",
+        "length": 3,
+        "offsets": [
+          12336
+        ]
+      },
+      {
+        "index": 7,
+        "name": "GPU Eco Mode",
+        "key": "GPU Eco Mode",
+        "length": 1,
+        "offsets": [
+          44
+        ]
+      },
+      {
+        "index": 8,
+        "name": "GPUv",
+        "key": "GPUv",
+        "length": 3,
+        "offsets": [
+          52
+        ]
+      },
+      {
+        "index": 9,
+        "name": "GPU Over Mode",
+        "key": "GPU Over Mode",
+        "length": 4,
+        "offsets": [
+          12344
+        ]
+      },
+      {
+        "index": 10,
+        "name": "RAM MHz",
+        "key": "RAM MHz",
+        "length": 4,
+        "offsets": [
+          32
+        ]
+      },
+      {
+        "index": 11,
+        "name": "RAM Vddq",
+        "key": "RAM Vddq",
+        "length": 3,
+        "offsets": [
+          36
+        ]
+      },
+      {
+        "index": 12,
+        "name": "RAM Vdd2",
+        "key": "RAM Vdd2",
+        "length": 4,
+        "offsets": [
+          16
+        ]
+      },
+      {
+        "index": 13,
+        "name": "EMC Balance",
+        "key": "EMC Balance",
+        "length": 4,
+        "offsets": [
+          12352
+        ]
+      },
+      {
+        "index": 14,
+        "name": "eBm ST",
+        "key": "  eBm ST",
+        "length": 4,
+        "offsets": [
+          12436
+        ]
+      },
+      {
+        "index": 15,
+        "name": "EMC DVB Mode",
+        "key": "EMC DVB Mode",
+        "length": 4,
+        "offsets": [
+          56
+        ]
+      },
+      {
+        "index": 16,
+        "name": "Core Timings",
+        "key": "Core Timings",
+        "length": 1,
+        "offsets": [
+          60,
+          64,
+          68,
+          72,
+          76,
+          80,
+          84,
+          12356
+        ]
+      },
+      {
+        "index": 17,
+        "name": "Eba-shift",
+        "key": "Eba-shift",
+        "length": 1,
+        "offsets": [
+          12360
+        ]
+      },
+      {
+        "index": 18,
+        "name": "pMEH(0-11)",
+        "key": "pMEH(0-11)",
+        "length": 2,
+        "offsets": [
+          12364,
+          12368,
+          12372,
+          12376,
+          12380,
+          12384,
+          12388,
+          12392,
+          12396,
+          12400,
+          12404,
+          12408
+        ]
+      },
+      {
+        "index": 19,
+        "name": "pMEH(12-21)",
+        "key": "pMEH(12-21)",
+        "length": 2,
+        "offsets": [
+          12412,
+          12416,
+          12420,
+          12424,
+          12428,
+          12432,
+          12436,
+          12440,
+          12444,
+          12448
+        ]
+      },
+      {
+        "index": 20,
+        "name": "sMEH(0-11)",
+        "key": "sMEH(0-11)",
+        "length": 2,
+        "offsets": [
+          12460,
+          12464,
+          12468,
+          12472,
+          12476,
+          12480,
+          12484,
+          12488,
+          12492,
+          12496,
+          12500,
+          12504
+        ]
+      },
+      {
+        "index": 21,
+        "name": "sMEH(12-16)",
+        "key": "sMEH(12-16)",
+        "length": 2,
+        "offsets": [
+          12508,
+          12512,
+          12516,
+          12520,
+          12524
+        ]
+      },
+      {
+        "index": 22,
+        "name": "> GPU Voltage Table",
+        "key": "> GPU Voltage Table",
+        "length": 0,
+        "skip": "заголовок-разделитель, значения не несёт"
+      },
+      {
+        "index": 23,
+        "name": "307mhz",
+        "key": "307mhz",
+        "length": 4,
+        "table_index": 0,
+        "offsets": [
+          88
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 24,
+        "name": "921mhz",
+        "key": "921mhz",
+        "length": 4,
+        "table_index": 16,
+        "offsets": [
+          152
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 25,
+        "name": "345mhz",
+        "key": "345mhz",
+        "length": 4,
+        "table_index": 1,
+        "offsets": [
+          92
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 26,
+        "name": "960mhz",
+        "key": "960mhz",
+        "length": 4,
+        "table_index": 17,
+        "offsets": [
+          156
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 27,
+        "name": "384mhz",
+        "key": "384mhz",
+        "length": 4,
+        "table_index": 2,
+        "offsets": [
+          96
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 28,
+        "name": "998mhz",
+        "key": "998mhz",
+        "length": 4,
+        "table_index": 18,
+        "offsets": [
+          160
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 29,
+        "name": "422mhz",
+        "key": "422mhz",
+        "length": 4,
+        "table_index": 3,
+        "offsets": [
+          100
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 30,
+        "name": "1036mhz",
+        "key": "1036mhz",
+        "length": 4,
+        "table_index": 19,
+        "offsets": [
+          164
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 31,
+        "name": "460mhz",
+        "key": "460mhz",
+        "length": 4,
+        "table_index": 4,
+        "offsets": [
+          104
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 32,
+        "name": "1075mhz",
+        "key": "1075mhz",
+        "length": 4,
+        "table_index": 20,
+        "offsets": [
+          168
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 33,
+        "name": "499mhz",
+        "key": "499mhz",
+        "length": 4,
+        "table_index": 5,
+        "offsets": [
+          108
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 34,
+        "name": "1113mhz",
+        "key": "1113mhz",
+        "length": 4,
+        "table_index": 21,
+        "offsets": [
+          172
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 35,
+        "name": "537mhz",
+        "key": "537mhz",
+        "length": 4,
+        "table_index": 6,
+        "offsets": [
+          112
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 36,
+        "name": "1152mhz",
+        "key": "1152mhz",
+        "length": 4,
+        "table_index": 22,
+        "offsets": [
+          176
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 37,
+        "name": "576mhz",
+        "key": "576mhz",
+        "length": 4,
+        "table_index": 7,
+        "offsets": [
+          116
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 38,
+        "name": "1190mhz",
+        "key": "1190mhz",
+        "length": 4,
+        "table_index": 23,
+        "offsets": [
+          180
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 39,
+        "name": "614mhz",
+        "key": "614mhz",
+        "length": 4,
+        "table_index": 8,
+        "offsets": [
+          120
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 40,
+        "name": "1228mhz",
+        "key": "1228mhz",
+        "length": 4,
+        "table_index": 24,
+        "skip": "индекс 24 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 41,
+        "name": "652mhz",
+        "key": "652mhz",
+        "length": 4,
+        "table_index": 9,
+        "offsets": [
+          124
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 42,
+        "name": "1267mhz",
+        "key": "1267mhz",
+        "length": 4,
+        "table_index": 25,
+        "skip": "индекс 25 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 43,
+        "name": "691mhz",
+        "key": "691mhz",
+        "length": 4,
+        "table_index": 10,
+        "offsets": [
+          128
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 44,
+        "name": "1305mhz",
+        "key": "1305mhz",
+        "length": 4,
+        "table_index": 26,
+        "skip": "индекс 26 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 45,
+        "name": "729mhz",
+        "key": "729mhz",
+        "length": 4,
+        "table_index": 11,
+        "offsets": [
+          132
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 46,
+        "name": "1344mhz",
+        "key": "1344mhz",
+        "length": 4,
+        "table_index": 27,
+        "skip": "индекс 27 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 47,
+        "name": "768mhz",
+        "key": "768mhz",
+        "length": 4,
+        "table_index": 12,
+        "offsets": [
+          136
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 48,
+        "name": "1382mhz",
+        "key": "1382mhz",
+        "length": 4,
+        "table_index": 28,
+        "skip": "индекс 28 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 49,
+        "name": "806mhz",
+        "key": "806mhz",
+        "length": 4,
+        "table_index": 13,
+        "offsets": [
+          140
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 50,
+        "name": "1420mhz",
+        "key": "1420mhz",
+        "length": 4,
+        "table_index": 29,
+        "skip": "индекс 29 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 51,
+        "name": "844mhz",
+        "key": "844mhz",
+        "length": 4,
+        "table_index": 14,
+        "offsets": [
+          144
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 52,
+        "name": "MAXmhz",
+        "key": "MAXmhz",
+        "length": 4,
+        "table_index": 30,
+        "skip": "индекс 30 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      },
+      {
+        "index": 53,
+        "name": "883mhz",
+        "key": "883mhz",
+        "length": 4,
+        "table_index": 15,
+        "offsets": [
+          148
+        ],
+        "only_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": 3
+        }
+      }
+    ],
+    "erista": [
+      {
+        "index": 0,
+        "name": "CPU Voltage Limit",
+        "key": "CPU Voltage Limit",
+        "length": 4,
+        "offsets": [
+          20
+        ]
+      },
+      {
+        "index": 1,
+        "name": "RAM MHz",
+        "key": "RAM MHz",
+        "length": 4,
+        "offsets": [
+          24
+        ]
+      },
+      {
+        "index": 2,
+        "name": "RAM Vdd2",
+        "key": "RAM Vdd2",
+        "length": 4,
+        "offsets": [
+          16
+        ]
+      },
+      {
+        "index": 3,
+        "name": "EMC Balance",
+        "key": "EMC Balance",
+        "length": 4,
+        "offsets": [
+          12352
+        ]
+      },
+      {
+        "index": 4,
+        "name": "eBm ST",
+        "key": "  eBm ST",
+        "length": 4,
+        "offsets": [
+          12436
+        ]
+      },
+      {
+        "index": 5,
+        "name": "Core Timings",
+        "key": "Core Timings",
+        "length": 1,
+        "offsets": [
+          60,
+          64,
+          68,
+          72,
+          76,
+          80,
+          84,
+          12356
+        ]
+      },
+      {
+        "index": 6,
+        "name": "Eba-shift",
+        "key": "Eba-shift",
+        "length": 1,
+        "offsets": [
+          12360
+        ]
+      },
+      {
+        "index": 7,
+        "name": "pMEH(0-11)",
+        "key": "pMEH(0-11)",
+        "length": 2,
+        "offsets": [
+          12364,
+          12368,
+          12372,
+          12376,
+          12380,
+          12384,
+          12388,
+          12392,
+          12396,
+          12400,
+          12404,
+          12408
+        ]
+      },
+      {
+        "index": 8,
+        "name": "pMEH(12-21)",
+        "key": "pMEH(12-21)",
+        "length": 2,
+        "offsets": [
+          12412,
+          12416,
+          12420,
+          12424,
+          12428,
+          12432,
+          12436,
+          12440,
+          12444,
+          12448
+        ]
+      },
+      {
+        "index": 9,
+        "name": "sMEH(0-11)",
+        "key": "sMEH(0-11)",
+        "length": 2,
+        "offsets": [
+          12460,
+          12464,
+          12468,
+          12472,
+          12476,
+          12480,
+          12484,
+          12488,
+          12492,
+          12496,
+          12500,
+          12504
+        ]
+      },
+      {
+        "index": 10,
+        "name": "sMEH(12-16)",
+        "key": "sMEH(12-16)",
+        "length": 2,
+        "offsets": [
+          12508,
+          12512,
+          12516,
+          12520,
+          12524
+        ]
+      },
+      {
+        "index": 11,
+        "name": "> GPU Voltage Table",
+        "key": "> GPU Voltage Table",
+        "length": 0,
+        "skip": "заголовок-разделитель, значения не несёт"
+      },
+      {
+        "index": 12,
+        "name": "192mhz",
+        "key": "192mhz",
+        "length": 4,
+        "offsets": [
+          5424
+        ]
+      },
+      {
+        "index": 13,
+        "name": "230mhz",
+        "key": "230mhz",
+        "length": 4,
+        "offsets": [
+          5480
+        ]
+      },
+      {
+        "index": 14,
+        "name": "268mhz",
+        "key": "268mhz",
+        "length": 4,
+        "offsets": [
+          5536
+        ]
+      },
+      {
+        "index": 15,
+        "name": "307mhz",
+        "key": "307mhz",
+        "length": 4,
+        "offsets": [
+          5592
+        ]
+      },
+      {
+        "index": 16,
+        "name": "345mhz",
+        "key": "345mhz",
+        "length": 4,
+        "offsets": [
+          5648
+        ]
+      },
+      {
+        "index": 17,
+        "name": "384mhz",
+        "key": "384mhz",
+        "length": 4,
+        "offsets": [
+          5704
+        ]
+      },
+      {
+        "index": 18,
+        "name": "422mhz",
+        "key": "422mhz",
+        "length": 4,
+        "offsets": [
+          5760
+        ]
+      },
+      {
+        "index": 19,
+        "name": "460mhz",
+        "key": "460mhz",
+        "length": 4,
+        "offsets": [
+          5816
+        ]
+      },
+      {
+        "index": 20,
+        "name": "499mhz",
+        "key": "499mhz",
+        "length": 4,
+        "offsets": [
+          5872
+        ]
+      },
+      {
+        "index": 21,
+        "name": "537mhz",
+        "key": "537mhz",
+        "length": 4,
+        "offsets": [
+          5928
+        ]
+      },
+      {
+        "index": 22,
+        "name": "576mhz",
+        "key": "576mhz",
+        "length": 4,
+        "offsets": [
+          5984
+        ]
+      },
+      {
+        "index": 23,
+        "name": "614mhz",
+        "key": "614mhz",
+        "length": 4,
+        "offsets": [
+          6040
+        ]
+      },
+      {
+        "index": 24,
+        "name": "652mhz",
+        "key": "652mhz",
+        "length": 4,
+        "offsets": [
+          6096
+        ]
+      },
+      {
+        "index": 25,
+        "name": "691mhz",
+        "key": "691mhz",
+        "length": 4,
+        "offsets": [
+          6152
+        ]
+      },
+      {
+        "index": 26,
+        "name": "729mhz",
+        "key": "729mhz",
+        "length": 4,
+        "offsets": [
+          6208
+        ]
+      },
+      {
+        "index": 27,
+        "name": "768mhz",
+        "key": "768mhz",
+        "length": 4,
+        "offsets": [
+          6264
+        ]
+      },
+      {
+        "index": 28,
+        "name": "806mhz",
+        "key": "806mhz",
+        "length": 4,
+        "offsets": [
+          6320
+        ]
+      },
+      {
+        "index": 29,
+        "name": "844mhz",
+        "key": "844mhz",
+        "length": 4,
+        "offsets": [
+          6376
+        ]
+      },
+      {
+        "index": 30,
+        "name": "883mhz",
+        "key": "883mhz",
+        "length": 4,
+        "offsets": [
+          6432
+        ]
+      },
+      {
+        "index": 31,
+        "name": "921hz",
+        "key": "921hz",
+        "length": 4,
+        "offsets": [
+          6488
+        ]
+      },
+      {
+        "index": 32,
+        "name": "960mhz",
+        "key": "960mhz",
+        "length": 4,
+        "offsets": [
+          6544
+        ]
+      },
+      {
+        "index": 33,
+        "name": "998mhz",
+        "key": "998mhz",
+        "length": 4,
+        "offsets": [
+          6600
+        ]
+      },
+      {
+        "index": 34,
+        "name": "1036mhz",
+        "key": "1036mhz",
+        "length": 4,
+        "offsets": [
+          6656
+        ]
+      },
+      {
+        "index": 35,
+        "name": "1075mhz",
+        "key": "1075mhz",
+        "length": 4,
+        "offsets": [
+          6712
+        ]
+      },
+      {
+        "index": 36,
+        "name": "1113mhz",
+        "key": "1113mhz",
+        "length": 4,
+        "offsets": [
+          6768
+        ]
+      },
+      {
+        "index": 37,
+        "name": "1152mhz",
+        "key": "1152mhz",
+        "length": 4,
+        "offsets": [
+          6824
+        ]
+      },
+      {
+        "index": 38,
+        "name": "1190mhz",
+        "key": "1190mhz",
+        "length": 4,
+        "offsets": [
+          6880
+        ]
+      },
+      {
+        "index": 39,
+        "name": "1228mhz",
+        "key": "1228mhz",
+        "length": 4,
+        "offsets": [
+          6936
+        ]
+      },
+      {
+        "index": 40,
+        "name": "1266mhz",
+        "key": "1266mhz",
+        "length": 4,
+        "offsets": [
+          6992
+        ]
+      }
+    ]
+  }
 }

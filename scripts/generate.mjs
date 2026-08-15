@@ -22,6 +22,11 @@ const KIP = '/atmosphere/kips/loader.kip'
 const fieldsDoc = JSON.parse(readFileSync(join(ROOT, 'package', 'fields.json'), 'utf8'))
 const menu = JSON.parse(readFileSync(join(ROOT, 'package', 'menu.json'), 'utf8'))
 
+// Отображение «запись старого бэкапа -> смещения», выведенное из шаблонов 4IFIR Wizard.
+// Нет файла — нет пункта импорта: молча собрать пакет без него лучше, чем упасть.
+let IMPORT_MAP = null
+try { IMPORT_MAP = JSON.parse(readFileSync(join(ROOT, 'package', 'backup-import.json'), 'utf8')).import_map } catch {}
+
 // Версия раскладки блока CUST, под которую построена вся карта смещений. Пишется
 // в паспорт каждой копии настроек и сверяется при восстановлении: смещение — это
 // позиция в структуре, а не адрес поля по смыслу, поэтому копия с чужой версией
@@ -648,8 +653,117 @@ function emitBackup(item, lines) {
     lines.push(`file_source ${dir}/*.ini`)
     lines.push(`delete {file_source}`)
     lines.push('')
+
+    emitImport(lines, rev, dir)
   }
   stats.actions++
+}
+
+/**
+ * ИМПОРТ КОПИИ ИЗ СТАРОГО ВИЗАРДА.
+ *
+ * Что делает: читает файл из `atmosphere/kips/kip-json/`, где старый 4IFIR Wizard хранил
+ * свои копии, и превращает его в НАШ формат — обычный ini рядом с остальными копиями.
+ *
+ * **В kip при этом не пишется ничего.** Это главное решение: импорт создаёт файл, а
+ * применяет его человек уже через обычное «Restore backup», где перед записью показывается
+ * содержимое. Ошибка в отображении даёт неверный ini, который видно глазами, а не тихую
+ * запись в загрузчик.
+ *
+ * Откуда отображение: `package/backup-import.json`, раздел `import_map`, выведенный
+ * скриптом из шаблонов старого визарда. Правило вывода проверено на Mariko — совпало
+ * 54 имени из 54 с реальным файлом.
+ *
+ * Три вещи, которые здесь делаются намеренно:
+ *
+ * 1. `kipver=imported`. Старый формат версию раскладки не хранил, и выдумывать её нельзя.
+ *    Обычное применение такую копию отвергнет; для неё есть отдельный пункт с предупреждением.
+ * 2. Имя строится из значений САМОГО файла, а не из живого kip: копия описывает то, что
+ *    в ней лежит, а не то, что сейчас на консоли.
+ * 3. Точки кривой переносятся только при `GPU Eco Mode = 3`. В остальных режимах старый
+ *    инструмент писал их из совсем других таблиц и в микровольтах — проверено численно,
+ *    у `Default.json` (режим 0) совпадение с нашей кривой 1 из 31.
+ */
+function emitImport(lines, rev, dir) {
+  const imp = IMPORT_MAP?.[rev]
+  if (!imp?.length) return
+
+  const SRC = '/atmosphere/kips/kip-json'
+  // Ширина значения приводится к ширине поля одним выражением: дописываем нули справа
+  // и берём нужное число знаков. Так решаются оба случая сразу — и слишком длинное
+  // значение (в старом формате многие поля по 4 байта), и слишком короткое.
+  // ЗАЩИТА ОТ ОТСУТСТВУЮЩЕЙ ЗАПИСИ. Если ключа в файле нет, `json_file` возвращает
+  // литерал `null`. Без обёртки он дополнился бы нулями до «NULL00» — а это уже не
+  // сентинел, и восстановление записало бы его в kip как hex. Поэтому: нет значения —
+  // остаётся ровно `null`, и запись пропускается (`handleHexByCustom`, utils.hpp:4560).
+  const fit = (expr, len) => `{if_==(${expr},null,null,{slice(${expr}000000,0,${len * 2})})}`
+  const val = (row, k = 0) => `{json_file(${row.index},${row.key})}`
+
+  // поле «GPU Eco Mode» нужно как условие для точек кривой
+  const eco = imp.find(r => r.name === 'GPU Eco Mode')
+
+  const rows = []
+  for (const r of imp) {
+    if (r.skip || !r.offsets?.length) continue
+    r.offsets.forEach((off, i) => {
+      const f = fieldsDoc.fields.find(x => x.offset === off)
+      if (!f) return                                  // чего нет в карте, того не пишем
+      if (BLACKLIST.has(off)) return
+      const len = f.length ?? 3
+      // элемент упакованного ряда вырезается по позиции: ширина внутри ряда постоянна
+      // ШИРИНА В ЗНАКАХ, А НЕ В БАЙТАХ. В шаблоне `length` — длина поля в байтах,
+      // а в строке элемент занимает вдвое больше знаков плюс запятую-разделитель.
+      // Первая версия брала байты за знаки, и срез попадал НА ЗАПЯТУЮ: у ряда
+      // `0000,0200,…` элементом 1 выходило «0,». Такое уезжало в kip как hex,
+      // и консоль переставала грузиться. Поймано на живой консоли оператором.
+      const w = r.length * 2                 // знаков на элемент
+      const stride = w + 1                   // плюс разделитель
+      const src = r.offsets.length > 1
+        ? `{slice(${val(r)},${i * stride},${i * stride + w})}`
+        : val(r)
+      let expr = fit(src, len)
+      // условие по режиму — только для точек кривой Mariko
+      if (r.only_when && eco) {
+        expr = `{if_==({json_file(${eco.index},${eco.key})},${r.only_when.equals},${expr},null)}`
+      }
+      rows.push({ off, expr })
+    })
+  }
+  if (!rows.length) return
+
+  // частота памяти и eBal — для имени файла, читаются из самого json
+  const freqRow = imp.find(r => r.name === 'RAM MHz')
+  const balRow = imp.find(r => r.name === 'EMC Balance')
+
+  lines.push(`[*Import old 4IFIR backup?${rev}]`)
+  lines.push(';mode=option')
+  lines.push(';hold=true')
+  lines.push(`;system=${rev}`)
+  lines.push(`file_source ${SRC}/*.json`)
+  lines.push(`json_file '{file_source}'`)
+  lines.push(`mkdir ${dir}`)
+  lines.push(`ini_file './config.ini'`)
+  if (freqRow && balRow) {
+    lines.push(`set-ini-val './config.ini' Import Khz '{hex_to_decimal({hex_to_rhex(${fit(val(freqRow), 3)})})}'`)
+    lines.push(`set-ini-val './config.ini' Import Bal '{hex_to_decimal({hex_to_rhex(${fit(val(balRow), 3)})})}'`)
+    lines.push(`set-ini-val './config.ini' Import Mhz '{math({ini_file(Import,Khz)}/1000,true)}'`)
+    lines.push(`set-ini-val './config.ini' Import Freq '{if_==({ini_file(Import,Khz)},0,auto,{ini_file(Import,Mhz)}mhz)}'`)
+    lines.push(`set-ini-val './config.ini' Import Bals '{if_==({ini_file(Import,Bal)},0,auto,eBal{ini_file(Import,Bal)})}'`)
+    lines.push(`set-ini-val './config.ini' Import Path '${dir}/{ini_file(Import,Freq)}-{ini_file(Import,Bals)}-imported-{timestamp(%d-%m-%y-%H%M%S)}.ini'`)
+  } else {
+    lines.push(`set-ini-val './config.ini' Import Path '${dir}/imported-{timestamp(%d-%m-%y-%H%M%S)}.ini'`)
+  }
+  const path = `{ini_file(Import,Path)}`
+  lines.push(`set-ini-val '${path}' Meta revision '${rev}'`)
+  lines.push(`set-ini-val '${path}' Meta kipver 'imported'`)
+  lines.push(`set-ini-val '${path}' Meta created '{timestamp("%Y-%m-%d %H:%M")}'`)
+  lines.push(`set-ini-val '${path}' Meta ram '{ram_vendor} {ram_model}'`)
+  lines.push(`set-ini-val '${path}' Meta source '{file_name}'`)
+  lines.push(`set-ini-val '${path}' Meta fields '${rows.length}'`)
+  for (const r of rows) lines.push(`set-ini-val '${path}' Fields ${r.off} '${r.expr}'`)
+  lines.push(`set-footer 'imported - apply it from Restore backup'`)
+  lines.push('')
+  stats.imported = (stats.imported ?? 0) + rows.length
 }
 
 /**
@@ -1245,7 +1359,7 @@ if (kipRows.length) {
     //
     // `polling` нужен только там, где источник меняется по ходу дела (выбор копии).
     // У заводского снимка файл неизменный, и опрос раз в секунду просто жёг бы батарею.
-    const { title, rev, source, chooser, apply, note, depth = 0, only = null } = opts
+    const { title, rev, source, chooser, apply, note, note2, depth = 0, only = null } = opts
     const poll = chooser ? [';polling=true'] : []
     const pl = [`[@${safeName(title)}]`, '']
 
@@ -1395,10 +1509,28 @@ if (kipRows.length) {
         // иначе read_only-поля сохраняются и не возвращаются.
         ...backupSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
         `set-footer 'restored'`,
+        // ВТОРОЙ БЛОК — ДЛЯ ИМПОРТИРОВАННЫХ КОПИЙ, НО КНОПКА ОДНА.
+        //
+        // У копии из старого визарда версии раскладки нет: старый формат её не хранил,
+        // и в паспорте стоит `imported`. Сперва это сделали отдельным пунктом, и оператор
+        // сразу указал на беду: две кнопки рядом, одна из которых на твоей копии молча
+        // ничего не делает. Человек не обязан знать, какая ему нужна, — это должен знать
+        // пакет. Теперь пункт один, а какой блок сработает, решает паспорт файла.
+        //
+        // Предупреждение про неизвестную версию осталось, но в примечании под сводкой:
+        // его читают до нажатия, а не выбирают между кнопками вслепую.
+        'try:',
+        `matching_ini_val {ini_file(Restore,Path)} Meta kipver imported`,
+        src[1],
+        ...backupSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
+        `set-footer 'restored from an imported copy'`,
         'try:',
         `set-footer 'not applied - no backup chosen, or it is for another kip layout'`,
       ],
-      note: 'Values above are read from the selected file, not from the kip. Hold A on Apply to write them.',
+      note: 'Values above are read from the selected file, not from the kip. Hold A on Apply to write them. '
+          + 'A copy imported from the old Wizard shows "imported" as its kip layout: that format never '
+          + 'stored one. It was taken on this console, so the values are yours - but if the firmware has '
+          + 'been updated since, check the summary above before applying.',
     })
   }
 
