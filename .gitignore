@@ -12,8 +12,8 @@ toolchain/
 build/
 out/
 
-# Đ°Ń€Ń…Đ¸Đ˛Ń‹: ŃĐ±ĐľŃ€ĐľŃ‡Đ˝Ń‹Đµ Đ¸ Đ»ŃŽĐ±Ń‹Đµ Ń€ŃŃ‡Đ˝Ń‹Đµ. ĐźŃĐ±Đ»Đ¸ĐşĐ°Ń†Đ¸ŃŹ ĐľŃŃ‚Đ°Đ˝Đ°Đ˛Đ»Đ¸Đ˛Đ°ĐµŃ‚ŃŃŹ Đ˝Đ° Đ›Đ®Đ‘ĐžĐś
-# Đ˝ĐµĐľŃ‚ŃĐ»ĐµĐ¶Đ¸Đ˛Đ°ĐµĐĽĐľĐĽ Ń„Đ°ĐąĐ»Đµ Đ˛ ĐşĐľŃ€Đ˝Đµ, Đ¸ Đ·Đ°Đ±Ń‹Ń‚Ń‹Đą Ń€ŃŹĐ´ĐľĐĽ .rar Đ±Đ»ĐľĐşĐ¸Ń€ĐľĐ˛Đ°Đ» Ń€ĐµĐ»Đ¸Đ·.
+# archives, built or hand-made: publishing stops on ANY untracked file in the
+# root, and a forgotten .rar next to it once blocked a release
 *.rar
 *.zip
 *.7z
@@ -26,7 +26,7 @@ out/
 *.lst
 *.map
 
-# switch binaries â€” never commit these
+# switch binaries — never commit these
 *.ovl
 *.nro
 *.nsp
