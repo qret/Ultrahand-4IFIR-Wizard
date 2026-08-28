@@ -137,6 +137,49 @@ if (dupTitles.length) {
   else problems.push({ sev: 'IMPORTANT', what: `«Reboot the console» должен быть последним пунктом корня, а последний — ${last}` })
 }
 
+/**
+ * ВИДЖЕТ СУЖАЕТ ШАПКУ ВТРОЕ — И ЭТО ЗАМЕЧАЕТСЯ ТОЛЬКО НА КОНСОЛИ.
+ *
+ * Директива `;show_widget=true` включает часы и датчики в шапке, а заодно урезает бокс
+ * под название и подпись с 408 пикселей до 214 (`tesla.hpp:6770`, константа приколочена).
+ * Что не влезло — уезжает бегущей строкой; обрезки многоточием в шапке нет.
+ *
+ * Замерено по фотографиям экрана:
+ *   «4IFIR Wizard» кеглем 32 ≈ 195 px — влезает в 214 с запасом в один символ;
+ *   подпись «<версия> ⋮ Ultrahand Package» кеглем 15 — «Ultrahand Package» сам по себе
+ *   ≈ 138 px, значит на версию остаётся около ВОСЬМИ ЗНАКОВ.
+ *
+ * Сейчас виджета у нас нет, поэтому бокс 408 и всё влезает. Проверка нужна на будущее:
+ * тот, кто включит виджет, узнает о бюджете здесь, а не по фотографии с консоли.
+ *
+ * Рецепт готов и лежит в `NOTES.md` №148 — правки на одну строку каждая.
+ */
+{
+  const rootIni = readFileSync(join(DIST, 'package.ini'), 'utf8')
+  if (/^;show_widget\s*=\s*true/mi.test(rootIni)) {
+    const ver = rootIni.match(/^;version='([^']*)'/m)?.[1] ?? ''
+    const title = rootIni.match(/^;display_title='([^']*)'/m)
+               ?? rootIni.match(/^;title='([^']*)'/m)
+    const name = title?.[1] ?? ''
+    if (ver.length > 8) {
+      problems.push({ sev: 'IMPORTANT', what:
+        `виджет включён, а версия в шапке ${ver.length} знаков (бюджет ~8) — подпись уедет бегущей строкой. Рецепт: NOTES №148` })
+    }
+    if (name.length > 13) {
+      problems.push({ sev: 'IMPORTANT', what:
+        `виджет включён, а имя в шапке «${name}» длиннее 13 знаков — может уехать. Лечится ;display_title=, рецепт: NOTES №148` })
+    }
+    // Виджет НЕ наследуется через форвардер — директива нужна в каждом ini.
+    const withWidget = iniFiles.filter(f => /^;show_widget\s*=\s*true/mi.test(readFileSync(f, 'utf8')))
+    if (withWidget.length < iniFiles.filter(f => /package\.ini$/.test(f)).length) {
+      problems.push({ sev: 'IMPORTANT', what:
+        `;show_widget= стоит не во всех package.ini (${withWidget.length}) — на подстраницах виджет пропадёт: директива через форвардер не наследуется` })
+    }
+  } else {
+    ok.push('виджет выключен — под название и подпись все 408 пикселей')
+  }
+}
+
 // ---------------------------------------------------------------- 6. boot covers what is written
 
 const bootRead = new Set()
@@ -209,7 +252,7 @@ if (badPaths.length) {
   // не сбрасывал вовсе. Проверяем каждую ревизию отдельно: она обязана писать ровно свою
   // долю снимка — не меньше (иначе разгон переживёт сброс) и не больше (иначе в kip
   // уедет значение поля, которого на этой консоли нет).
-  const sections = [...resetIni.matchAll(/\[Apply factory defaults\?(\w+)\]([\s\S]*?)(?=\n\[|$)/g)]
+  const sections = [...resetIni.matchAll(/\[Apply factory defaults[^\]?]*\?(\w+)\]([\s\S]*?)(?=\n\[|$)/g)]
 
   if (!sections.length) {
     problems.push({ sev: 'CRITICAL', what: 'страница сброса service/reset.ini не найдена или в ней нет пунктов [Apply factory defaults?<ревизия>]' })

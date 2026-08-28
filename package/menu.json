@@ -426,7 +426,7 @@
         "touch './updater/{if_null({ini_file(V,remote)},error,{if_null({ini_file(V,local)},error,{if_version_>({ini_file(V,remote)},{ini_file(V,local)},newer,same)})})}.flag'",
         "delete ./updater/error.flag",
         "path_exists ./updater/newer.flag",
-        "set-ini-val './config.ini' 'Install update' footer '{ini_file(V,remote)}'",
+        "set-ini-val './config.ini' 'Install update ' footer '{ini_file(V,remote)}'",
         "set-footer '{ini_file(V,remote)} available'",
         "refresh",
         "try:",

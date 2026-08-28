@@ -43,6 +43,26 @@ const KIPVER_HEX = KIPVER.toString(16).toUpperCase().padStart(2, '0')
 const KIP_OK = `matching_hex_val_custom ${KIP} CUST 4 ${KIPVER_HEX}`
 
 /**
+ * ЗНАЧОК «УДЕРЖИВАТЬ A» — два глифа приватной области шрифта Nintendo Extended:
+ * дуга-удержание и кнопка A. Пишутся сырыми символами, не escape-последовательностью:
+ * разбор ini их не понимает, а файлы мы пишем в UTF-8 без метки порядка байтов.
+ *
+ * СТАВИТСЯ В ИМЯ ПУНКТА, А НЕ В ПОДПИСЬ. Правая колонка не годится: `;footer=` —
+ * лишь начальное значение, движок переносит его в `config.ini` при первой отрисовке
+ * и дальше читает оттуда. Первый же `set-footer` замораживает подпись навсегда,
+ * а он есть у всех наших пунктов с удержанием.
+ *
+ * Приём не выдуман: так сделан штатный «Shutdown» самого движка — он не код,
+ * а сгенерированный ini-файл с этими же байтами в имени секции. И так же
+ * в чужом пакете Ebal (`Memory Kit/memory_hack.ini:80`).
+ *
+ * ВАЖНО ПРО ПОРЯДОК: у пунктов с суффиксом ревизии глиф обязан стоять ДО `?`.
+ * Тег режется при отрисовке имени, а из подписи не режется никогда — `[Имя?rev - ГЛИФ]`
+ * показал бы «ГЛИФ?rev».
+ */
+const HOLD_A = ''
+
+/**
  * УСЛОВИЕ ВИДИМОСТИ ИЗ КАРТЫ МЕНЮ. Один ключ `visible_when`, две формы записи:
  *
  *   { offset, value }  — проверка байта в kip, как было всегда;
@@ -663,7 +683,7 @@ function emitBackup(item, lines) {
     lines.push(`package_source './restore-${rev}.ini'`)
     lines.push('')
 
-    lines.push(`[*Delete backup?${rev}]`)
+    lines.push(`[*Delete backup ${HOLD_A}?${rev}]`)
     lines.push(';mode=option')
     // Удержание A остаётся: удаление необратимо и подтверждения не спрашивает,
     // а список копий соседствует со списком выбора — промахнуться на пункт легко.
@@ -905,7 +925,8 @@ function emitAction(item, lines) {
   const cmds = [...(item.commands ?? []), ...resetCmds]
   if (!cmds.length && !item.note) return
 
-  lines.push(`[${title}]`)
+  // Значок удержания дописывается к имени сам, для любого пункта с `hold` из карты меню.
+  lines.push(`[${title}${item.hold ? ' ' + HOLD_A : ''}]`)
   // Условие видимости у пункта С КОМАНДАМИ раньше не поддерживалось вовсе: `visible_when`
   // читался только у пунктов-настроек. Пункт установки обновления без этого не спрятать.
   const vc = visCond(item.visible_when)
@@ -1622,7 +1643,7 @@ if (kipRows.length) {
         'back',
       ],
       apply: [
-        '[Apply this backup]',
+        `[Apply this backup ${HOLD_A}]`,
         // ПУНКТ ВИДЕН ВСЕГДА, И ЭТО НАМЕРЕННО.
         //
         // Раньше он прятался условием `!matching_ini_val ./config.ini Restore Path`.
@@ -1699,7 +1720,7 @@ if (kipRows.length) {
     // «вот что ставит прошивка». Теперь каждая ревизия пишет только своё, а чего снимок
     // не покрывает, сказано прямо в примечании.
     const applyFor = rev => [
-      `[Apply factory defaults?${rev}]`, ';hold=true', `;system=${rev}`,
+      `[Apply factory defaults ${HOLD_A}?${rev}]`, ';hold=true', `;system=${rev}`,
       ...src,
       ...factoryOffsets.filter(o => platOf(o) === 'both' || platOf(o) === rev)
         .map(o => `hex-by-custom-offset ${KIP} CUST ${o} {ini_file(Fields,${o})}`),
