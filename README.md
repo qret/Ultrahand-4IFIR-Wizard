@@ -13,8 +13,10 @@ replaces it.
 > **Just want to use it?** One archive from [Releases](../../releases), unpacked into
 > the root of your SD card. It contains the engine, its configuration and the tuner.
 >
-> **Already running Ultrahand?** Skip `config/ultrahand/config.ini` — it would replace
-> your key combination and settings with ours. Everything else copies over safely.
+> **Already running Ultrahand?** Skip `config/ultrahand/config.ini` and
+> `config/ultrahand/overlays.ini` — the first would replace your key combination and
+> settings with ours, the second your overlay order, stars and hidden entries.
+> Everything else copies over safely.
 >
 > This repository is for building it yourself or understanding how it works.
 
@@ -39,10 +41,17 @@ you can read on a PC.
 |---|---|
 | **eBAMATIC Stage** | the easy path. One setting for everything — the kip works out CPU, GPU and memory voltages itself, you only choose how far it goes. If unsure, change only this. |
 | **Current Settings** | what is in the kip right now, read-only. Press L or R for the second page with timings and fine tuning. |
-| **Advanced** | every parameter individually: CPU, GPU, RAM, Micro-Enhance. Each section has its own help page — press L or R. |
+| **Advanced** | every parameter individually: CPU, GPU, RAM, Micro-Enhance Logic. Sections that hold settings have a second page with help — press L or R. |
 | **Service** | backups, restore, import from the old Wizard, reset to defaults, system info. |
+| **Check for updates** | asks GitHub whether a newer build exists and says so on the spot. |
+| **Install update** | downloads and installs it. The old package is kept aside and put back if anything goes wrong. |
+| **Reboot the console** | reboots into the entry 4IFIR boots by itself. |
 
 Nothing takes effect until you restart the console.
+
+If the tuner opens on a single screen saying the kip layout does not match, the menu is
+hidden on purpose: that `loader.kip` is from another firmware, and writing into it by
+this field map would hit the wrong bytes.
 
 ### Reading the values
 
@@ -103,10 +112,11 @@ a single item: 62 writes and a reboot, no questions asked.
 revision is physically impossible — the lists don't overlap.
 
 **A saved configuration is named after what is inside it** — RAM frequency, EMC balance
-mode and the time it was taken, for example `2707mhz-eBal2-14-08-26-175334`. Copies group
+mode and the time it was taken, for example `2707-eBal2-140826-175334`. Copies group
 by frequency in the list, and a configuration left on automatic says so in its name. The
 overlay has no on-screen keyboard, so a generated name is the only thing that can describe
-a copy at all.
+a copy at all. It is kept short on purpose: a longer name runs into the selection mark
+on the right of the row.
 
 **Choosing a backup shows what is in it before anything is written.** The summary is read
 from the file, grouped by CPU, GPU and RAM, and applying is a separate hold-A item.
@@ -223,13 +233,20 @@ cd libnx && make -j$(nproc)
 sudo -E make install
 ```
 
-Clone Ultrahand **with submodules** and build:
+Clone the engine **with submodules** and build. The binary in our releases is built
+from **our fork**, branch `4ifir` — it carries our own changes, and upstream does not
+have them, so build from here to get the same engine:
 
 ```sh
-git clone --recurse-submodules https://github.com/ppkantorski/Ultrahand-Overlay.git
+git clone --recurse-submodules -b 4ifir https://github.com/qret/Ultrahand-Overlay.git
 cd Ultrahand-Overlay
 make -j$(nproc)
 ```
+
+`BUILD.txt` inside every release archive names the exact repository, branch and commit
+the shipped binary was built from. Upstream is
+<https://github.com/ppkantorski/Ultrahand-Overlay> — build from it if you want the
+original engine rather than ours.
 
 ### Two things that will bite you
 
@@ -270,8 +287,7 @@ SD card root
 **Copy `config/ultrahand/config.ini` from this repository.** Without it the engine falls
 back to its own default combination, `ZL + ZR + ▼`, and not the `L + R + ▲` this README
 promises. The file is short and every line in it is commented — it pins the key
-combination, keeps other overlays able to have their own, and holds
-`memory_expansion=false` deliberately.
+combination and keeps other overlays able to have their own.
 
 Do **not** copy `fuse.ini` from someone else's card — it holds calibration constants
 specific to one console and is generated for yours on first run.
@@ -368,8 +384,10 @@ your console. Use at your own risk.
 > **Просто хотите пользоваться?** Один архив из [Releases](../../releases),
 > распаковать в корень SD-карты. Внутри движок, его конфиг и сам тюнер.
 >
-> **Ultrahand уже стоит?** Пропустите `config/ultrahand/config.ini` — он заменит
-> вашу комбинацию открытия и настройки на наши. Всё остальное копируется спокойно.
+> **Ultrahand уже стоит?** Пропустите `config/ultrahand/config.ini` и
+> `config/ultrahand/overlays.ini` — первый заменит вашу комбинацию открытия
+> и настройки на наши, второй — ваш порядок оверлеев, звёзды и скрытые.
+> Всё остальное копируется спокойно.
 >
 > Этот репозиторий — для тех, кто хочет собрать всё сам или понять, как оно устроено.
 
@@ -394,10 +412,17 @@ your console. Use at your own risk.
 |---|---|
 | **eBAMATIC Stage** | лёгкий путь. Одна настройка на всё — kip сам считает напряжения CPU, GPU и памяти, вы выбираете только насколько далеко зайти. Если не уверены — меняйте только это. |
 | **Current Settings** | что сейчас в kip, только чтение. L или R — вторая страница с таймингами и тонкой настройкой. |
-| **Advanced** | каждый параметр отдельно: CPU, GPU, RAM, Micro-Enhance. У каждого раздела своя страница справки — L или R. |
+| **Advanced** | каждый параметр отдельно: CPU, GPU, RAM, Micro-Enhance Logic. У разделов с настройками есть вторая страница со справкой — L или R. |
 | **Service** | копии настроек, восстановление, импорт из старого визарда, сброс к заводским, информация о консоли. |
+| **Check for updates** | спрашивает у GitHub, вышла ли сборка новее, и сразу отвечает. |
+| **Install update** | скачивает и ставит её. Старый пакет откладывается в сторону и возвращается, если что-то пошло не так. |
+| **Reboot the console** | перезагружает в ту запись, которой 4IFIR грузится сам. |
 
 Ничего не вступает в силу до перезагрузки консоли.
+
+Если конфигуратор открылся одним экраном с сообщением о несовпадении раскладки kip,
+меню спрятано намеренно: этот `loader.kip` от другой прошивки, и запись по нашей
+карте полей попала бы не в те байты.
 
 ### Как читать значения
 
@@ -459,9 +484,10 @@ your console. Use at your own risk.
 физически невозможно — списки не пересекаются.
 
 **Копия настроек названа по своему содержимому** — частота памяти, режим EMC Balance
-и время снятия, например `2707mhz-eBal2-14-08-26-175334`. В списке копии группируются
+и время снятия, например `2707-eBal2-140826-175334`. В списке копии группируются
 по частоте, а оставленный автомат так и написан словом. Экранной клавиатуры в оверлее нет
 вовсе, поэтому сгенерированное имя — единственное, что вообще может рассказать о копии.
+Оно намеренно короткое: имя подлиннее наезжает на отметку выбора справа.
 
 **При выборе копии сначала видно, что в ней лежит.** Сводка читается из самого файла,
 разбита по CPU, GPU и RAM, а применение — отдельный пункт с удержанием A.
@@ -576,13 +602,20 @@ cd libnx && make -j$(nproc)
 sudo -E make install
 ```
 
-Клонируем Ultrahand **с сабмодулями** и собираем:
+Клонируем движок **с сабмодулями** и собираем. Бинарник в наших релизах собран
+из **нашего форка**, ветка `4ifir`: в нём наши правки, у апстрима их нет — значит
+и собирать надо отсюда, чтобы получить тот же движок:
 
 ```sh
-git clone --recurse-submodules https://github.com/ppkantorski/Ultrahand-Overlay.git
+git clone --recurse-submodules -b 4ifir https://github.com/qret/Ultrahand-Overlay.git
 cd Ultrahand-Overlay
 make -j$(nproc)
 ```
+
+`BUILD.txt` внутри каждого релизного архива называет точный репозиторий, ветку
+и коммит, из которых собран лежащий там бинарник. Апстрим —
+<https://github.com/ppkantorski/Ultrahand-Overlay>, собирайте из него, если нужен
+оригинальный движок, а не наш.
 
 ### Две вещи, на которых вы споткнётесь
 
@@ -622,8 +655,7 @@ tail -c 4 ovlmenu.ovl          # ULTR  — подпись Ultrahand, допис�
 **Скопируйте `config/ultrahand/config.ini` из этого репозитория.** Без него движок
 возьмёт своё умолчание `ZL + ZR + ▼`, а не обещанную этим же README комбинацию
 `L + R + ▲`. Файл короткий, каждая строка прокомментирована: он закрепляет комбинацию,
-оставляет другим оверлеям возможность иметь свои и намеренно держит
-`memory_expansion=false`.
+оставляет другим оверлеям возможность иметь свои.
 
 **Не копируйте** `fuse.ini` с чужой карты — там калибровочные константы конкретной
 консоли, для вашей он создаётся при первом запуске.

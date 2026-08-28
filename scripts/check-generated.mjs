@@ -14,7 +14,7 @@
 // Exit code: 0 — everything is in place, 1 — there are discrepancies.
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { join, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -575,6 +575,191 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     else if (wrong.length) problems.push({ sev: 'CRITICAL', what: `README обещает ${wrong.join(' и ')} смещений, в карте ${fields.length}` })
     else ok.push(`README agrees with the map on the offset count (${fields.length}, both languages)`)
   }
+}
+
+// ------------------------------------------- 18. LICENSE и NOTICE.md против паспорта сборки
+//
+// GPL v2 требует не «исходник где-то есть», а «соответствующий исходник указан однозначно».
+// В `BUILD.txt` это поле подставляется из `baseline.txt` и потому не врёт. В `LICENSE`
+// и `NOTICE.md` те же сведения были вписаны РУКАМИ — и оба файла месяцами утверждали,
+// что сборка НЕ изменена и что исходник у ppkantorski, хотя форк уже нёс нашу правку
+// (`ahead_of_upstream=1`). Три файла в одном архиве, два против третьего.
+//
+// Автоподстановки здесь быть не может: LICENSE и NOTICE.md лежат в репозитории и
+// публикуются, а не порождаются под каждый билд. Значит нужен сторож.
+{
+  // Путь ОТНОСИТЕЛЬНЫЙ, и это не стиль. Абсолютный был бы локальным путём
+  // конкретной машины, а этот файл публикуется: предохранитель `$SECRETS` в publish.ps1
+  // честно остановил публикацию на первой же попытке. Правильная реакция на такое —
+  // менять текст, а не правило (`docs/NOTES.md` №48).
+  //
+  // Сборочное окружение лежит рядом с репозиторием, на уровень выше. У постороннего
+  // его нет вовсе — и тогда проверка просто пропускается, как и задумано.
+  //
+  // Прямые слэши намеренно: Node их понимает на Windows, а обратный слэш в строке JS —
+  // это escape. Путь с обратными слэшами молча превращается в мусор с символом забоя
+  // посередине, и проверка вечно «пропускается», ничего не проверяя. Первая версия
+  // этой строки так и сделала — четвёртый случай того же класса за проект.
+  const baselinePath = join(ROOT, '..', 'WorkAround', 'out', 'baseline.txt')
+  if (!existsSync(baselinePath)) {
+    ok.push('licence-vs-passport check skipped — no baseline.txt (engine never built here)')
+  } else {
+    const bl = readFileSync(baselinePath, 'utf8')
+    const ahead = Number((bl.match(/^ahead_of_upstream\s*=\s*(\d+)/m) || [])[1] ?? NaN)
+    const srcUrl = (bl.match(/^source_url\s*=\s*(\S+)/m) || [])[1] || ''
+    for (const name of ['LICENSE', 'NOTICE.md']) {
+      const f = join(ROOT, name)
+      if (!existsSync(f)) { problems.push({ sev: 'IMPORTANT', what: `${name} не найден` }); continue }
+      const text = readFileSync(f, 'utf8')
+      const claimsUnmodified = /\bunmodified\b/i.test(text)
+      if (ahead > 0 && claimsUnmodified) {
+        problems.push({ sev: 'CRITICAL', what: `${name} называет сборку движка неизменённой, а форк ушёл от апстрима на ${ahead} — это неверное указание соответствующего исходника (GPL v2)` })
+      } else if (ahead > 0 && srcUrl && !text.includes(srcUrl)) {
+        problems.push({ sev: 'CRITICAL', what: `${name} не называет ${srcUrl} — репозиторий, из которого собран лежащий в архиве бинарник` })
+      } else {
+        ok.push(`${name} agrees with baseline.txt on the corresponding source`)
+      }
+    }
+  }
+}
+
+// ------------------------------------------- 19. Подпись словаря против того, что она запишет
+//
+// В словаре `EMC DVB Mode` жили две записи-призрака: подпись «400 mV» писала 145,
+// подпись «800 mV» — 35. Обе пришли от донора перестановкой байтов (`9001`→`9100`,
+// `2003`→`2300`) и прожили месяцы, потому что рядом стояли ПРАВИЛЬНЫЕ «400mV» и «800mV»,
+// отличавшиеся одним пробелом. Дедупликация словарей идёт по hex — и схлопывала
+// корректные дубли, а испорченные выживали ИМЕННО ПОТОМУ, что испорчены.
+//
+// Это единственный найденный класс, где пункт меню записывает не то, что обещает
+// подпись, — то самое, что README ставит проекту в заслугу. Ни uhlint, ни check-menu
+// его не видели: синтаксис безупречен, поле существует, значение в поле влезает.
+//
+// Допуск на масштаб единиц: кривая Erista хранит микровольты (600 mV = 600000),
+// частоты RAM — килогерцы с округлением подписи вниз (2707200 кГц → «2707MHz»).
+{
+  const dicts = []
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name)
+      if (e.isDirectory()) walk(p)
+      else if (e.name.endsWith('.json')) dicts.push(p)
+    }
+  }
+  walk(DIST)
+
+  const liars = []
+  for (const file of dicts) {
+    let data
+    try { data = JSON.parse(readFileSync(file, 'utf8')) } catch { continue }
+    if (!Array.isArray(data)) continue
+    for (const e of data) {
+      if (!e || typeof e.name !== 'string' || typeof e.hex !== 'string') continue
+      const m = e.name.match(/^(\d+)\s*(mV|uV|MHz|kHz)\b/)
+      if (!m || e.hex.length % 2) continue
+      const want = Number(m[1])
+      let got = 0
+      for (let i = e.hex.length - 2; i >= 0; i -= 2) got = got * 256 + parseInt(e.hex.slice(i, i + 2), 16)
+      // сама величина, она же в тысячных, она же в миллионных — с допуском на округление подписи
+      const fits = [1, 1e3, 1e6].some(k => Math.abs(got - want * k) < k)
+      if (!fits) liars.push(`${relative(ROOT, file)}: «${e.name}» запишет ${got}`)
+    }
+  }
+  if (liars.length) problems.push({ sev: 'CRITICAL', what: `подпись словаря обещает не то, что запишет: ${liars.join('; ')}` })
+  else ok.push(`every numeric dictionary label encodes the value it names (${dicts.length} dictionaries)`)
+}
+
+// ------------------------------------------- 20. Длина имени копии настроек
+//
+// В списке выбора файла строка несёт справа кружок радиоселектора, а место под текст
+// движок отмеряет так, будто значения нет: подсвеченная строка при прокрутке заходит
+// на кружок (замерено — 15 пикселей из 36; апстрим это не чинил, `tesla.hpp`,
+// `drawTruncatedText`). Лечится тем же приёмом, что и версия в шапке пакета:
+// укорачиваем ТЕКСТ, а не подгоняем чужую вёрстку.
+//
+// Проверка сторожит не «влезает» — ширину шрифта отсюда не измерить, — а РЕГРЕССИЮ:
+// имя не должно снова вырасти. Порог равен нынешнему худшему случаю, поэтому любое
+// удлинение шаблона роняет сборку и заставляет подумать ещё раз.
+{
+  const NAME_BUDGET = 26
+
+  // Раскрываем шаблон худшими значениями: длиннейшая частота, длиннейший режим eBal,
+  // и метка времени, где каждое поле формата занимает два знака.
+  const digits = n => String(n).length
+  const mhzMax = Math.max(...fields
+    .filter(f => f.name === 'RAM MHz')
+    .flatMap(f => (f.values ?? []).map(v => {
+      const le = String(v.hex).match(/../g) ?? []
+      const khz = le.reverse().reduce((a, b) => a * 256 + parseInt(b, 16), 0)
+      return digits(Math.round(khz / 1000))
+    })), 4)
+  const balMax = Math.max(...fields
+    .filter(f => f.name === 'EMC Balance')
+    .flatMap(f => (f.values ?? []).map(v => {
+      const le = String(v.hex).match(/../g) ?? []
+      return digits(le.reverse().reduce((a, b) => a * 256 + parseInt(b, 16), 0))
+    })), 1)
+
+  const freqLen = Math.max(4, mhzMax)          // «auto» либо число мегагерц
+  const balsLen = Math.max(4, 4 + balMax)      // «auto» либо «eBal» + номер
+  const stampLen = fmt => fmt.replace(/%[a-zA-Z]/g, '..').length
+
+  const paths = []
+  for (const f of iniFiles) {
+    const text = readFileSync(f, 'utf8')
+    for (const m of text.matchAll(/set-ini-val '\.\/config\.ini' \w+ Path '([^']+)'/g)) paths.push([f, m[1]])
+  }
+  if (!paths.length) problems.push({ sev: 'IMPORTANT', what: 'не нашлось ни одной строки, задающей имя копии — проверка длины ослепла' })
+
+  const tooLong = []
+  for (const [file, tpl] of paths) {
+    const name = tpl.slice(tpl.lastIndexOf('/') + 1).replace(/\.ini$/, '')
+    const len = name
+      .replace(/\{ini_file\([^,]+,Freq\)\}/g, 'x'.repeat(freqLen))
+      .replace(/\{ini_file\([^,]+,Bals\)\}/g, 'x'.repeat(balsLen))
+      .replace(/\{timestamp\(([^)]*)\)\}/g, (_, fmt) => 'x'.repeat(stampLen(fmt)))
+      .length
+    if (len > NAME_BUDGET) tooLong.push(`${relative(ROOT, file)}: ${len} знаков при бюджете ${NAME_BUDGET}`)
+  }
+  if (tooLong.length) problems.push({ sev: 'CRITICAL', what: `имя копии настроек выросло и снова полезет на кружок выбора: ${tooLong.join('; ')}` })
+  else ok.push(`backup file names stay within the ${NAME_BUDGET}-character budget (${paths.length} templates)`)
+}
+
+// ------------------------------------------- 21. Таблица не читает секцию из чужого файла
+//
+// На странице восстановления строка `File` показывала «Not available» С ПЕРВОГО ДНЯ.
+// Причина — привязка: `ini_file './config.ini'`, затем `ini_file '{ini_file(Restore,Path)}'`
+// переводит чтение на файл копии, а следующая строка спрашивала `[Restore] Name` —
+// секцию, которой в копии нет. Движок возвращает литерал `null`, а таблица подменяет
+// любое значение со словом `null` на «Not available» (`utils.hpp:1261`).
+//
+// Дефект не даёт ни ошибки, ни пустоты — он даёт правдоподобное «недоступно», которое
+// читается как свойство копии, а не как поломка экрана. Поймать его можно только так:
+// после перепривязки ни одна строка не смеет спрашивать секции, живущие в `config.ini`.
+{
+  const OWN_SECTIONS = ['Restore', 'Backup', 'Import']   // секции нашего config.ini
+  const strays = []
+  for (const f of iniFiles) {
+    let rebound = false
+    for (const raw of readFileSync(f, 'utf8').split('\n')) {
+      const line = raw.trim()
+      if (line.startsWith('[')) { rebound = false; continue }   // привязка не переживает границу секции
+      // Перепривязка — это `ini_file` с аргументом-подстановкой, а не с литеральным путём.
+      if (/^ini_file\s+'\{/.test(line)) { rebound = true; continue }
+      if (!rebound) continue
+      // Только СТРОКИ ТАБЛИЦЫ вида 'подпись' = 'значение'. Команды тоже принимают
+      // `{ini_file(Restore,Path)}`, но там это аргумент-путь, а не чтение из привязки:
+      // `matching_ini_val {ini_file(Restore,Path)} Meta kipver …` совершенно законно.
+      if (!/^'[^']*'\s*=\s*'/.test(line)) continue
+      for (const sec of OWN_SECTIONS) {
+        if (line.includes(`{ini_file(${sec},`)) {
+          strays.push(`${relative(ROOT, f)}: «${line}» читает [${sec}] уже из чужого файла`)
+        }
+      }
+    }
+  }
+  if (strays.length) problems.push({ sev: 'CRITICAL', what: `строка таблицы спрашивает секцию, которой в привязанном файле нет — на экране будет «Not available»: ${strays.join('; ')}` })
+  else ok.push('no table row reads a config.ini section after the binding moved to a data file')
 }
 
 // ---------------------------------------------------------------- output

@@ -320,14 +320,41 @@ function warningsFor(offset) {
   // Conflicts and corruption. The second offset is not always known (b = null in 12 of the
   // 20 entries), so the phrase must not lean on it — otherwise you get "conflicts with offset"
   // trailing off into nothing.
+  // Не всякий `kind` — про нашего пользователя. Часть записей описывает дефекты
+  // ДОНОРСКИХ пакетов: `missing_file` — пресеты Ebal ссылаются на файлы, которых
+  // в поставке нет; `wrong_platform` — «таблица Erista» у Ebal пишет в массив Mariko;
+  // `mislabeled_write` и `double_write` — их же промахи в микроP.ini. У нас этих
+  // дефектов нет по построению, а на экране они превращались в угрозу без причины:
+  // на «Undervolt Mode» висело «WARNING: conflicts with 307MHz» ровно из такой записи.
+  // Правило проекта: чужое предостережение не переносится, переносится факт.
+  const DONOR_ONLY = new Set(['missing_file', 'wrong_platform', 'mislabeled_write',
+                              'double_write', 'version_drift', 'undocumented_danger'])
   for (const c of DEPS.conflicts ?? []) {
     if (c.a !== n && c.b !== n) continue
     if (c.severity !== 'critical' && c.severity !== 'high') continue
+    if (DONOR_ONLY.has(c.kind)) continue
     const other = c.a === n ? c.b : c.a
-    if (c.kind === 'corruption') push('WARNING: writing here damages neighbouring data')
+    // Порча несимметрична: `a` — тот, кто портит, `b` — пострадавший. Предупреждение
+    // висело на обоих, и пользователь читал «запись сюда портит соседние данные»
+    // на совершенно безопасной точке кривой 1075MHz (168), тогда как факт — про
+    // невыровненную запись по адресу 170, которую пакет не делает никогда:
+    // 170 в чёрном списке. Пугали за то, чего не происходит.
+    if (c.kind === 'corruption') { if (c.a === n) push('WARNING: writing here damages neighbouring data') }
     else if (c.kind === 'range_disagreement') push('WARNING: sources disagree on the safe limit — raise slowly')
-    else if (other != null) push(`WARNING: conflicts with another setting in this menu`)
-    else push('WARNING: known to cause problems at non-default values')
+    // Что именно случится и с чем именно — по названию, а не намёком. Раньше все эти
+    // случаи схлопывались в одну фразу «conflicts with another setting in this menu»:
+    // она стояла на двенадцати пунктах, ни разу не называла вторую настройку и не
+    // различала «полосы на экране» и «повредит emuNAND». Это ровно та «чужая
+    // страшилка вместо факта», которую проект запретил тащить от доноров.
+    else {
+      const withWhom = other != null && byOffset.get(other)?.name ? ` — with ${byOffset.get(other).name}` : ''
+      if (c.kind === 'hardware_damage') push(`DANGER: too low a value can damage the emuNAND${withWhom}`)
+      else if (c.kind === 'data_corruption') push(`DANGER: excessive values corrupt data and give artifacts${withWhom}`)
+      else if (c.kind === 'no_boot') push(`WARNING: some memory chips will not boot at this pair${withWhom}`)
+      else if (c.kind === 'visual_artifact') push('WARNING: can make the docked screen stripe')
+      else if (withWhom) push(`WARNING: conflicts${withWhom}`)
+      else push('WARNING: known to cause problems at non-default values')
+    }
   }
 
   return [...new Set(out)]
@@ -623,7 +650,24 @@ function emitBackup(item, lines) {
     // нажатием физически не сделать.
     //
     // «Авто» показывается словом: у обоих полей автоматический режим это ноль,
-    // и `2707mhz` против `auto` читается сразу.
+    // и `2707` против `auto` читается сразу.
+    //
+    // ДЛИНА ИМЕНИ — НЕ КОСМЕТИКА, А ГРАНИЦА. В списке выбора строка файла несёт справа
+    // кружок радиоселектора, и подсвеченная строка при прокрутке заходит на него
+    // (замерено: 15 пикселей из 36). Лечится тем же способом, что и версия в шапке
+    // пакета, — текст укорачивается, а не подгоняется рамка: `docs/RELEASE.md`,
+    // «Версия на экране короче тега».
+    //
+    // Что убрано и почему именно это:
+    //   `mhz` после частоты   — частота всегда четырёхзначная, единица очевидна;
+    //   дефисы внутри даты    — `280826` читается не хуже `28-08-26`;
+    //   `imported` → `i`      — метка нужна, чтобы отличить копию в списке,
+    //                           полное слово для этого избыточно.
+    // СЕКУНДЫ ТРОГАТЬ НЕЛЬЗЯ: на них держится невозможность совпадения имён,
+    // а без неё вернулась бы цепочка `try:` с суффиксом, обрывающая секцию
+    // из девяноста записей (`docs/NOTES.md` №72).
+    //
+    // Худший случай длины стережёт проверка в `check-generated.mjs`.
     const freqField = fieldsDoc.fields.find(f => f.name === 'RAM MHz' && f.platform === rev)
     const balField = fieldsDoc.fields.find(f => f.name === 'EMC Balance')
     // Молча откатываться на имя-время нельзя: получится, что переименование поля тихо
@@ -648,10 +692,10 @@ function emitBackup(item, lines) {
     lines.push(`set-ini-val './config.ini' Backup Khz '${raw(freqField)}'`)
     lines.push(`set-ini-val './config.ini' Backup Bal '${raw(balField)}'`)
     lines.push(`set-ini-val './config.ini' Backup Mhz '{math({ini_file(Backup,Khz)}/1000,true)}'`)
-    lines.push(`set-ini-val './config.ini' Backup Freq '{if_==({ini_file(Backup,Khz)},0,auto,{ini_file(Backup,Mhz)}mhz)}'`)
+    lines.push(`set-ini-val './config.ini' Backup Freq '{if_==({ini_file(Backup,Khz)},0,auto,{ini_file(Backup,Mhz)})}'`)
     lines.push(`set-ini-val './config.ini' Backup Bals '{if_==({ini_file(Backup,Bal)},0,auto,eBal{ini_file(Backup,Bal)})}'`)
     // name first, values second — otherwise a second boundary splits the file in two
-    lines.push(`set-ini-val './config.ini' Backup Path '${dir}/{ini_file(Backup,Freq)}-{ini_file(Backup,Bals)}-{timestamp(%d-%m-%y-%H%M%S)}.ini'`)
+    lines.push(`set-ini-val './config.ini' Backup Path '${dir}/{ini_file(Backup,Freq)}-{ini_file(Backup,Bals)}-{timestamp(%d%m%y-%H%M%S)}.ini'`)
     // the backup's passport: where it came from and whether it fits this console
     lines.push(`set-ini-val '${path}' Meta revision '${rev}'`)
     // Версия раскладки блока CUST. Без неё копия, снятая на одной прошивке, молча
@@ -683,22 +727,48 @@ function emitBackup(item, lines) {
     lines.push(`package_source './restore-${rev}.ini'`)
     lines.push('')
 
-    lines.push(`[*Delete backup ${HOLD_A}?${rev}]`)
-    lines.push(';mode=option')
+    // УДАЛЕНИЕ — ЧЕРЕЗ ФОРВАРДЕР, И ЭТО НЕ КОСМЕТИКА.
+    //
+    // Значок «удерживать A» обязан стоять там, где A действительно удерживают.
+    // На этом пункте его удерживать не надо: по нажатию открывается список копий,
+    // а держат уже НА КОПИИ. Значок на входе обещал не то, что происходит.
+    //
+    // Переставить его было нельзя: у пункта-селектора имя секции работает сразу
+    // в двух местах — строкой в меню И заголовком над списком копий, который движок
+    // рисует из того же имени (`main.cpp:3868-3872`). Одна строка, два места.
+    //
+    // Поэтому пункт стал форвардером (обычный вход, без значка), а список копий
+    // переехал на свою страницу, где его секция называется со значком — и заголовок
+    // над копиями теперь говорит ровно про то нажатие, которое человек и делает.
+    // Цена — одно лишнее нажатие за визит: список после удаления остаётся открытым,
+    // и следующие копии удаляются так же, как раньше.
+    lines.push(`[*Delete backup?${rev}]`)
+    lines.push(';mode=forwarder')
+    lines.push(`;system=${rev}`)
+    lines.push(`package_source './delete-${rev}.ini'`)
+    lines.push('')
+
+    const del = [`[@Delete]`, '']
+    // Суффикс ревизии нужен даже здесь, где страницы разведены форвардерами:
+    // имена пунктов обязаны быть уникальны на весь пакет, потому что `[boot]`
+    // адресует подписи ПО ИМЕНИ. Глиф стоит ДО `?` — тег режется при отрисовке
+    // имени, а из хвоста его бы не срезало (`docs/NOTES.md` №146).
+    del.push(`[*Delete backup ${HOLD_A}?${rev}]`)
+    del.push(';mode=option')
     // Удержание A остаётся: удаление необратимо и подтверждения не спрашивает,
     // а список копий соседствует со списком выбора — промахнуться на пункт легко.
-    lines.push(';hold=true')
-    lines.push(`;system=${rev}`)
-    lines.push(`file_source ${dir}/*.ini`)
-    lines.push(`delete {file_source}`)
+    del.push(';hold=true')
+    del.push(`file_source ${dir}/*.ini`)
+    del.push(`delete {file_source}`)
     // ОТВЕТ НА ЭКРАНЕ — В ДОПОЛНЕНИЕ К УДЕРЖАНИЮ, А НЕ ВЗАМЕН.
     //
     // Раньше пункт не отвечал ВООБЩЕ ничем: строка списка у `;mode=option` текст
     // не показывает (NOTES №115), и человек не знал, стёрлось ли. Удержание защищает
     // от промаха ДО действия, сообщение подтверждает ПОСЛЕ — это разные роли, и одно
     // другое не заменяет.
-    lines.push(`notify 'Done - Deleted' 22 4000`)
-    lines.push('')
+    del.push(`notify 'Done - Deleted' 22 4000`)
+    del.push('')
+    write(`service/delete-${rev}.ini`, del.join('\n'))
 
     emitImport(lines, rev, dir)
   }
@@ -803,11 +873,11 @@ function emitImport(lines, rev, dir) {
     lines.push(`set-ini-val './config.ini' Import Khz '{hex_to_decimal({hex_to_rhex(${fit(val(freqRow), 3)})})}'`)
     lines.push(`set-ini-val './config.ini' Import Bal '{hex_to_decimal({hex_to_rhex(${fit(val(balRow), 3)})})}'`)
     lines.push(`set-ini-val './config.ini' Import Mhz '{math({ini_file(Import,Khz)}/1000,true)}'`)
-    lines.push(`set-ini-val './config.ini' Import Freq '{if_==({ini_file(Import,Khz)},0,auto,{ini_file(Import,Mhz)}mhz)}'`)
+    lines.push(`set-ini-val './config.ini' Import Freq '{if_==({ini_file(Import,Khz)},0,auto,{ini_file(Import,Mhz)})}'`)
     lines.push(`set-ini-val './config.ini' Import Bals '{if_==({ini_file(Import,Bal)},0,auto,eBal{ini_file(Import,Bal)})}'`)
-    lines.push(`set-ini-val './config.ini' Import Path '${dir}/{ini_file(Import,Freq)}-{ini_file(Import,Bals)}-imported-{timestamp(%d-%m-%y-%H%M%S)}.ini'`)
+    lines.push(`set-ini-val './config.ini' Import Path '${dir}/{ini_file(Import,Freq)}-{ini_file(Import,Bals)}-i-{timestamp(%d%m%y-%H%M%S)}.ini'`)
   } else {
-    lines.push(`set-ini-val './config.ini' Import Path '${dir}/imported-{timestamp(%d-%m-%y-%H%M%S)}.ini'`)
+    lines.push(`set-ini-val './config.ini' Import Path '${dir}/i-{timestamp(%d%m%y-%H%M%S)}.ini'`)
   }
   const path = `{ini_file(Import,Path)}`
   lines.push(`set-ini-val '${path}' Meta revision '${rev}'`)
@@ -1522,16 +1592,28 @@ if (kipRows.length) {
 
     if (chooser) pl.push(...chooser, '')
 
-    // Паспорт копии: откуда она и подходит ли этой консоли.
+    // Паспорт копии — ДВЕ СТРОКИ, и это результат разбора, а не экономии места.
+    //
+    // Было пять. Три убраны, потому что не отвечали ни на один вопрос человека:
+    //
+    //   `File`   — НЕ РАБОТАЛА НИКОГДА. Строкой выше `ini_file` перепривязан на файл
+    //              копии, а `[Restore] Name` есть только в `config.ini` пакета. Движок
+    //              возвращал литерал `null`, таблица печатала «Not available» — с первого
+    //              дня и всегда. Имя выбранной копии теперь стоит подписью на самом
+    //              пункте выбора, где его и ищут (`docs/NOTES.md` №152);
+    //   `Taken`  — дубль: дата и время уже стоят в имени файла, которое видно в списке;
+    //   `Fields` — не счёт, а КОНСТАНТА: число вписывает сюда генератор. Обрезанный файл
+    //              она поймать не может, зато обманывает — 88 значит «своя» на Erista
+    //              и «импортированная» на Mariko.
+    //
+    // Остались две, и каждая отвечает на свой вопрос перед записью в kip:
+    //   `Memory` — на какой памяти снята копия. Единственная строка, несущая то, чего
+    //              человек не знает и не может посмотреть рядом;
+    //   `Kip layout` — видно ВСЕГДА, иначе отказ применить копию выглядел бы поломкой.
+    //              На неё же ссылается заметка под сводкой, объясняя слово `imported`.
     pl.push('[Gap]', ';mode=table', ';background=false', ';gap=14', '')
     pl.push('[Info]', ';mode=table', ...poll, ';spacing=0', ';gap=0', ...source)
-    if (chooser) {
-      pl.push(`'File' = '{ini_file(Restore,Name)}'`)
-      pl.push(`'Taken' = '{ini_file(Meta,created)}'`)
-      pl.push(`'Memory' = '{ini_file(Meta,ram)}'`)
-    }
-    pl.push(`'Fields' = '{ini_file(Meta,fields)}'`)
-    // Версию видно всегда — иначе отказ применить копию выглядел бы как поломка.
+    if (chooser) pl.push(`'Memory' = '{ini_file(Meta,ram)}'`)
     pl.push(`'Kip layout' = '{ini_file(Meta,kipver)}'`, '')
 
     // Ключевые настройки — то, по чему человек и опознаёт свою копию.
@@ -1639,7 +1721,16 @@ if (kipRows.length) {
         // имя запоминается отдельным ключом: иначе пришлось бы резать путь по числу символов,
         // как делает Ebal, и любое переименование каталога поехало бы на экране
         `set-ini-val './config.ini' Restore Path '{file_source}'`,
-        `set-ini-val './config.ini' Restore Name '{file_name}'`,
+        // Имя выбранной копии — подписью на самом пункте выбора. До этого его не было
+        // на экране НИГДЕ: строка `File` в паспорте не работала, а пункт-селектор
+        // показывает справа служебный значок, а не имя файла.
+        //
+        // `set-footer` внутри списка кладёт текст РОДИТЕЛЬСКОМУ пункту — то самое
+        // поведение, которое дважды мешало нам раньше (`docs/NOTES.md` №113, №115).
+        // Здесь родитель и есть пункт выбора, поэтому оно ровно то, что нужно.
+        `set-footer '{file_name}'`,
+        // `back` последней строкой: в Ultrahand она не прерывает секцию, остаток
+        // выполнится (`docs/MIGRATION.md` §3, конфликт 3).
         'back',
       ],
       apply: [

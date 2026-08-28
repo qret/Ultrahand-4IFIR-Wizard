@@ -40,17 +40,21 @@ for the same community.
 
 ### The Ultrahand Overlay engine
 
-Release archives contain a compiled `ovlmenu.ovl`. It is an **unmodified** build of
-**Ultrahand Overlay** by **ppkantorski**, GPL v2:
+Release archives contain a compiled `ovlmenu.ovl`. It is a build of **Ultrahand
+Overlay** by **ppkantorski**, GPL v2:
 <https://github.com/ppkantorski/Ultrahand-Overlay>
 
-It is built from upstream commit **`04570e5f`** (version 2.5.3) with libnx from the
-`master` branch. `BUILD.txt` inside each archive records the exact commit, size and
-sha256 of the binary shipped there.
+**It is a modified build.** We carry our own changes on top of upstream, so the
+corresponding source is **our fork**, not upstream:
 
-The corresponding source for that binary is public at the commit named above, and also
-at our fork <https://github.com/qret/Ultrahand-Overlay>, which currently holds exactly
-that commit with no changes of our own.
+> <https://github.com/qret/Ultrahand-Overlay>, branch `4ifir`
+
+That is where the source matching the shipped binary lives. Upstream does not
+contain our changes and is therefore not the corresponding source for it.
+
+`BUILD.txt` inside each archive names the repository, the branch, the exact commit
+and the sha256 of the binary shipped in that archive — read there, not here: this
+file cannot be re-generated per build, `BUILD.txt` is.
 
 **Byte-for-byte reproduction is not possible:** the Makefile passes `-flto=$(NPROC)`, so
 the result depends on the core count of the build machine. Compare version and behaviour,

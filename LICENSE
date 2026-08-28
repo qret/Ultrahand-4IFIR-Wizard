@@ -12,11 +12,14 @@ PARTICULAR PURPOSE. See the GNU General Public License below for more details.
 --------------------------------------------------------------------------------
 WHAT THIS COVERS, AND WHAT CAME FROM OTHERS
 
-  Release archives also contain an UNMODIFIED build of Ultrahand Overlay by
-  ppkantorski (GPL v2), built from upstream commit 04570e5f, version 2.5.3.
-  Corresponding source: https://github.com/ppkantorski/Ultrahand-Overlay
-  Mirror at that same commit: https://github.com/qret/Ultrahand-Overlay
-  BUILD.txt inside each archive records the exact commit, size and sha256.
+  Release archives also contain a build of Ultrahand Overlay by ppkantorski
+  (GPL v2), version 2.5.3, MODIFIED: it carries our own changes on top of
+  upstream. The corresponding source for that binary is our fork:
+  https://github.com/qret/Ultrahand-Overlay  (branch 4ifir)
+  Upstream is https://github.com/ppkantorski/Ultrahand-Overlay - it does not
+  contain our changes and is not the corresponding source for this binary.
+  BUILD.txt inside each archive records the exact repository, branch, commit
+  and sha256 of the binary shipped there.
 
   Value dictionaries and part of the help texts originate from the 4IFIR Wizard
   package by rashevskyv and contributors (https://github.com/rashevskyv/4IFIR),
