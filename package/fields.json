@@ -563,7 +563,8 @@
         ]
       },
       "help_text": "Main memory voltage. Normally it comes from the EMC Balance mode together with the memory speed — this item overrides it with a fixed figure. Higher is not better: it is heat and wear for stability you may already have. If you are unsure, leave it and change EMC Balance instead.",
-      "help_source": "CustomizeTable source + operator, 2026-08-14"
+      "help_source": "CustomizeTable source + operator, 2026-08-14",
+      "default_label_note": "У Vdd2 единого заводского значения НЕТ: kip выбирает напряжение по режиму eBal и частоте памяти, а это смещение хранит переопределение. Слова ECO / DEFAULT / SRT в подписях — ИМЕНА ПРЕСЕТОВ из легенды прошивки, а не сообщение о том, что стоит у пользователя: каждый источник называл заводским своё (1212,5 у донора, 1275 в легенде, 1350 в живом kip). Поэтому метка «Default» здесь намеренно не ставится ни на одно значение. Разбор — docs/NOTES.md №78, №79."
     },
     {
       "offset": 20,
@@ -1145,7 +1146,7 @@
       "values": [
         {
           "hex": "000000",
-          "name": "eBamatic"
+          "name": "eBamatic — Default (automatic)"
         },
         {
           "hex": "6A0400",
@@ -1269,7 +1270,7 @@
         },
         {
           "hex": "6004",
-          "name": "1120 mV - default"
+          "name": "1120 mV"
         },
         {
           "hex": "6504",
@@ -1499,7 +1500,8 @@
           }
         ]
       },
-      "platform_source": "marikoCpuMaxVolt (customize.cpp:56)"
+      "platform_source": "marikoCpuMaxVolt (customize.cpp:56)",
+      "default_source": "заводское — автомат (000000). Подпись «default» стояла на 1120 мВ: это метка донора, и она вдобавок ниже документированного пола 1130. Исправлено 29.08.2026"
     },
     {
       "offset": 32,
@@ -18429,11 +18431,11 @@
       "values": [
         {
           "hex": "00",
-          "name": "0 - Default"
+          "name": "0"
         },
         {
           "hex": "01",
-          "name": "1 - ECO ST1"
+          "name": "1 - Default (ECO ST1)"
         },
         {
           "hex": "02",
@@ -18533,7 +18535,8 @@
             "at": "info_4IFIR.ini:117"
           }
         ]
-      }
+      },
+      "default_source": "заводское 01 по живому kip и объявлению структуры; метка стояла на 00 — исправлено 29.08.2026"
     },
     {
       "offset": 12364,
@@ -20947,11 +20950,11 @@
       "values": [
         {
           "hex": "00",
-          "name": "0 - Erista eBal=3"
+          "name": "0 - Default (Erista eBal=3)"
         },
         {
           "hex": "01",
-          "name": "1 - Default(Erista eBal=4)"
+          "name": "1 - Erista eBal=4"
         }
       ],
       "menu_path": {
@@ -21049,7 +21052,8 @@
         ]
       },
       "help_text": "pMeh 15 eFOS MK - increases the delay that occurs when switching from one memory mode to another (e.g., switching from EMC - 4ifir optimised to EMC - 4ifir optimised S).",
-      "help_source": "4IFIR Wizard Help/pMeh 15 eFOS MK.txt"
+      "help_source": "4IFIR Wizard Help/pMeh 15 eFOS MK.txt",
+      "default_source": "заводское 00 по объявлению структуры и живому kip; подпись Default стояла на 01 — исправлено 29.08.2026"
     },
     {
       "offset": 12428,
@@ -22307,7 +22311,7 @@
         },
         {
           "hex": "04",
-          "name": "4"
+          "name": "4 - Default"
         },
         {
           "hex": "05",
@@ -22320,7 +22324,7 @@
         },
         {
           "hex": "07",
-          "name": "7 - Default",
+          "name": "7",
           "name_ebal": "7"
         },
         {
@@ -22427,7 +22431,8 @@
         ]
       },
       "help_text": "sMeh 0 ARB-Boost - Provides more performance; try increasing it by a couple of steps.",
-      "help_source": "4IFIR Wizard Help/sMeh 0 ARB-Boost.txt"
+      "help_source": "4IFIR Wizard Help/sMeh 0 ARB-Boost.txt",
+      "default_source": "живой kip и объявление структуры дают 04; снимок прошивки Default.json даёт 07 и от него же шла подпись донора. Два источника против одного, эталон сброса уже содержит 04 — подпись приведена к нему 29.08.2026"
     },
     {
       "offset": 12464,

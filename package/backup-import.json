@@ -235,8 +235,8 @@
         53
       ],
       "backup_name": "voltage curve points (307mhz … 1420mhz, MAXmhz)",
-      "why": "The values are stored in MICROvolts (307 MHz → 485000) while marikoGpuVoltArray holds millivolts (factory 395, 420, 445…). The numbers match neither in scale nor in value — this is not the same field. Until we work out where Uberhand got them from, the curve is not imported at all: the existing one is left untouched.",
-      "status": "open question, see docs/ANCHORS.md"
+      "why": "The snapshot stores this block from whichever table the field GPU Eco Mode (CUST+44) points at. For modes 0, 1 and 2 that is a DVFS table and the values are MICROvolts (307 MHz -> 485000), while marikoGpuVoltArray holds MILLIvolts (factory 395, 420, 445...) - transferring them would be a thousandfold error. For mode 3 the very same block IS marikoGpuVoltArray and the values are directly transferable. RESOLVED 29.08.2026: the importer therefore carries these points, each one guarded by \"only if the backup had GPU Eco Mode = 3\"; see import_map.mariko_curve. Do not remove that guard, and do not remove the mapping either - both are needed and neither is enough alone.",
+      "status": "transferred under a guard, not skipped"
     }
   ],
   "import_map": {
@@ -1325,6 +1325,7 @@
           6992
         ]
       }
-    ]
+    ],
+    "_note": "mariko_curve is applied ONLY when the imported backup had GPU Eco Mode = 3. In every other mode the same snapshot block holds microvolts from a DVFS table and must not reach the millivolt array. The condition lives in the generated importer; the entry in skipped explains why it exists."
   }
 }

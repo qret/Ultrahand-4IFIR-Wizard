@@ -277,6 +277,21 @@ function padHex(hex, lenBytes) {
   return h.slice(0, need)
 }
 
+/**
+ * ОТСТУП НАД ЗАГОЛОВКОМ ГРУППЫ — ОДНО ЧИСЛО НА ВЕСЬ ГЕНЕРАТОР.
+ *
+ * Заголовок группы («CPU», «GPU», «RAM») отбивается сверху пустой таблицей-распоркой:
+ * ключ `;gap=` отводит место ПОД своей секцией, а рамка рисуется вокруг секции целиком,
+ * поэтому отступ приходится делать отдельной секцией, а не ключом внутри заголовка.
+ *
+ * Было 14 и смотрелось перекошенно: снизу от черты до таблицы место заметно больше,
+ * чем сверху до предыдущей рамки, и черта казалась приклеенной к ней. Оператор увидел
+ * это на снимке экрана 29.08.2026. Значение подобрано на глаз по фотографии консоли —
+ * измерить его иначе нечем, поэтому оно и вынесено сюда: подкручивается в одном месте,
+ * а не в десяти.
+ */
+const HEAD_GAP = 22
+
 const stats = { items: 0, dicts: 0, bootLines: 0, guards: 0, infoBlocks: 0, actions: 0, resetFields: 0, packages: 0, skipped: [], blocked: [] }
 
 /** The dependency map — the source of warnings that neither original package ever gave. */
@@ -435,6 +450,7 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
    * значение может нести `writes: { "<смещение>": "<hex>" }`, и генератор разворачивает их
    * в отдельные команды записи, по одной на смещение.
    */
+  const seenInMap = new Set()
   const extra = new Set()
   for (const v of valuesOverride ?? field.values ?? []) for (const off of Object.keys(v.writes ?? {})) extra.add(Number(off))
   const extraOffsets = [...extra].sort((a, b) => a - b)
@@ -465,6 +481,7 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
     // плюс контрольная ячейка таблицы, склеенные подряд. Ровно так же его собирает и
     // движок, читая две ячейки в одной подстановке.
     map[probeLen ? hex + padHex(v.writes[String(probeLen.offset)], probeLen.len) : hex] = name
+    seenInMap.add(hex)
     if (v.not_in_menu) continue
     if (!extraOffsets.length) { list.push({ name, hex }); continue }
     // Пропущенный ключ движок молча превращает в `null`, а запись с `null` так же молча
@@ -501,6 +518,32 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
     const scale = list.filter(v => num(v.name) !== null).sort((a, b) => num(a.name) - num(b.name))
     list.length = 0
     list.push(...plain, ...scale)
+  }
+
+  /**
+   * СЛОВАРЬ ПОДПИСИ ОБЯЗАН ОСТАВАТЬСЯ ПОЛНЫМ, ДАЖЕ КОГДА ВЫБОР СУЖЕН.
+   *
+   * Постоянное решение оператора: значение, уже стоящее в kip, тюнер обязан НАЗВАТЬ.
+   * Список отвечает на «что предлагаем выбрать», подпись — на «что умеем прочитать»,
+   * и это разные вопросы (ANCHORS факт 12, NOTES №164).
+   *
+   * Когда карта меню задаёт пункту свой ряд — например у `Max Voltage`, расщеплённого
+   * по ревизиям, — этот ряд ОГРАНИЧИВАЕТ выбор, но не должен ограничивать чтение:
+   * иначе владелец Erista, поставивший 800 мВ нашей же прежней сборкой, увидит от неё
+   * «недоступно» вместо своего числа. Поэтому в карту подписи доливается полный ряд
+   * из карты полей.
+   *
+   * Исключение — составной ключ (`label_probe`): там подпись адресуется парой ячеек,
+   * и плоские ключи из карты полей ей всё равно не встретятся. Доливать их значило бы
+   * набивать словарь строками, которые не совпадут никогда.
+   */
+  if (valuesOverride && !probeLen) {
+    for (const v of field.values ?? []) {
+      const hex = padHex(v.hex, len)
+      if (!hex || seenInMap.has(hex)) continue
+      seenInMap.add(hex)
+      map[hex] = withMagnitude((v.name ?? hex).replace(/\s+-\s+/g, ' — ').replace(/(\d),(\d)/g, '$1.$2'), hex, field)
+    }
   }
 
   if (!list.length) return null
@@ -686,7 +729,10 @@ function emitItem(item, lines) {
   // six blocks out of thirty-nine reached the screen.
   const warns = warningsFor(field.offset)
   const help = item.help ?? field.help_text
-  if (warns.length || help) infoRows.push({ title: rawTitle, warns, help })
+  // Ревизия едет вместе со справкой: у расщеплённого по платформам пункта справок ДВЕ,
+  // и без пометки эристовец читал бы подряд мариковские границы и свои. Приём тот же,
+  // что и у самих пунктов, — движок покажет ровно одну.
+  if (warns.length || help) infoRows.push({ title: rawTitle, warns, help, platform: plat })
 }
 
 /**
@@ -1059,7 +1105,7 @@ function emitAction(item, lines) {
     // `;gap=` отводит место ПОД таблицей, а рамка рисуется вокруг всей секции вместе
     // с заголовком — и верхним краем наезжала на кнопку, стоящую выше. Тот же приём
     // уже применён в сводке (`emitPage`), там его вызвала та же беда.
-    lines.push('[Gap]', ';mode=table', ';background=false', ';gap=14', '')
+    lines.push('[Gap]', ';mode=table', ';background=false', `;gap=${HEAD_GAP}`, '')
     lines.push(`[${title}]`)
     lines.push(';mode=table')
     lines.push(';alignment=left')
@@ -1195,6 +1241,7 @@ function emitInfoPage(rows, lines, sectionTitle) {
     // separator along with it.
     lines.push('[Info]')
     lines.push(';mode=table')
+    if (r.platform === 'mariko' || r.platform === 'erista') lines.push(`;system=${r.platform}`)
     lines.push(';alignment=left')
     lines.push(';offset=10')       // without an indent the left edge of the text hits the frame
     lines.push(';spacing=4')
@@ -1504,7 +1551,7 @@ if (kipRows.length) {
     const emitOne = (g, rows, sys, scoped) => {
       // A gap BEFORE the heading, not only between tables: without it the next section's
       // caption was printed flush against the previous frame and overlapped it.
-      kl.push('[Gap]', ';mode=table', ';background=false', ...sys, ';gap=14', '')
+      kl.push('[Gap]', ';mode=table', ';background=false', ...sys, `;gap=${HEAD_GAP}`, '')
       kl.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ...sys,
               `'${safeName(g.name)}' = '${g.ctx ?? ''}'`, '')
       kl.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ...sys, ...src)
@@ -1613,7 +1660,7 @@ if (kipRows.length) {
     write('json/mode_vddq.map.json', JSON.stringify([vddq], null, 2))
     write('json/mode_vdd2.map.json', JSON.stringify([vdd2], null, 2))
 
-    kl.push('[Gap]', ';mode=table', ';background=false', ';gap=14', '')
+    kl.push('[Gap]', ';mode=table', ';background=false', `;gap=${HEAD_GAP}`, '')
     kl.push('[Header]', ';mode=table', ';header_indent=true', ';background=false',
             `'What the mode would give' = ''`, '')
     kl.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', `hex_file '${KIP}'`)
@@ -1628,7 +1675,7 @@ if (kipRows.length) {
       kl.push(`'Vdd2 by mode' = '{json_file(0,{hex_file(CUST,${speedOff},3)}|{hex_file(CUST,12352,3)})}'`)
     }
     kl.push('')
-    kl.push('[Gap]', ';mode=table', ';background=false', ';gap=14', '')
+    kl.push('[Gap]', ';mode=table', ';background=false', `;gap=${HEAD_GAP}`, '')
     kl.push('[Note]', ';mode=table', ';background=false', ';alignment=left', ';offset=10', ';spacing=4', ';gap=0')
     for (const ln of wrap('Shown only when the RAM speed and eBal mode are pinned by hand. '
                         + 'On automatic the kip decides at boot and records the result nowhere readable.')) {
@@ -1643,7 +1690,7 @@ if (kipRows.length) {
   emitPage(kl, main)
   emitModeVoltages(kl)
   // The note goes right at the bottom and without a frame: its own frame overlapped the last table.
-  kl.push('[Gap]', ';mode=table', ';background=false', ';gap=14', '')
+  kl.push('[Gap]', ';mode=table', ';background=false', `;gap=${HEAD_GAP}`, '')
   kl.push('[Note]', ';mode=table', ';background=false', ';alignment=left', ';offset=10', ';spacing=4', ';gap=0')
   for (const ln of wrap('Fields left on automatic hold a zero: the kip works the real value out at boot.')) {
     kl.push(`''='${ln}'`)
@@ -1740,7 +1787,7 @@ if (kipRows.length) {
     //              человек не знает и не может посмотреть рядом;
     //   `Kip layout` — видно ВСЕГДА, иначе отказ применить копию выглядел бы поломкой.
     //              На неё же ссылается заметка под сводкой, объясняя слово `imported`.
-    pl.push('[Gap]', ';mode=table', ';background=false', ';gap=14', '')
+    pl.push('[Gap]', ';mode=table', ';background=false', `;gap=${HEAD_GAP}`, '')
     pl.push('[Info]', ';mode=table', ...poll, ';spacing=0', ';gap=0', ...source)
     if (chooser) pl.push(`'Memory' = '{ini_file(Meta,ram)}'`)
     pl.push(`'Kip layout' = '{ini_file(Meta,kipver)}'`, '')
@@ -1762,18 +1809,39 @@ if (kipRows.length) {
       { name: 'RAM', offsets: GROUP_ORDER.RAM },
     ]
 
-    pl.push('[Gap]', ';mode=table', ';background=false', ';gap=14', '')
+    pl.push('[Gap]', ';mode=table', ';background=false', `;gap=${HEAD_GAP}`, '')
     pl.push('[Header]', ';mode=table', ';header_indent=true', ';background=false',
             `'What it will apply' = ''`, '')
 
     const seen = new Set()
     for (const g of PREVIEW_GROUPS) {
       const rows = g.offsets
-        .map(o => kipRows.find(r => r.offset === o))
+        // ВЫБОР СТРОКИ ПО СМЕЩЕНИЮ, А НЕ ПЕРВОЙ ПОПАВШЕЙСЯ. Одно смещение может обслуживаться
+        // ДВУМЯ пунктами — по одному на ревизию, когда у поля разный смысл или разные границы
+        // (`44 Undervolt Mode`, `12344 Max Voltage`). Слепой `find` брал пункт другой ревизии,
+        // и следующий же фильтр по платформе выбрасывал строку совсем.
+        //
+        // Оговорка о происхождении: это не давняя беда, а дыра, пробитая расщеплением
+        // `12344` по ревизиям в тот же день. До него пункт был один и общий, `find`
+        // возвращал его, фильтр пропускал. Первое расщепление (`44`) прошло незамеченным
+        // только потому, что его второй пункт принадлежал той же ревизии, что и превью.
+        .flatMap(o => {
+          const all = kipRows.filter(r => r.offset === o)
+          if (all.length < 2) return all
+          // Ревизия задана — берём её строку, а если своей нет, общую.
+          if (rev) return all.filter(r => r.platform === rev).concat(all.filter(r => (r.platform ?? 'both') === 'both')).slice(0, 1)
+          // Ревизия НЕ задана (страница сброса) — нужны ОБЕ строки. Взять одну значило бы
+          // показать эристовцу мариковский предел или не показать ему ничего: именно так
+          // со страницы сброса пропал `Max Voltage` для Erista. Метки `mariko:` / `erista:`
+          // расставит общий код ниже, по одной на каждую.
+          return all
+        })
         .filter(Boolean)
         .filter(r => !rev || (r.platform ?? 'both') === 'both' || r.platform === rev)
         .filter(r => !only || only.has(r.offset))
-        .filter(r => !seen.has(r.offset) && seen.add(r.offset))
+        // Ключ — смещение ВМЕСТЕ с ревизией: одно смещение может обслуживаться двумя
+        // строками, по одной на ревизию, и они не дубликаты друг друга.
+        .filter(r => { const k = `${r.offset}|${r.platform ?? 'both'}`; return !seen.has(k) && seen.add(k) })
         .map(r => ({ ...r, map: rebase(r.map, depth) }))
         // Сортировка по платформе нужна ТОЛЬКО когда ревизия не задана: метка `mariko:`
         // действует до следующей и не возвращается к «обеим». Превью копии всегда знает
@@ -1787,7 +1855,7 @@ if (kipRows.length) {
       // Отступ ПЕРЕД заголовком, а не только между таблицами. Без него подпись группы
       // печатается вплотную к рамке предыдущей таблицы и наезжает на неё. Ровно это
       // уже чинили в emitPage — и я повторил ошибку, собирая группировку заново.
-      pl.push('[Gap]', ';mode=table', ';background=false', ';gap=14', '')
+      pl.push('[Gap]', ';mode=table', ';background=false', `;gap=${HEAD_GAP}`, '')
       pl.push('[Header]', ';mode=table', ';header_indent=true', ';background=false',
               `'${g.name}' = ''`, '')
       pl.push('[Info]', ';mode=table', ...poll, ';spacing=0', ';gap=0', ...source)
@@ -1816,7 +1884,7 @@ if (kipRows.length) {
     pl.push('')
 
     if (note) {
-      pl.push('[Gap]', ';mode=table', ';background=false', ';gap=14', '')
+      pl.push('[Gap]', ';mode=table', ';background=false', `;gap=${HEAD_GAP}`, '')
       pl.push('[Note]', ';mode=table', ';background=false', ';alignment=left', ';offset=10', ';spacing=4', ';gap=0')
       for (const ln of wrap(note)) pl.push(`''='${ln}'`)
       pl.push('')
@@ -1830,7 +1898,7 @@ if (kipRows.length) {
     //
     // Пустая секция без фона — единственный способ отвести место: `;gap=` заметки отводит
     // его ПОД её собственной рамкой, а подсветке нужен зазор снаружи.
-    pl.push('[Gap]', ';mode=table', ';background=false', ';gap=14', '')
+    pl.push('[Gap]', ';mode=table', ';background=false', `;gap=${HEAD_GAP}`, '')
     pl.push(...apply, '')
     write(file, pl.join('\n'))
     stats.previewPages = (stats.previewPages ?? 0) + 1
@@ -1935,12 +2003,17 @@ if (kipRows.length) {
 
     // ДВА ПУНКТА ПРИМЕНЕНИЯ, ПО ОДНОМУ НА РЕВИЗИЮ.
     //
-    // Заводской снимок снят с Mariko: из 63 смещений 54 общие, 9 принадлежат только Mariko,
-    // а полей, принадлежащих только Erista, в нём нет ни одного. Один общий пункт писал
-    // на Erista все девять чужих значений впустую, а два её собственных поля —
-    // `20 CPU Voltage Limit` и `24 RAM MHz` — не сбрасывал вовсе, обещая при этом
-    // «вот что ставит прошивка». Теперь каждая ревизия пишет только своё, а чего снимок
-    // не покрывает, сказано прямо в примечании.
+    // Заводской снимок снят с Mariko: часть смещений в нём общие, часть принадлежит только
+    // Mariko, а полей, принадлежащих только Erista, не было ни одного. Один общий пункт
+    // писал на Erista чужие значения впустую, а два её собственных поля — `20 CPU Voltage
+    // Limit` и `24 RAM MHz` — не сбрасывал вовсе, обещая при этом «вот что ставит прошивка».
+    // Теперь каждая ревизия пишет только своё.
+    //
+    // 29.08.2026 вторая половина беды закрыта с другой стороны: недостающие эристовские
+    // значения дописаны в эталон из живого kip (NOTES №173), и поля, принадлежащие только
+    // Erista, в нём наконец есть. Числа здесь намеренно не называются — они живут
+    // в `docs/FACTS.md` и в `_meta` самого эталона, а комментарий, повторяющий число,
+    // устаревает молча.
     const applyFor = rev => [
       `[Apply factory defaults ${HOLD_A}?${rev}]`, ';hold=true', `;system=${rev}`,
       ...src,
@@ -1959,9 +2032,15 @@ if (kipRows.length) {
       chooser: null,
       only: new Set(factoryOffsets),
       apply: [...applyFor('mariko'), '', ...applyFor('erista')],
+      // Вторая фраза собиралась из литерала и списка непокрытых полей — и сломалась ровно
+      // тогда, когда список опустел: на экране осталось «has no value for , so those keep».
+      // Дыру закрыли, дописав недостающие значения в эталон из живого kip, а фраза об этом
+      // не знала. Теперь предложение появляется, только если ему есть что сказать.
       note: 'This is what the firmware ships with. The GPU voltage curves are not touched — the '
-          + 'factory snapshot does not carry them. On Erista the snapshot also has no value for '
-          + notCovered.join(' or ') + ', so those keep their current setting.',
+          + 'factory snapshot does not carry them.'
+          + (notCovered.length
+              ? ` On Erista the snapshot also has no value for ${notCovered.join(' or ')}, so those keep their current setting.`
+              : ''),
     })
   }
 

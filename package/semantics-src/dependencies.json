@@ -10,9 +10,9 @@
       "hypothesis": "an indirect inference; the why field states what it is based on"
     },
     "primary_source": {
-      "file": "Wizard/4IFIR-Wizard-update/customize.cpp",
+      "file": "customize.cpp (confidential, kept outside the repository)",
       "what": "the source of the CustomizeTable structure — found in the course of this research, not used in the project before",
-      "caveat": "FACT: the version found is older than kipVer=27 — in it pMEH is described up to index 19 and sMEH up to 13 (customize.cpp:331,338). The field layout matched byte for byte and is reliable; the comments about the RANGES of the later fields (pMeh 20/21, sMeh 14/15/16) may be incomplete.",
+      "caveat": "RESOLVED 29.08.2026: the revision now on hand matches the shipped kip byte for byte - all header scalars, marikoGpuVoltArray and all seven DVFS tables. It documents pMEH up to index 22 and sMEH up to 17, so the earlier warning that the ranges of the later fields might be incomplete no longer applies. The ranges of 12440 and 12448 remain a deliberate exception: the author widened them beyond the legend at the operator request - see range_note in fields.json.",
       "verified_against": "4ifir/atmosphere/kips/loader.kip, anchor CUST = 0x63414"
     },
     "counts": {

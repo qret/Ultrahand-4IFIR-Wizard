@@ -41,6 +41,13 @@ const iniFiles = walkFiles(DIST)
 const text = iniFiles.map(f => readFileSync(f, 'utf8')).join('\n')
 const lines = text.split(/\r?\n/)
 
+function padHexLocal(hex, lenBytes) {
+  const h = String(hex ?? '').toUpperCase().replace(/[^0-9A-F]/g, '')
+  if (!h) return null
+  const need = lenBytes * 2
+  return h.length === need ? h : (h.length < need ? h + '0'.repeat(need - h.length) : h.slice(0, need))
+}
+
 const problems = []
 const ok = []
 
@@ -867,6 +874,132 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     if (bad.length) problems.push({ sev: 'CRITICAL', what: `ступени андервольта GPU собраны неверно:\n     ${bad.slice(0, 6).join('\n     ')}` })
     else ok.push(`GPU stages rewrite their own table in full (${list.length} stages, ${offs.length} cells each)`)
   }
+}
+
+// ----------------------------- 24. Подпись «Default» против эталона сброса, и полнота эталона
+//
+// Два файла говорят о заводском значении, и до сих пор их никто не сверял между собой:
+// `factory-defaults.json` решает, ЧТО запишет сброс, а метка «Default» в словаре меню
+// говорит человеку, ЧТО считать заводским. Разошлись — и оба раза молча: `sMeh 0 ARB-Boost`
+// подписывал заводским значение на три ступени выше настоящего, `pMeh 15 eFOS MK` — на одну.
+// Человек, возвращающий заводское руками, уезжал не туда, куда его вернул бы сброс.
+//
+// Вторая половина проверки — про полноту. У поля есть роль `reset`, но в эталоне его может
+// не оказаться вовсе: снимок прошивки, из которого эталон строится, неполон. Тогда сброс
+// такое поле молча не трогает. Так из сброса выпали предел напряжения CPU и частота памяти
+// на Erista — ровно то, ради чего сброс и нажимают.
+{
+  const factory = JSON.parse(readFileSync(join(ROOT, 'package', 'factory-defaults.json'), 'utf8')).defaults
+  const bad = [], gaps = []
+  let checked = 0
+  for (const f of fields) {
+    if (blacklist.has(f.offset)) continue
+    const want = factory[String(f.offset)]
+    // полнота: поле участвует в сбросе, а эталон о нём не знает
+    if ((f.roles ?? []).includes('reset') && want === undefined && !f.exclude_from_menu)
+      gaps.push(`${f.offset} ${f.name}`)
+    if (want === undefined) continue
+    // Поле вправе НЕ иметь заводского значения на экране — но только объяснив это вслух.
+    // У Vdd2 напряжение выбирает kip по режиму и частоте, а слова ECO/DEFAULT/SRT в подписях
+    // это имена пресетов из легенды прошивки, а не «у вас стоит вот это». Молчаливого
+    // исключения здесь быть не может: `default_label_note` обязателен и читается человеком.
+    if (f.default_label_note) continue
+    const marked = (f.values ?? []).filter(v => /(^|[^a-z])default([^a-z]|$)/i.test(String(v.name)))
+    if (!marked.length) continue
+    checked++
+    // Сравниваем по ЗНАЧЕНИЮ, а не по строке: в словарях один и тот же ноль лежит и как
+    // `00`, и как `000000`, и это законно — генератор выравнивает их сам.
+    const len = f.length ?? 3
+    const num = h => parseInt(String(h).padEnd(len * 2, '0').slice(0, len * 2).match(/../g).reverse().join(''), 16)
+    if (!marked.some(v => num(v.hex) === num(want)))
+      bad.push(`${f.offset} ${f.name}: «Default» стоит на ${marked.map(v => v.name).join(', ')}, а сброс пишет ${want}`)
+  }
+  if (bad.length || gaps.length) {
+    if (bad.length) problems.push({ sev: 'CRITICAL', what: `метка «Default» расходится с эталоном сброса:\n     ${bad.slice(0, 6).join('\n     ')}` })
+    if (gaps.length) problems.push({ sev: 'CRITICAL', what: `поля участвуют в сбросе, но в эталоне их нет — сброс их не тронет:\n     ${gaps.slice(0, 8).join('\n     ')}` })
+  } else {
+    ok.push(`the "Default" label agrees with the reset baseline (${checked} fields), and the baseline covers every field that resets`)
+  }
+}
+
+// ---------------------------- 25. Команда, адресующая пункт по имени, обязана в него попадать
+//
+// Подпись пункта хранится в `config.ini` и адресуется ИМЕНЕМ секции. Значит любая команда
+// вида `set-ini-val './config.ini' '<имя>' footer …` — это ссылка одного пункта на другой,
+// записанная строкой. Переименовали пункт — ссылка молча повисла: подпись просто не появится,
+// и заметить это можно только на консоли.
+//
+// Так и вышло при укорачивании названия «Install update»: имя поменялось в одном месте,
+// а команда проверки обновлений продолжала писать подпись пункту, которого больше нет.
+// Имя вдобавок несёт невидимые глифы удержания, так что глазами расхождение не видно вовсе.
+{
+  const bad = []
+  // Пункты живут в `package.ini` СВОЕГО каталога, а подпись пишется в лежащий рядом
+  // `config.ini`. Путь в команде указывает на конфиг, значит искать пункт надо в пакете
+  // того же каталога — `[boot]` из корня адресует и корневые пункты, и подстраничные.
+  const sectionsOf = pkg => existsSync(pkg)
+    ? new Set([...readFileSync(pkg, 'utf8').matchAll(/^\[([^\]@][^\]]*)\]/gm)].map(m => m[1]))
+    : null
+  for (const file of iniFiles) {
+    const body = readFileSync(file, 'utf8')
+    for (const m of body.matchAll(/set-ini-val\s+'([^']*config\.ini)'\s+'([^']+)'\s+footer/g)) {
+      const pkg = join(dirname(file), m[1].replace(/^\.\//, '').replace(/config\.ini$/, 'package.ini'))
+      const sections = sectionsOf(pkg)
+      if (!sections) { bad.push(`${relative(ROOT, file)}: подпись адресована в ${m[1]}, а пакета рядом нет`); continue }
+      // `*` перед именем — форма записи для пунктов-селекторов, сама секция со звёздочкой.
+      const name = m[2].replace(/^\*/, '')
+      if (!sections.has(name) && !sections.has(`*${name}`))
+        bad.push(`${relative(ROOT, file)}: подпись адресована пункту «${name}», а в ${relative(ROOT, pkg)} такого нет`)
+    }
+  }
+  if (bad.length) problems.push({ sev: 'CRITICAL', what: `подпись адресована несуществующему пункту:\n     ${bad.slice(0, 6).join('\n     ')}` })
+  else ok.push('every footer command addresses an item that exists in the same file')
+}
+
+// ------------------- 26. Словарь НАЗВАНИЙ не сужается никогда, каким бы узким ни был выбор
+//
+// Постоянное решение оператора: список отвечает на «что предлагаем выбрать», словарь
+// названий — на «что умеем прочитать», и второй сужать нельзя. Значение может стоять
+// в kip от чужого пакета, от прежней нашей сборки или от правки в hekate, и тюнер обязан
+// назвать его, а не печатать «недоступно»: показ — это правда о железе, а не рекомендация.
+//
+// Проверка №22 сторожила то же правило, но только для одного поля. Этого не хватило:
+// расщепление `Max Voltage` по ревизиям сжало его словарь названий со 112 значений
+// до 92, и ни одна из проверок не среагировала — потому что стерегли не правило, а поле.
+// Здесь правило проверяется для ВСЕХ полей сразу.
+{
+  const bad = []
+  let checked = 0, widened = 0
+  for (const f of fields) {
+    if (blacklist.has(f.offset) || !(f.values ?? []).length) continue
+    const len = f.length ?? 3
+    const want = new Set((f.values ?? []).map(v => padHexLocal(v.hex, len)).filter(Boolean))
+    // Карта названий может обслуживать несколько пунктов; ищем все, где это поле пишется.
+    for (const mapFile of iniFiles.flatMap(file => {
+      const body = readFileSync(file, 'utf8')
+      const out = []
+      for (const sec of body.split(/\r?\n(?=\[)/)) {
+        if (!new RegExp(`CUST ${f.offset} \{json_file_source`).test(sec)) continue
+        const m = sec.match(/json_file_source\s+'([^']+)'/)
+        if (m) out.push(join(dirname(file), m[1].replace(/^\.\//, '').replace(/\.json$/, '.map.json')))
+      }
+      return out
+    })) {
+      if (!existsSync(mapFile)) continue
+      checked++
+      const map = JSON.parse(readFileSync(mapFile, 'utf8'))[0] ?? {}
+      const keys = Object.keys(map)
+      // Составной ключ (пара ячеек) — другая длина, полноту так не мерить: там подпись
+      // адресуется не значением поля, и плоские ключи ей не встретятся. Пропускаем.
+      if (keys.some(k => k.length > len * 2)) continue
+      const missing = [...want].filter(h => map[h] === undefined)
+      if (missing.length)
+        bad.push(`${relative(ROOT, mapFile)}: словарь названий не знает ${missing.length} значений из карты полей (${missing.slice(0, 4).join(', ')})`)
+      else if (keys.length > (JSON.parse(readFileSync(mapFile.replace(/\.map\.json$/, '.json'), 'utf8')) ?? []).length) widened++
+    }
+  }
+  if (bad.length) problems.push({ sev: 'CRITICAL', what: `словарь названий сужен — стоящее в kip значение будет названо «недоступно»:\n     ${bad.slice(0, 6).join('\n     ')}` })
+  else ok.push(`no naming dictionary is narrower than its field map (${checked} checked, ${widened} deliberately wider than their selector)`)
 }
 
 // ---------------------------------------------------------------- output
