@@ -20950,11 +20950,11 @@
       "values": [
         {
           "hex": "00",
-          "name": "0 - Default (Erista eBal=3)"
+          "name": "0 - Default, eBal3"
         },
         {
           "hex": "01",
-          "name": "1 - Erista eBal=4"
+          "name": "1 - eBal4"
         }
       ],
       "menu_path": {
