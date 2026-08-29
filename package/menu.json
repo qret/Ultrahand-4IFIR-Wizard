@@ -172,7 +172,7 @@
                 52
               ],
               "units": "mV",
-              "help": "Stages 1-3 set an automatic floor (on Erista derived from CPU Vmin +100 mV). Absolute values 430-970 mV set the threshold directly."
+              "help": "Stages 1-3 let the kip work out the floor for each RAM speed separately (on Erista derived from CPU Vmin +100 mV). The firmware also accepts a fixed value in mV, but that one number is then used for every RAM speed at once, which is not what this console wants - so only the stages are offered here. A fixed value already in the kip is still read and shown."
             },
             {
               "id": "gpu_vmax",

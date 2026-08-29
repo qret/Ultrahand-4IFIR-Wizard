@@ -766,6 +766,43 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   else ok.push('no table row reads a config.ini section after the binding moved to a data file')
 }
 
+// ------------------------------------------- 22. GPU Min Voltage предлагает только ступени
+//
+// Решение оператора как эксперта по железу: фиксированное число милливольт в этом поле
+// применяется СРАЗУ К ОБОИМ режимам частоты памяти, а ступень заставляет kip считать
+// порог для каждого режима отдельно. Для этой консоли верно второе, поэтому в меню
+// остаются только ступени.
+//
+// Проверка нужна потому, что история тянет назад: `docs/NOTES.md` №75 записал обратное
+// — «наш тюнер был строго беднее обоих предшественников», и милливольты тогда вернули.
+// Довод был верен для полноты словаря и неверен по существу поля. Без сторожа следующий
+// читатель журнала восстановит их снова, и это будет выглядеть как исправление.
+//
+// Числа при этом остаются в СЛОВАРЕ ПОДПИСИ: значение может стоять в kip, поставленное
+// чужим пакетом, и назвать его мы обязаны. Проверяется только список выбора.
+{
+  const vmin = join(DIST, 'advanced', 'gpu', 'json', 'gpu_vmin.json')
+  if (!existsSync(vmin)) {
+    problems.push({ sev: 'IMPORTANT', what: 'словарь GPU Min Voltage не найден — проверка ослепла' })
+  } else {
+    const list = JSON.parse(readFileSync(vmin, 'utf8'))
+    const numeric = list.filter(e => /^\s*\d/.test(String(e.name)))
+    if (numeric.length) {
+      problems.push({ sev: 'CRITICAL', what: `GPU Min Voltage снова предлагает милливольты (${numeric.length}): фиксированное число бьёт по обоим режимам памяти сразу, ступень — по каждому отдельно. Разбор — docs/NOTES.md` })
+    } else if (!list.length) {
+      problems.push({ sev: 'CRITICAL', what: 'GPU Min Voltage остался вовсе без вариантов' })
+    } else {
+      // Подпись обязана уметь прочитать больше, чем меню предлагает выбрать.
+      const map = JSON.parse(readFileSync(vmin.replace(/\.json$/, '.map.json'), 'utf8'))[0]
+      if (Object.keys(map).length <= list.length) {
+        problems.push({ sev: 'CRITICAL', what: 'из словаря подписи GPU Min Voltage пропали числовые значения — тюнер перестанет называть то, что уже стоит в kip' })
+      } else {
+        ok.push(`GPU Min Voltage offers stages only (${list.length}), still reads ${Object.keys(map).length} values`)
+      }
+    }
+  }
+}
+
 // ---------------------------------------------------------------- output
 
 const crit = problems.filter(p => p.sev === 'CRITICAL')

@@ -3578,439 +3578,548 @@
         },
         {
           "hex": "AE0100",
-          "name": "430 mV"
+          "name": "430 mV",
+          "not_in_menu": true
         },
         {
           "hex": "B30100",
-          "name": "435 mV"
+          "name": "435 mV",
+          "not_in_menu": true
         },
         {
           "hex": "B80100",
-          "name": "440 mV"
+          "name": "440 mV",
+          "not_in_menu": true
         },
         {
           "hex": "BD0100",
-          "name": "445 mV"
+          "name": "445 mV",
+          "not_in_menu": true
         },
         {
           "hex": "C20100",
-          "name": "450 mV"
+          "name": "450 mV",
+          "not_in_menu": true
         },
         {
           "hex": "C70100",
-          "name": "455 mV"
+          "name": "455 mV",
+          "not_in_menu": true
         },
         {
           "hex": "CC0100",
-          "name": "460 mV"
+          "name": "460 mV",
+          "not_in_menu": true
         },
         {
           "hex": "D10100",
-          "name": "465 mV"
+          "name": "465 mV",
+          "not_in_menu": true
         },
         {
           "hex": "D60100",
-          "name": "470 mV"
+          "name": "470 mV",
+          "not_in_menu": true
         },
         {
           "hex": "DB0100",
-          "name": "475 mV"
+          "name": "475 mV",
+          "not_in_menu": true
         },
         {
           "hex": "E00100",
-          "name": "480 mV"
+          "name": "480 mV",
+          "not_in_menu": true
         },
         {
           "hex": "E50100",
-          "name": "485 mV"
+          "name": "485 mV",
+          "not_in_menu": true
         },
         {
           "hex": "EA0100",
-          "name": "490 mV"
+          "name": "490 mV",
+          "not_in_menu": true
         },
         {
           "hex": "EF0100",
-          "name": "495 mV"
+          "name": "495 mV",
+          "not_in_menu": true
         },
         {
           "hex": "F40100",
-          "name": "500 mV"
+          "name": "500 mV",
+          "not_in_menu": true
         },
         {
           "hex": "F90100",
-          "name": "505 mV"
+          "name": "505 mV",
+          "not_in_menu": true
         },
         {
           "hex": "FE0100",
-          "name": "510 mV"
+          "name": "510 mV",
+          "not_in_menu": true
         },
         {
           "hex": "030200",
-          "name": "515 mV"
+          "name": "515 mV",
+          "not_in_menu": true
         },
         {
           "hex": "080200",
-          "name": "520 mV"
+          "name": "520 mV",
+          "not_in_menu": true
         },
         {
           "hex": "0D0200",
-          "name": "525 mV"
+          "name": "525 mV",
+          "not_in_menu": true
         },
         {
           "hex": "120200",
-          "name": "530 mV"
+          "name": "530 mV",
+          "not_in_menu": true
         },
         {
           "hex": "170200",
-          "name": "535 mV"
+          "name": "535 mV",
+          "not_in_menu": true
         },
         {
           "hex": "1C0200",
-          "name": "540 mV"
+          "name": "540 mV",
+          "not_in_menu": true
         },
         {
           "hex": "210200",
-          "name": "545 mV"
+          "name": "545 mV",
+          "not_in_menu": true
         },
         {
           "hex": "260200",
-          "name": "550 mV"
+          "name": "550 mV",
+          "not_in_menu": true
         },
         {
           "hex": "2B0200",
-          "name": "555 mV"
+          "name": "555 mV",
+          "not_in_menu": true
         },
         {
           "hex": "300200",
-          "name": "560 mV"
+          "name": "560 mV",
+          "not_in_menu": true
         },
         {
           "hex": "350200",
-          "name": "565 mV"
+          "name": "565 mV",
+          "not_in_menu": true
         },
         {
           "hex": "3A0200",
-          "name": "570 mV"
+          "name": "570 mV",
+          "not_in_menu": true
         },
         {
           "hex": "3F0200",
-          "name": "575 mV"
+          "name": "575 mV",
+          "not_in_menu": true
         },
         {
           "hex": "440200",
-          "name": "580 mV"
+          "name": "580 mV",
+          "not_in_menu": true
         },
         {
           "hex": "490200",
-          "name": "585 mV"
+          "name": "585 mV",
+          "not_in_menu": true
         },
         {
           "hex": "4E0200",
-          "name": "590 mV"
+          "name": "590 mV",
+          "not_in_menu": true
         },
         {
           "hex": "530200",
-          "name": "595 mV"
+          "name": "595 mV",
+          "not_in_menu": true
         },
         {
           "hex": "580200",
-          "name": "600 mV"
+          "name": "600 mV",
+          "not_in_menu": true
         },
         {
           "hex": "5D0200",
-          "name": "605 mV"
+          "name": "605 mV",
+          "not_in_menu": true
         },
         {
           "hex": "620200",
-          "name": "610 mV"
+          "name": "610 mV",
+          "not_in_menu": true
         },
         {
           "hex": "670200",
-          "name": "615 mV"
+          "name": "615 mV",
+          "not_in_menu": true
         },
         {
           "hex": "6C0200",
-          "name": "620 mV"
+          "name": "620 mV",
+          "not_in_menu": true
         },
         {
           "hex": "710200",
-          "name": "625 mV"
+          "name": "625 mV",
+          "not_in_menu": true
         },
         {
           "hex": "760200",
-          "name": "630 mV"
+          "name": "630 mV",
+          "not_in_menu": true
         },
         {
           "hex": "7B0200",
-          "name": "635 mV"
+          "name": "635 mV",
+          "not_in_menu": true
         },
         {
           "hex": "800200",
-          "name": "640 mV"
+          "name": "640 mV",
+          "not_in_menu": true
         },
         {
           "hex": "850200",
-          "name": "645 mV"
+          "name": "645 mV",
+          "not_in_menu": true
         },
         {
           "hex": "8A0200",
-          "name": "650 mV"
+          "name": "650 mV",
+          "not_in_menu": true
         },
         {
           "hex": "8F0200",
-          "name": "655 mV"
+          "name": "655 mV",
+          "not_in_menu": true
         },
         {
           "hex": "940200",
-          "name": "660 mV"
+          "name": "660 mV",
+          "not_in_menu": true
         },
         {
           "hex": "990200",
-          "name": "665 mV"
+          "name": "665 mV",
+          "not_in_menu": true
         },
         {
           "hex": "9E0200",
-          "name": "670 mV"
+          "name": "670 mV",
+          "not_in_menu": true
         },
         {
           "hex": "A30200",
-          "name": "675 mV"
+          "name": "675 mV",
+          "not_in_menu": true
         },
         {
           "hex": "A80200",
-          "name": "680 mV"
+          "name": "680 mV",
+          "not_in_menu": true
         },
         {
           "hex": "AD0200",
-          "name": "685 mV"
+          "name": "685 mV",
+          "not_in_menu": true
         },
         {
           "hex": "B20200",
-          "name": "690 mV"
+          "name": "690 mV",
+          "not_in_menu": true
         },
         {
           "hex": "B70200",
-          "name": "695 mV"
+          "name": "695 mV",
+          "not_in_menu": true
         },
         {
           "hex": "BC0200",
-          "name": "700 mV"
+          "name": "700 mV",
+          "not_in_menu": true
         },
         {
           "hex": "C10200",
-          "name": "705 mV"
+          "name": "705 mV",
+          "not_in_menu": true
         },
         {
           "hex": "C60200",
-          "name": "710 mV"
+          "name": "710 mV",
+          "not_in_menu": true
         },
         {
           "hex": "CB0200",
-          "name": "715 mV"
+          "name": "715 mV",
+          "not_in_menu": true
         },
         {
           "hex": "D00200",
-          "name": "720 mV"
+          "name": "720 mV",
+          "not_in_menu": true
         },
         {
           "hex": "D50200",
-          "name": "725 mV"
+          "name": "725 mV",
+          "not_in_menu": true
         },
         {
           "hex": "DA0200",
-          "name": "730 mV"
+          "name": "730 mV",
+          "not_in_menu": true
         },
         {
           "hex": "DF0200",
-          "name": "735 mV"
+          "name": "735 mV",
+          "not_in_menu": true
         },
         {
           "hex": "E40200",
-          "name": "740 mV"
+          "name": "740 mV",
+          "not_in_menu": true
         },
         {
           "hex": "E90200",
-          "name": "745 mV"
+          "name": "745 mV",
+          "not_in_menu": true
         },
         {
           "hex": "EE0200",
-          "name": "750 mV"
+          "name": "750 mV",
+          "not_in_menu": true
         },
         {
           "hex": "F30200",
-          "name": "755 mV"
+          "name": "755 mV",
+          "not_in_menu": true
         },
         {
           "hex": "F80200",
-          "name": "760 mV"
+          "name": "760 mV",
+          "not_in_menu": true
         },
         {
           "hex": "FD0200",
-          "name": "765 mV"
+          "name": "765 mV",
+          "not_in_menu": true
         },
         {
           "hex": "020300",
-          "name": "770 mV"
+          "name": "770 mV",
+          "not_in_menu": true
         },
         {
           "hex": "070300",
-          "name": "775 mV"
+          "name": "775 mV",
+          "not_in_menu": true
         },
         {
           "hex": "0C0300",
-          "name": "780 mV"
+          "name": "780 mV",
+          "not_in_menu": true
         },
         {
           "hex": "110300",
-          "name": "785 mV"
+          "name": "785 mV",
+          "not_in_menu": true
         },
         {
           "hex": "160300",
-          "name": "790 mV"
+          "name": "790 mV",
+          "not_in_menu": true
         },
         {
           "hex": "1B0300",
-          "name": "795 mV"
+          "name": "795 mV",
+          "not_in_menu": true
         },
         {
           "hex": "200300",
-          "name": "800 mV"
+          "name": "800 mV",
+          "not_in_menu": true
         },
         {
           "hex": "250300",
-          "name": "805 mV"
+          "name": "805 mV",
+          "not_in_menu": true
         },
         {
           "hex": "2A0300",
-          "name": "810 mV"
+          "name": "810 mV",
+          "not_in_menu": true
         },
         {
           "hex": "2F0300",
-          "name": "815 mV"
+          "name": "815 mV",
+          "not_in_menu": true
         },
         {
           "hex": "340300",
-          "name": "820 mV"
+          "name": "820 mV",
+          "not_in_menu": true
         },
         {
           "hex": "390300",
-          "name": "825 mV"
+          "name": "825 mV",
+          "not_in_menu": true
         },
         {
           "hex": "3E0300",
-          "name": "830 mV"
+          "name": "830 mV",
+          "not_in_menu": true
         },
         {
           "hex": "430300",
-          "name": "835 mV"
+          "name": "835 mV",
+          "not_in_menu": true
         },
         {
           "hex": "480300",
-          "name": "840 mV"
+          "name": "840 mV",
+          "not_in_menu": true
         },
         {
           "hex": "4D0300",
-          "name": "845 mV"
+          "name": "845 mV",
+          "not_in_menu": true
         },
         {
           "hex": "520300",
-          "name": "850 mV"
+          "name": "850 mV",
+          "not_in_menu": true
         },
         {
           "hex": "570300",
-          "name": "855 mV"
+          "name": "855 mV",
+          "not_in_menu": true
         },
         {
           "hex": "5C0300",
-          "name": "860 mV"
+          "name": "860 mV",
+          "not_in_menu": true
         },
         {
           "hex": "610300",
-          "name": "865 mV"
+          "name": "865 mV",
+          "not_in_menu": true
         },
         {
           "hex": "660300",
-          "name": "870 mV"
+          "name": "870 mV",
+          "not_in_menu": true
         },
         {
           "hex": "6B0300",
-          "name": "875 mV"
+          "name": "875 mV",
+          "not_in_menu": true
         },
         {
           "hex": "700300",
-          "name": "880 mV"
+          "name": "880 mV",
+          "not_in_menu": true
         },
         {
           "hex": "750300",
-          "name": "885 mV"
+          "name": "885 mV",
+          "not_in_menu": true
         },
         {
           "hex": "7A0300",
-          "name": "890 mV"
+          "name": "890 mV",
+          "not_in_menu": true
         },
         {
           "hex": "7F0300",
-          "name": "895 mV"
+          "name": "895 mV",
+          "not_in_menu": true
         },
         {
           "hex": "840300",
-          "name": "900 mV"
+          "name": "900 mV",
+          "not_in_menu": true
         },
         {
           "hex": "890300",
-          "name": "905 mV"
+          "name": "905 mV",
+          "not_in_menu": true
         },
         {
           "hex": "8E0300",
-          "name": "910 mV"
+          "name": "910 mV",
+          "not_in_menu": true
         },
         {
           "hex": "930300",
-          "name": "915 mV"
+          "name": "915 mV",
+          "not_in_menu": true
         },
         {
           "hex": "980300",
-          "name": "920 mV"
+          "name": "920 mV",
+          "not_in_menu": true
         },
         {
           "hex": "9D0300",
-          "name": "925 mV"
+          "name": "925 mV",
+          "not_in_menu": true
         },
         {
           "hex": "A20300",
-          "name": "930 mV"
+          "name": "930 mV",
+          "not_in_menu": true
         },
         {
           "hex": "A70300",
-          "name": "935 mV"
+          "name": "935 mV",
+          "not_in_menu": true
         },
         {
           "hex": "AC0300",
-          "name": "940 mV"
+          "name": "940 mV",
+          "not_in_menu": true
         },
         {
           "hex": "B10300",
-          "name": "945 mV"
+          "name": "945 mV",
+          "not_in_menu": true
         },
         {
           "hex": "B60300",
-          "name": "950 mV"
+          "name": "950 mV",
+          "not_in_menu": true
         },
         {
           "hex": "BB0300",
-          "name": "955 mV"
+          "name": "955 mV",
+          "not_in_menu": true
         },
         {
           "hex": "C00300",
-          "name": "960 mV"
+          "name": "960 mV",
+          "not_in_menu": true
         },
         {
           "hex": "C50300",
-          "name": "965 mV"
+          "name": "965 mV",
+          "not_in_menu": true
         },
         {
           "hex": "CA0300",
-          "name": "970 mV"
+          "name": "970 mV",
+          "not_in_menu": true
         }
       ],
       "menu_path": {
