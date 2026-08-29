@@ -95,7 +95,16 @@ for (const [off, ids] of assigned) {
   // It is an error only when two ordinary items of the main menu edit the same offset.
   const microSide = uniq.filter(id => items.find(i => i.id === id)?.micro)
   const plainSide = uniq.filter(id => !items.find(i => i.id === id)?.micro)
-  const allowed = microSide.length > 0 && plainSide.length <= 1
+  // Второй законный случай — РАЗНЫЕ РЕВИЗИИ. Одно смещение может значить на Mariko и на
+  // Erista разное: у 44 на Mariko это выбор одной из готовых таблиц напряжений, на Erista
+  // множитель −12,5 мВ. Тогда пунктов два, но на экране всегда ровно один: движок скрывает
+  // чужую ревизию по `;system=`. Условие — у каждого своя ревизия и ни у кого не `both`.
+  const plats = uniq.map(id => items.find(i => i.id === id)?.node?.platform)
+  const bySystem = plats.length === uniq.length
+    && plats.every(p => p === 'mariko' || p === 'erista')
+    && new Set(plats).size === plats.length
+  const allowed = bySystem || (microSide.length > 0 && plainSide.length <= 1)
+  if (bySystem) { dupes.push({ offset: off, items: uniq, allowed, microSide, plainSide, bySystem }); continue }
   dupes.push({ offset: off, items: uniq, allowed, microSide, plainSide })
 }
 
@@ -150,10 +159,17 @@ if (badDupes.length) {
   console.log()
 }
 
-const okDupes = dupes.filter(d => d.allowed)
+const okDupes = dupes.filter(d => d.allowed && !d.bySystem)
 if (okDupes.length) {
   console.log(`✅ Deliberate aliases (emergency access through hekate): ${okDupes.length}`)
   for (const d of okDupes) console.log(`   ${d.offset} → ${d.items.join(' + ')}`)
+  console.log()
+}
+
+const revDupes = dupes.filter(d => d.bySystem)
+if (revDupes.length) {
+  console.log(`✅ Split by console revision — one on screen at a time: ${revDupes.length}`)
+  for (const d of revDupes) console.log(`   ${d.offset} → ${d.items.join(' + ')}`)
   console.log()
 }
 

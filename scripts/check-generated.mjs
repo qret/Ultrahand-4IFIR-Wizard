@@ -184,7 +184,13 @@ if (dupTitles.length) {
 
 const bootRead = new Set()
 for (const m of text.matchAll(/hex_file\(CUST,(\d+),/g)) bootRead.add(Number(m[1]))
-const noFooter = [...writtenOffsets].filter(o => !bootRead.has(o))
+// Ячейки, которые пункт пишет ПОПУТНО со своим полем, подписи не имеют и иметь не должны:
+// подпись у них общая, у самого пункта. Так устроены ступени андервольта GPU — выбор одной
+// ступени переписывает 32 ячейки таблицы напряжений, и тридцать две подписи на один пункт
+// были бы бессмыслицей. Отличаем их по форме команды: значение берётся из ключа `w<смещение>`.
+const sideWritten = new Set()
+for (const m of text.matchAll(/CUST (\d+) \{json_file_source\(\*,w\d+\)\}/g)) sideWritten.add(Number(m[1]))
+const noFooter = [...writtenOffsets].filter(o => !bootRead.has(o) && !sideWritten.has(o))
 if (noFooter.length) {
   problems.push({ sev: 'IMPORTANT', what: `${noFooter.length} offsets are written but never read in [boot] — there will be no footer (${noFooter.slice(0, 8).join(', ')}…)` })
 } else ok.push(`every written offset is read in [boot]`)
@@ -800,6 +806,66 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
         ok.push(`GPU Min Voltage offers stages only (${list.length}), still reads ${Object.keys(map).length} values`)
       }
     }
+  }
+}
+
+// ------------------------------- 23. Ступени андервольта GPU пишут таблицу целиком и в свою
+//
+// Ступень GPU — это не число, а таблица напряжений в блоке CUST, и выбор ступени переписывает
+// её целиком: 31 напряжение плюс частота последней строки. Здесь всё ломается тихо:
+//
+//   * недописанная таблица — это смесь двух ступеней, которой никто не выбирал. Промах по
+//     ключу движок молча превращает в `null`, запись с `null` молча пропускается, а пункт
+//     при этом показывает галочку;
+//   * промах МИМО таблицы бьёт по соседям: ниже 8864 лежит базовая таблица ST1, с 10600 —
+//     HiOPT, то есть ST3. Ошибка в одном смещении испортила бы ступень, которую мы вообще
+//     не собирались трогать;
+//   * верхнее напряжение таблицы прошивка ставит ещё и как потолок напряжения шины GPU.
+//     Разойдись оно у ступеней — потолок шины ездил бы вместе с выбором ступени;
+//   * подпись читает пару «режим + первая ячейка». Совпади эта пара у двух ступеней —
+//     тюнер называл бы одну именем другой.
+{
+  const SLOT_LO = 8864, SLOT_HI = 10600      // границы таблицы ST2: строго между ST1 и ST3
+  const dir = join(DIST, 'advanced', 'gpu', 'json')
+  const listFile = join(dir, 'gpu_uv_mode_mariko.json')
+  if (!existsSync(listFile)) {
+    problems.push({ sev: 'IMPORTANT', what: 'ступени андервольта GPU не найдены — их убрали намеренно?' })
+  } else {
+    const list = JSON.parse(readFileSync(listFile, 'utf8'))
+    const bad = []
+    const keys = new Set(list.flatMap(e => Object.keys(e).filter(k => /^w\d+$/.test(k))))
+    const offs = [...keys].map(k => Number(k.slice(1))).sort((a, b) => a - b)
+
+    if (offs.length !== 32) bad.push(`записываемых ячеек ${offs.length}, а таблица это 31 напряжение плюс частота верхней строки`)
+    for (const o of offs) {
+      if (o <= SLOT_LO || o >= SLOT_HI) bad.push(`смещение ${o} лежит вне таблицы ST2 (${SLOT_LO}…${SLOT_HI}) — это уже чужая ступень`)
+    }
+    const probes = new Set()
+    let top = null
+    for (const e of list) {
+      for (const k of keys) if (e[k] === undefined) bad.push(`ступень «${e.name}» не задаёт ${k} — таблица останется от предыдущей`)
+      const probe = e.hex + (e[`w${SLOT_LO + 32}`] ?? '')
+      if (probes.has(probe)) bad.push(`ступень «${e.name}» неотличима от предыдущей по паре «режим + первая ячейка» — подпись соврёт`)
+      probes.add(probe)
+      // Верхняя ячейка = максимум напряжения шины. Обязана быть одинаковой у всех ступеней.
+      const hi = e[`w${SLOT_LO + 32 + 56 * 30}`]
+      if (top === null) top = hi
+      else if (hi !== top) bad.push(`ступень «${e.name}» задаёт другое верхнее напряжение (${hi} против ${top}) — уедет потолок шины`)
+      // Монотонность: кривая обязана расти вместе с частотой.
+      const mv = h => parseInt(String(h).match(/../g).reverse().join(''), 16)
+      for (let i = 1; i < 31; i++) {
+        const a = e[`w${SLOT_LO + 32 + 56 * (i - 1)}`], b = e[`w${SLOT_LO + 32 + 56 * i}`]
+        if (a && b && mv(b) < mv(a)) { bad.push(`ступень «${e.name}»: строка ${i} ниже предыдущей`); break }
+      }
+    }
+    // Подпись обязана уметь прочитать пару, а не одно поле — иначе три ступени сольются.
+    const bootLine = text.split(/\r?\n/).find(l => l.includes("'*Undervolt Mode' footer"))
+    if (!bootLine) bad.push('подпись пункта не строится при открытии пакета')
+    else if ((bootLine.match(/hex_file\(CUST,/g) ?? []).length < 2)
+      bad.push('подпись читает одну ячейку — три ступени из шести получат одно имя')
+
+    if (bad.length) problems.push({ sev: 'CRITICAL', what: `ступени андервольта GPU собраны неверно:\n     ${bad.slice(0, 6).join('\n     ')}` })
+    else ok.push(`GPU stages rewrite their own table in full (${list.length} stages, ${offs.length} cells each)`)
   }
 }
 

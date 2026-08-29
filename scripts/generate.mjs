@@ -96,6 +96,38 @@ const backupSet = (rev = null) => fieldsDoc.fields
   .filter(f => !rev || (f.platform ?? 'both') === 'both' || f.platform === rev)
 
 /**
+ * ЯЧЕЙКИ, КОТОРЫЕ ПУНКТ ПИШЕТ ПОПУТНО СО СВОИМ ПОЛЕМ.
+ *
+ * Ступень андервольта GPU — это целая таблица напряжений, а не число: выбор ступени
+ * переписывает 32 ячейки внутри блока CUST. Эти ячейки не поля карты — у них нет ни
+ * словаря, ни имени, ни пункта меню, и в списке настроек им делать нечего.
+ *
+ * Но В КОПИЮ ОНИ ОБЯЗАНЫ ПОПАСТЬ. Иначе выходит так: человек выбрал ST1.5, снял копию,
+ * потом переключился на ST3, потом восстановил копию — и получил не ST1.5, а то, что
+ * лежало в таблице на момент восстановления. Поле 44 вернулось бы, а таблица нет.
+ * Копия обязана возвращать состояние целиком, иначе она обещает больше, чем делает.
+ *
+ * Набор собирается ИЗ САМОЙ КАРТЫ МЕНЮ, а не задаётся списком: любой будущий пункт,
+ * который начнёт писать попутные ячейки, попадёт в копию сам, без правки этого места.
+ */
+const SIDE_WRITES = (() => {
+  const out = new Map()
+  const walk = n => {
+    if (Array.isArray(n)) return n.forEach(walk)
+    if (!n || typeof n !== 'object') return
+    for (const v of n.values ?? []) {
+      for (const [off, hex] of Object.entries(v.writes ?? {})) {
+        out.set(Number(off), { offset: Number(off), length: String(hex).length / 2, platform: n.platform ?? 'both' })
+      }
+    }
+    Object.values(n).forEach(walk)
+  }
+  walk(menu.sections ?? [])
+  return [...out.values()].sort((a, b) => a.offset - b.offset)
+})()
+const sideSet = rev => SIDE_WRITES.filter(f => !rev || f.platform === 'both' || f.platform === rev)
+
+/**
  * Factory values for "Reset to defaults", built by scripts/make-factory-defaults.mjs
  * from the snapshot 4IFIR ships. Deliberately separate from the menu dictionaries —
  * see the long note at the reset section below for why.
@@ -385,20 +417,40 @@ let currentDir = ''
  *   list — for the selector: [{name, hex}]           → json_file_source
  *   map  — for the footer:   {"<hex>": "<name>"}     → json_file + {json_file(0,<hex>)}
  */
-function emitDicts(field, base) {
+function emitDicts(field, base, valuesOverride = null, probeLen = null) {
   const len = field.length ?? 3
   const list = []
   const map = {}
   const seen = new Set()
-  for (const v of field.values ?? []) {
+  /**
+   * ДОПОЛНИТЕЛЬНЫЕ ЗАПИСИ У ЗНАЧЕНИЯ.
+   *
+   * Обычный пункт пишет одно число в одно смещение. Ступени андервольта GPU так не умеют:
+   * ступень — это не число, а ЦЕЛАЯ ТАБЛИЦА напряжений внутри блока CUST, и промежуточной
+   * ступени в прошивке нет. Значит пункт должен записывать за один выбор и номер режима,
+   * и всю таблицу — 32 значения.
+   *
+   * Движок это позволяет: `json_file_source(*,КЛЮЧ)` резолвит ПРОИЗВОЛЬНЫЙ ключ выбранного
+   * элемента (обобщённый обходчик пути в utils.hpp), а не только `name` и `hex`. Поэтому
+   * значение может нести `writes: { "<смещение>": "<hex>" }`, и генератор разворачивает их
+   * в отдельные команды записи, по одной на смещение.
+   */
+  const extra = new Set()
+  for (const v of valuesOverride ?? field.values ?? []) for (const off of Object.keys(v.writes ?? {})) extra.add(Number(off))
+  const extraOffsets = [...extra].sort((a, b) => a - b)
+  for (const v of valuesOverride ?? field.values ?? []) {
     const hex = padHex(v.hex, len)
     if (!hex) continue
     // Deduplicate AFTER padding to the field length: source dictionaries store the same
     // value both as `01` and as `010000`, often under different names ("Stage 1" and
     // "Stage1 - Min"). Without this the menu grows duplicates — which is what the operator
     // saw on the console.
-    if (seen.has(hex)) continue
-    seen.add(hex)
+    // Ключ дедупликации — не только hex. Три ступени GPU пишут в поле режима один и тот же
+    // код `01` и различаются ТОЛЬКО содержимым таблицы: по одному hex они схлопнулись бы,
+    // и из пяти ступеней в списке осталось бы три.
+    const dedup = v.writes ? `${hex}|${JSON.stringify(v.writes)}` : hex
+    if (seen.has(dedup)) continue
+    seen.add(dedup)
     // the engine splits the name at " - ": the left part becomes the item, the right the footer
     const name = withMagnitude((v.name ?? hex).replace(/\s+-\s+/g, ' — ').replace(/(\d),(\d)/g, '$1.$2'), hex, field)
     // СЛОВАРЬ ВЫБОРА И СЛОВАРЬ ПОДПИСИ — РАЗНЫЕ ВОПРОСЫ, И ЭТО НЕ ПЕДАНТИЗМ.
@@ -408,9 +460,24 @@ function emitDicts(field, base) {
     // стоять в kip, поставленное чужим пакетом или прежней версией нашего, и тюнер
     // обязан назвать его, а не печатать «недоступно»: показ — это правда о железе,
     // а не рекомендация.
-    map[hex] = name
+    // КЛЮЧ ПОДПИСИ. Обычно это само значение поля. Но когда ступени различаются не полем,
+    // а таблицей, одного поля мало: `probeLen` включает составной ключ — значение поля
+    // плюс контрольная ячейка таблицы, склеенные подряд. Ровно так же его собирает и
+    // движок, читая две ячейки в одной подстановке.
+    map[probeLen ? hex + padHex(v.writes[String(probeLen.offset)], probeLen.len) : hex] = name
     if (v.not_in_menu) continue
-    list.push({ name, hex })
+    if (!extraOffsets.length) { list.push({ name, hex }); continue }
+    // Пропущенный ключ движок молча превращает в `null`, а запись с `null` так же молча
+    // не выполняется — пункт при этом покажет галочку. Поэтому недостающее смещение это
+    // ошибка сборки, а не повод подставить ноль: половина таблицы осталась бы от прошлой
+    // ступени, и получилась бы кривая, которой никто не выбирал.
+    const row = { name, hex }
+    for (const o of extraOffsets) {
+      const val = v.writes?.[String(o)]
+      if (!val) throw new Error(`значение «${name}» поля ${field.offset} не задаёт запись в смещение ${o}`)
+      row[`w${o}`] = val
+    }
+    list.push(row)
   }
   // ПОРЯДОК В СПИСКЕ = ПОРЯДОК НА ЭКРАНЕ. Словари собраны слиянием двух доноров, и у
   // четырнадцати полей ряды идут вразнобой: у точек кривой Mariko блок 550…595 вклинен
@@ -460,6 +527,7 @@ function emitDicts(field, base) {
   //   map     — relative to the sub-package directory (the item reads it itself)
   //   mapRoot — relative to the package root: [boot] runs ONLY at the root (see emitPackage)
   const out = {
+    extraOffsets,
     list: `./json/${base}.json`,
     map: `./json/${base}.map.json`,
     mapRoot: `./${dir}/${base}.map.json`,
@@ -513,10 +581,15 @@ function emitItem(item, lines) {
   // `read_only` — настоящее поле, но коды режимов не установлены: показываем и сохраняем,
   //   а в меню не выводим, чтобы нельзя было записать наугад.
   if (field.exclude_from_menu || field.read_only) { stats.skipped.push({ id: item.id, why: `excluded: ${field.danger ?? 'flagged in the map'}` }); return }
-  if (!(field.values ?? []).length) { stats.skipped.push({ id: item.id, why: 'no value dictionary' }); return }
+  // Ряд значений обычно берётся из карты полей — он там один на смещение. Но у поля 44
+  // смысл РАЗНЫЙ на двух ревизиях: на Mariko это выбор одной из готовых таблиц, на Erista
+  // множитель −12,5 мВ. Один ряд на оба случая врал бы на одной из ревизий, поэтому карта
+  // меню вправе задать свой — тогда пункт разделяется на два, по `platform`.
+  const values = item.values ?? field.values ?? []
+  if (!values.length) { stats.skipped.push({ id: item.id, why: 'no value dictionary' }); return }
 
   const base = safeName(item.id)
-  const d = emitDicts(field, base)
+  const d = emitDicts(field, base, item.values ?? null, item.label_probe ?? null)
   if (!d) { stats.skipped.push({ id: item.id, why: 'empty dictionary' }); return }
 
   /**
@@ -529,7 +602,10 @@ function emitItem(item, lines) {
   const rawTitle = safeName(item.title ?? item.id)
   let title = rawTitle
   if (usedTitles.has(rawTitle)) {
-    const tag = safeName(item.tag ?? field.platform ?? String(field.offset))
+    // Метка берётся сперва у ПУНКТА, и только потом у поля: одно смещение может значить
+    // на двух ревизиях разное, и тогда пункта два — у каждого своя ревизия, а у поля в карте
+    // по-прежнему `both`. Без этого второй пункт получал метку `?both`, то есть врал.
+    const tag = safeName(item.tag ?? item.platform ?? field.platform ?? String(field.offset))
     title = `${rawTitle}?${tag}`
     let n = 2
     while (usedTitles.has(title)) title = `${rawTitle}?${tag}${n++}`
@@ -555,7 +631,12 @@ function emitItem(item, lines) {
   }
   if (item.help) lines.push(`;footer_highlight=true`)
   lines.push(`json_file_source '${d.list}' name`)
+  // Кэш найденного смещения якоря движок не сбрасывает сам. Пока команда одна, это неважно;
+  // когда их три десятка — один скан файла вместо тридцати, и заодно страховка на случай,
+  // если в этой же сессии оверлея kip подменили восстановлением копии.
+  if (d.extraOffsets.length) lines.push('clear hex_sum_cache')
   lines.push(`${cmd} ${KIP} CUST ${field.offset} {json_file_source(*,hex)}`)
+  for (const o of d.extraOffsets) lines.push(`${cmd} ${KIP} CUST ${o} {json_file_source(*,w${o})}`)
   lines.push(`set-footer '{json_file_source(*,name)}'`)
   lines.push('')
 
@@ -568,7 +649,13 @@ function emitItem(item, lines) {
   // so the target file is the config.ini of that very subdirectory.
   // declaring the same dictionary twice in a row is one more file open at startup
   if (d.mapRoot !== lastBootMap) { bootLines.push(`json_file '${d.mapRoot}'`); lastBootMap = d.mapRoot }
-  bootLines.push(`set-ini-val '${d.dir ? `./${d.dir}/config.ini` : './config.ini'}' '*${title}' footer {json_file(0,{hex_file(CUST,${field.offset},${d.len})})}`)
+  // Ключ чтения. Обычно одна ячейка. Если ступени различаются таблицей, а не полем, то
+  // по одной ячейке три из пяти неотличимы — читаем две подряд и склеиваем. Движок это
+  // умеет: подстановки резолвятся все, а не первая (replacePlaceholdersRecursivelyImpl).
+  const probe = item.label_probe
+    ? `{hex_file(CUST,${field.offset},${d.len})}{hex_file(CUST,${item.label_probe.offset},${item.label_probe.len})}`
+    : `{hex_file(CUST,${field.offset},${d.len})}`
+  bootLines.push(`set-ini-val '${d.dir ? `./${d.dir}/config.ini` : './config.ini'}' '*${title}' footer {json_file(0,${probe})}`)
   stats.bootLines++
   stats.items++
 
@@ -587,6 +674,7 @@ function emitItem(item, lines) {
     map: d.mapRoot,
     offset: field.offset,
     len: d.len,
+    probe: item.label_probe ?? null,   // сводная страница читает ту же пару ячеек, что и меню
     platform: plat,
     series: field.series ?? null,
   })
@@ -718,9 +806,17 @@ function emitBackup(item, lines) {
     lines.push(`set-ini-val '${path}' Meta kipver '${KIPVER}'`)
     lines.push(`set-ini-val '${path}' Meta created '{timestamp("%Y-%m-%d %H:%M")}'`)
     lines.push(`set-ini-val '${path}' Meta ram '{ram_vendor} {ram_model}'`)
-    lines.push(`set-ini-val '${path}' Meta fields '${mine.length}'`)
+    // Паспорт копии обязан считать ВСЁ, что в неё легло, включая попутные ячейки таблицы:
+    // иначе число в файле разойдётся с числом строк, и первый же, кто станет по нему сверять
+    // полноту копии, получит ложную тревогу.
+    lines.push(`set-ini-val '${path}' Meta fields '${mine.length + sideSet(rev).length}'`)
     for (const f of mine) {
       lines.push(`set-ini-val '${path}' Fields ${f.offset} '{hex_file(CUST,${f.offset},${f.length ?? 3})}'`)
+    }
+    // Попутные ячейки — после полей и тем же ключом-смещением: восстановление читает файл
+    // одним списком и не отличает их от прочего, а копия остаётся полной.
+    for (const f of sideSet(rev)) {
+      lines.push(`set-ini-val '${path}' Fields ${f.offset} '{hex_file(CUST,${f.offset},${f.length})}'`)
     }
     lines.push(`set-footer 'saved {timestamp("%d.%m %H:%M")}'`)
     lines.push('')
@@ -1363,7 +1459,10 @@ if (kipRows.length) {
    * so the string in the file is exactly what the kip reading would have produced. That is
    * what makes the same dictionaries work for both without a single change.
    */
+  // Читаем ровно то же, что и меню: у ступеней GPU одна ячейка неоднозначна, нужна пара.
+  // Разойдись эти два места — сводная страница называла бы ступень иначе, чем сам пункт.
   const FROM_KIP = r => `{hex_file(CUST,${r.offset},${r.len})}`
+                      + (r.probe ? `{hex_file(CUST,${r.probe.offset},${r.probe.len})}` : '')
   const FROM_INI = r => `{ini_file(Fields,${r.offset})}`
 
   const emitGroupRows = (kl, rows, valueOf = FROM_KIP, scoped = false) => {
@@ -1799,6 +1898,7 @@ if (kipRows.length) {
         // Список пишущих команд строится из ТОГО ЖЕ набора, что и копия, а не из kipRows:
         // иначе read_only-поля сохраняются и не возвращаются.
         ...backupSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
+        ...sideSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
         `set-footer 'restored'`,
         // ВТОРОЙ БЛОК — ДЛЯ ИМПОРТИРОВАННЫХ КОПИЙ, НО КНОПКА ОДНА.
         //
@@ -1814,6 +1914,7 @@ if (kipRows.length) {
         `matching_ini_val {ini_file(Restore,Path)} Meta kipver imported`,
         src[1],
         ...backupSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
+        ...sideSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
         `set-footer 'restored from an imported copy'`,
         'try:',
         `set-footer 'not applied - no backup chosen, or it is for another kip layout'`,

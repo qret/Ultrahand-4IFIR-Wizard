@@ -21569,7 +21569,7 @@
       "write_kind": "hex",
       "units": "mV_offset",
       "name": "pMeh 19 vMINetune ST",
-      "platform": "mariko",
+      "platform": "both",
       "series": "pMeh",
       "side_write": false,
       "roles": [
@@ -21804,7 +21804,7 @@
           }
         ]
       },
-      "platform_source": "pMEH[19] vMINetune ST — Ebal GPU.ini:99",
+      "platform_source": "pMEH[19] vMINetune ST — Ebal GPU.ini:99 | 29.08.2026: снята пометка mariko — в оригинальном 4IFIR Wizard оба поля лежат в RAM > MICRO-ENHANCE LOGIC без фильтра платформы и видны на обеих ревизиях, и его сброс к заводским пишет в них безусловно. Решение оператора: как в оригинале.",
       "help_text": "Shifts the automatic GPU voltage floor for Optimized E RAM. This is a shift, not the voltage itself: plus raises it, minus lowers it. Step is 5 mV.",
       "help_source": "4IFIR Wizard Help/pMeh 19 vMINetune ST.txt",
       "range_note": "ДИАПАЗОН РАСШИРЕН АВТОРОМ ПРОШИВКИ ПО ПРОСЬБЕ. Строка-легенда в customize.cpp говорит «0-9», но это устаревший комментарий: Cooler3D добавил значения выше и ниже по личной просьбе оператора. Все 15 пунктов рабочие. НЕ ОБРЕЗАТЬ по легенде."
@@ -21986,7 +21986,7 @@
       "write_kind": "hex",
       "units": "mV_offset",
       "name": "pMeh 21 gVMINDick",
-      "platform": "mariko",
+      "platform": "both",
       "series": "pMeh",
       "side_write": false,
       "roles": [
@@ -22223,7 +22223,7 @@
           }
         ]
       },
-      "platform_source": "pMEH[21] — Ebal GPU.ini:107",
+      "platform_source": "pMEH[21] — Ebal GPU.ini:107 | 29.08.2026: снята пометка mariko — в оригинальном 4IFIR Wizard оба поля лежат в RAM > MICRO-ENHANCE LOGIC без фильтра платформы и видны на обеих ревизиях, и его сброс к заводским пишет в них безусловно. Решение оператора: как в оригинале.",
       "help_text": "Shifts the automatic GPU voltage floor for Max RAM RAM. This is a shift, not the voltage itself: plus raises it, minus lowers it. Step is 5 mV.",
       "help_source": "4IFIR Wizard Help/pMeh 21 gVMINDick.txt",
       "range_note": "ДИАПАЗОН РАСШИРЕН АВТОРОМ ПРОШИВКИ ПО ПРОСЬБЕ. Строка-легенда в customize.cpp говорит «0-9», но это устаревший комментарий: Cooler3D добавил значения выше и ниже по личной просьбе оператора. Все 15 пунктов рабочие. НЕ ОБРЕЗАТЬ по легенде."
