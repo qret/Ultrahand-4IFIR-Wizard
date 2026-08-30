@@ -505,7 +505,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          8896
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -519,7 +526,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9792
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -533,7 +547,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          8952
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -547,7 +568,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9848
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -561,7 +589,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9008
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -575,7 +610,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9904
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -589,7 +631,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9064
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -603,7 +652,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9960
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -617,7 +673,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9120
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -631,7 +694,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          10016
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -645,7 +715,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9176
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -659,7 +736,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          10072
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -673,7 +757,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9232
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -687,7 +778,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          10128
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -701,7 +799,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9288
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -715,7 +820,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          10184
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -729,7 +841,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9344
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -741,7 +860,14 @@
         "skip": "индекс 24 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          10240
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -755,7 +881,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9400
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -767,7 +900,14 @@
         "skip": "индекс 25 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          10296
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -781,7 +921,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9456
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -793,7 +940,14 @@
         "skip": "индекс 26 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          10352
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -807,7 +961,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9512
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -819,7 +980,14 @@
         "skip": "индекс 27 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          10408
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -833,7 +1001,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9568
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -845,7 +1020,14 @@
         "skip": "индекс 28 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          10464
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -859,7 +1041,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9624
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -871,7 +1060,14 @@
         "skip": "индекс 29 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          10520
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -885,7 +1081,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9680
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -897,7 +1100,14 @@
         "skip": "индекс 30 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          10576
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       },
       {
@@ -911,7 +1121,14 @@
         ],
         "only_when": {
           "index_of": "GPU Eco Mode",
-          "equals": 3
+          "equals": "03"
+        },
+        "table_offsets": [
+          9736
+        ],
+        "table_when": {
+          "index_of": "GPU Eco Mode",
+          "equals": "01"
         }
       }
     ],
@@ -1325,7 +1542,6 @@
           6992
         ]
       }
-    ],
-    "_note": "mariko_curve is applied ONLY when the imported backup had GPU Eco Mode = 3. In every other mode the same snapshot block holds microvolts from a DVFS table and must not reach the millivolt array. The condition lives in the generated importer; the entry in skipped explains why it exists."
+    ]
   }
 }

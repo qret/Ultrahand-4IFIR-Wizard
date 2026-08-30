@@ -550,6 +550,48 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
   const dir = currentDir ? `${currentDir}/json` : 'json'
 
   /**
+   * СОСТАВНОЙ КЛЮЧ: ПОКРЫВАЕМ ВСЕ ДОСТИЖИМЫЕ ПАРЫ, А НЕ ТОЛЬКО ПРЕДЛАГАЕМЫЕ.
+   *
+   * Ступени различаются парой «режим + первая ячейка таблицы», и пар из меню шесть.
+   * Но достижимых состояний двенадцать: сброс к заводским пишет режим и НЕ трогает
+   * таблицу, значит после сброса из половинчатой ступени получается пара, которой
+   * в меню нет никогда. То же даёт правка через KIP tool в hekate.
+   *
+   * Непокрытая пара — это «null» на экране, то есть прямое нарушение постоянного решения
+   * «словарь названий не сужается никогда». Достраиваем все сочетания.
+   *
+   * Имя берётся ПО СМЫСЛУ: содержимое таблицы важно только в режиме, который её читает.
+   * В остальных режимах прошивка читает другую таблицу, и ступень называется по режиму,
+   * что бы ни лежало в рабочей.
+   */
+  let flatMap = null
+  if (probeLen) {
+    const byMode = new Map()          // режим -> имя ступени, которая читает СВОЮ таблицу
+    const probes = new Set()
+    for (const v of valuesOverride ?? field.values ?? []) {
+      const hex = padHex(v.hex, len)
+      const pr = padHex(v.writes?.[String(probeLen.offset)], probeLen.len)
+      if (!hex || !pr) continue
+      probes.add(pr)
+      // «Своя» — та, что не половинчатая: половинчатые живут в чужом слоте.
+      // Тире как у всех остальных подписей: иначе одна и та же ступень называется
+      // на разных экранах через дефис и через тире, и это читается как две разные.
+      const nm = String(v.name).replace(/\s+-\s+/g, ' — ')
+      if (!byMode.has(hex) || !/\d\.\d/.test(v.name)) byMode.set(hex, nm)
+    }
+    for (const [hex, name] of byMode) {
+      for (const pr of probes) if (map[hex + pr] === undefined) map[hex + pr] = name
+    }
+    // Плоский словарь для источников, где второй ячейки нет вовсе (заводской набор).
+    const flat = {}
+    for (const [hex, name] of byMode) flat[hex] = name
+    write(`${dir}/${base}.flat.json`, JSON.stringify([flat], null, 2))
+    stats.dicts++
+    flatMap = `./${dir}/${base}.flat.json`
+  }
+
+
+  /**
    * One dictionary for every point of a series, instead of a copy per point.
    *
    * The voltage curve has 24 points, and their value dictionary is THE SAME one — a set of
@@ -571,6 +613,7 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
   //   mapRoot — relative to the package root: [boot] runs ONLY at the root (see emitPackage)
   const out = {
     extraOffsets,
+    flatMap,
     list: `./json/${base}.json`,
     map: `./json/${base}.map.json`,
     mapRoot: `./${dir}/${base}.map.json`,
@@ -603,6 +646,114 @@ const allBoot = []
  * value is substituted straight from the kip into the cell as the page is drawn.
  */
 const kipRows = []
+
+/**
+ * АДРЕСА ТРЁХ ТАБЛИЦ СТУПЕНЕЙ — для сводки, которая показывает действующую кривую.
+ *
+ * Не вписываются числами: берутся из того же `scan_guard`, что кладёт в карту скрипт
+ * ступеней, а он читает их из живого kip. Базы стоят через равные промежутки, и промежуток
+ * равен ёмкости таблицы — поэтому соседние выводятся из той, куда пишут ступени.
+ * Нет ступеней в карте — нет и блока: сводка тогда показывает только редактируемый массив,
+ * как было раньше.
+ */
+const curveTables = (() => {
+  let g = null
+  let rows = null
+  const walk = n => {
+    if (Array.isArray(n)) return n.forEach(walk)
+    if (!n || typeof n !== 'object') return
+    if (n.scan_guard && (n.values ?? []).length) { g = n.scan_guard; rows = n.curve_rows ?? null }
+    Object.values(n).forEach(walk)
+  }
+  walk(menu.sections ?? [])
+  if (!g) return null
+  const slot = g.base - 32, span = g.step * 31
+
+  /**
+   * СЛОВАРЬ ПОДПИСЕЙ ДЛЯ НАПРЯЖЕНИЙ ТАБЛИЦ — микровольты в милливольты.
+   *
+   * Не вычислением, а словарём, и это осознанный выбор. Вычислением вышла бы цепочка
+   * из четырёх подстановок: прочитать байты, перевернуть их, превратить в число, поделить
+   * на тысячу. Трёхуровневая цепочка в пакете живёт и работает, четырёхуровневой нет нигде,
+   * и проверять её на живой консоли дорого.
+   *
+   * Словарь же — это ровно тот механизм, которым пакет показывает ВСЕ свои значения:
+   * прочитали четыре байта, нашли строку. Один файл на все 72 строки трёх таблиц.
+   *
+   * Диапазон с запасом: напряжения таблиц лежат в 445000…960000, берём 400000…1000000
+   * с шагом 5 мВ. Значение вне сетки покажется как «недоступно» — и это правда о железе,
+   * а не поломка: таких значений прошивка в таблицах не держит.
+   */
+  const map = {}
+  for (let uv = 400000; uv <= 1000000; uv += 5000) {
+    const b = Buffer.alloc(4); b.writeUInt32LE(uv)
+    map[b.toString('hex').toUpperCase()] = `${uv / 1000} mV`
+  }
+  /**
+   * ПОТОЛОК ЖИВЁТ В ТОМ ЖЕ СЛОВАРЕ, ЧТО И НАПРЯЖЕНИЯ. Двух словарей в одной таблице
+   * не бывает: объявление `json_file` — это КУРСОР, следующее перебивает предыдущее,
+   * а первый аргумент `json_file(0,…)` — индекс внутри файла, не номер объявления.
+   * Значит подпись потолка обязана лежать там же, где милливольты.
+   *
+   * Столкнуться они не могут: напряжения таблиц не выходят за 1 000 000 (микровольты),
+   * потолки начинаются от 1 459 200 (килогерцы). Диапазоны не пересекаются.
+   */
+  for (const khz of rows?.ceilings ?? []) {
+    const b = Buffer.alloc(4); b.writeUInt32LE(khz)
+    map[b.toString('hex').toUpperCase()] = `${khz / 1000} MHz`
+  }
+  write('json/dvfs_uv.map.json', JSON.stringify([map], null, 2))
+  stats.dicts++
+
+  return {
+    step: g.step,
+    map: './json/dvfs_uv.map.json',
+    // Подписи ВСЕХ строк, а не только тех 24, что есть в меню: редактируемый массив
+    // `Custom Table` держит 24 точки, а настоящие таблицы — 31 строку, и разгонный
+    // конец кривой (1228…1420 МГц плюс потолок) в сводке не показывался вовсе.
+    labels: (rows?.khz ?? []).map(k => `${Math.floor(k / 1000)}MHz`),
+    modes: [
+      { hex: '00', base: slot - span, name: 'Eco ST1' },
+      { hex: '01', base: slot,        name: 'Eco ST2 group' },
+      { hex: '02', base: slot + span, name: 'Eco ST3' },
+    ],
+  }
+})()
+/**
+ * ЗАВОДСКОЕ СОДЕРЖИМОЕ РАБОЧЕЙ ТАБЛИЦЫ — ВЫВОДИТСЯ, А НЕ ПЕРЕЧИСЛЯЕТСЯ.
+ *
+ * Четыре ступени из шести (ST1, ST2, ST3, Custom Table) пишут в @8864 побайтово одно
+ * и то же — заводскую таблицу. Им своя кривая не нужна: режим 0 читает @7128, режим 2 —
+ * @10600, режим 3 — массив @88, и рабочий слот они просто ВОЗВРАЩАЮТ в исходное
+ * состояние. Половинчатые ступени — единственные, кто его переписывает.
+ *
+ * Значит «заводская таблица» — не функция режима, а одна константа, и её можно вывести
+ * из самой карты: сгруппировать наборы `writes` по содержимому и взять большинство.
+ * Списком её задавать нельзя — список разойдётся с картой молча.
+ */
+const stockTable = (() => {
+  const groups = new Map()
+  const walk = n => {
+    if (Array.isArray(n)) return n.forEach(walk)
+    if (!n || typeof n !== 'object') return
+    for (const v of n.values ?? []) {
+      if (!v.writes) continue
+      const k = JSON.stringify(v.writes)
+      groups.set(k, (groups.get(k) ?? 0) + 1)
+    }
+    Object.values(n).forEach(walk)
+  }
+  walk(menu.sections ?? [])
+  if (!groups.size) return null
+  const ranked = [...groups].sort((a, b) => b[1] - a[1])
+  // Большинство обязано быть строгим: если две группы равны, «заводского» набора нет,
+  // и молча выбрать любой значило бы записать в чужую кривую невесть что.
+  if (ranked.length > 1 && ranked[0][1] === ranked[1][1]) {
+    throw new Error('в карте нет большинства среди наборов writes — заводскую таблицу вывести не из чего')
+  }
+  return JSON.parse(ranked[0][0])
+})()
+
 /** The section the summary rows currently being collected belong to. */
 let kipGroup = 'General'
 /** Group subtitle in the summary: the reference puts "Speedo {cpu_speedo}" next to "CPU". */
@@ -718,8 +869,15 @@ function emitItem(item, lines) {
     offset: field.offset,
     len: d.len,
     probe: item.label_probe ?? null,   // сводная страница читает ту же пару ячеек, что и меню
+    flatMap: d.flatMap,                // запасной словарь: источник без второй ячейки
     platform: plat,
     series: field.series ?? null,
+    // Условие видимости едет вместе со строкой. Сводка обязана его уважать: показывать
+    // таблицу, которую прошивка в текущем режиме не читает, — значит врать молча.
+    // Именно так вышло со ступенями: человек выбирал ST2.5, открывал сводку, видел
+    // прежние напряжения кривой и решал, что ступень не применилась. Значения были верные,
+    // но относились к Custom Table, а ступень пишет совсем в другую таблицу.
+    visible_when: item.visible_when ?? null,
   })
 
   // Build up the help: the field description plus the links the original packages kept quiet about.
@@ -986,8 +1144,70 @@ function emitImport(lines, rev, dir) {
   // поле «GPU Eco Mode» нужно как условие для точек кривой
   const eco = imp.find(r => r.name === 'GPU Eco Mode')
 
+  /**
+   * ПОТОЛОК ЧАСТОТЫ В ПРОФИЛЕ НЕ ХРАНИТСЯ, И ВЫДУМЫВАТЬ ЕГО НЕЛЬЗЯ.
+   *
+   * Профиль KipTool несёт напряжения строк, но не частоту последней строки. А по
+   * постоянному решению оператора потолок наследуется от нижней соседки, и у ST1.5
+   * он свой — 1459,2 МГц против 1536 у ST2 и ST2.5.
+   *
+   * Определяем по первой ячейке кривой: она у ступеней различна (на этом же держится
+   * подпись). Оба числа берём ИЗ КАРТЫ, а не пишем своими руками, — правило обязано
+   * жить в одном месте.
+   *
+   * Если определить не удалось, ячейка не пишется вовсе: `null` движок пропускает,
+   * и потолок остаётся прежним. Это единственный вариант, не выдумывающий число.
+   */
+  const capRule = (() => {
+    if (!stockTable) return null
+    const CAP = '10544', CELL0 = '8896'
+    const stock = stockTable[CAP]
+    if (!stock) return null
+    const odd = []
+    const walk = n => {
+      if (Array.isArray(n)) return n.forEach(walk)
+      if (!n || typeof n !== 'object') return
+      for (const v of n.values ?? []) {
+        const w = v.writes
+        if (!w?.[CAP] || !w[CELL0]) continue
+        if (w[CAP] !== stock) odd.push({ cell0: w[CELL0], cap: w[CAP] })
+      }
+      Object.values(n).forEach(walk)
+    }
+    walk(menu.sections ?? [])
+    return { stock, odd }
+  })()
+
   const rows = []
+  const seenOff = new Set()
   for (const r of imp) {
+    /**
+     * ЯЧЕЙКИ РАБОЧЕЙ ТАБЛИЦЫ ПИШУТСЯ ОТДЕЛЬНО ОТ МАССИВА И ДО ПРОВЕРКИ `skip`.
+     *
+     * `skip` у строки кривой означает «для МАССИВА эта строка непригодна»: у массива
+     * слотов 24, и индексы 24…30 залезли бы в таблицу CPU Erista. К таблице это
+     * отношения не имеет — там все 31 строка законны.
+     *
+     * ЗАЧЕМ ЭТО ВООБЩЕ. Профиль KipTool несёт режим, но раньше не нёс кривую, и
+     * импортированная копия применялась НАПОЛОВИНУ: режим ставился, таблица оставалась
+     * прежней. Выбрал ST2.5, импортировал старый профиль «ST2» — получил режим ST2
+     * поверх кривой ST2.5, то есть состояние, которого нет ни в одном меню.
+     *
+     * Кривая в профиле ЕСТЬ — снимок той таблицы, которую выбирал режим. При режиме `01`
+     * переносим её ДОСЛОВНО: подстроенную вручную кривую (такие в природе есть) запись
+     * константы молча стёрла бы. При остальных режимах профиль несёт снимок ЧУЖОЙ
+     * таблицы, и в рабочий слот кладём заводское содержимое — ровно то, что туда пишут
+     * все четыре целые ступени.
+     */
+    if (r.table_offsets?.length && eco && stockTable) {
+      const off = r.table_offsets[0]
+      const stock = stockTable[String(off)]
+      if (stock) {
+        const verbatim = fit(val(r), 4)
+        rows.push({ off, expr: `{if_==({json_file(${eco.index},${eco.key})},${r.table_when.equals},${verbatim},${stock})}` })
+        seenOff.add(off)
+      }
+    }
     if (r.skip || !r.offsets?.length) continue
     r.offsets.forEach((off, i) => {
       const f = fieldsDoc.fields.find(x => x.offset === off)
@@ -1010,8 +1230,26 @@ function emitImport(lines, rev, dir) {
       if (r.only_when && eco) {
         expr = `{if_==({json_file(${eco.index},${eco.key})},${r.only_when.equals},${expr},null)}`
       }
+      /**
+       * ОДНО СМЕЩЕНИЕ — ОДНА ЗАПИСЬ. Импорт писал `12436` дважды: отдельной записью
+       * и элементом упакованного ряда, и побеждала вторая просто потому, что стояла
+       * ниже. Это `eBAMATIC Stage`, первая строка сводки по расстановке оператора, —
+       * то есть выбор делал порядок строк, а не решение.
+       */
+      if (seenOff.has(off)) { stats.skipped.push({ id: `import ${off}`, why: 'смещение уже записано выше' }); return }
+      seenOff.add(off)
       rows.push({ off, expr })
     })
+  }
+  /**
+   * Строка потолка эмитится ПОСЛЕ кривой: она опирается на первую её ячейку, которую
+   * к этому моменту уже прочитали в `Import Cell0`.
+   */
+  if (capRule && eco && rows.some(r => r.off === 8896)) {
+    const inner = capRule.odd.reduce(
+      (acc, o) => `{if_==({ini_file(Import,Cell0)},${o.cell0},${o.cap},${acc})}`,
+      capRule.stock)
+    rows.push({ off: 10544, expr: `{if_==({json_file(${eco.index},${eco.key})},01,${inner},${capRule.stock})}` })
   }
   if (!rows.length) return
 
@@ -1037,6 +1275,15 @@ function emitImport(lines, rev, dir) {
   lines.push(`json_file '{file_source}'`)
   lines.push(`mkdir ${dir}`)
   lines.push(`ini_file './config.ini'`)
+  /**
+   * Первая ячейка кривой откладывается в сторону: по ней ниже опознаётся ступень
+   * и выбирается потолок. Читать её дважды в одном выражении нельзя — `if_==` режет
+   * аргументы по запятым, и вложенная подстановка в поле сравнения ломает разбор.
+   */
+  const cell0Row = imp.find(r => r.table_index === 0)
+  if (capRule && cell0Row) {
+    lines.push(`set-ini-val './config.ini' Import Cell0 '${fit(val(cell0Row), 4)}'`)
+  }
   if (freqRow && balRow) {
     lines.push(`set-ini-val './config.ini' Import Khz '{hex_to_decimal({hex_to_rhex(${fit(val(freqRow), 3)})})}'`)
     lines.push(`set-ini-val './config.ini' Import Bal '{hex_to_decimal({hex_to_rhex(${fit(val(balRow), 3)})})}'`)
@@ -1053,6 +1300,14 @@ function emitImport(lines, rev, dir) {
   lines.push(`set-ini-val '${path}' Meta created '{timestamp("%Y-%m-%d %H:%M")}'`)
   lines.push(`set-ini-val '${path}' Meta ram '{ram_vendor} {ram_model}'`)
   lines.push(`set-ini-val '${path}' Meta source '{file_name}'`)
+  /**
+   * Откуда кривая — это факт о копии, а не украшение: при режиме `01` она перенесена
+   * из профиля дословно, при остальных подставлено заводское содержимое рабочей
+   * таблицы. Человек, открывший копию через полгода, обязан это видеть.
+   */
+  if (capRule && eco) {
+    lines.push(`set-ini-val '${path}' Meta curve '{if_==({json_file(${eco.index},${eco.key})},01,from-profile,assumed-stock)}'`)
+  }
   lines.push(`set-ini-val '${path}' Meta fields '${rows.length}'`)
   for (const r of rows) lines.push(`set-ini-val '${path}' Fields ${r.off} '${r.expr}'`)
   // ОТВЕТ ЧЕЛОВЕКУ — ЭКРАННЫМ СООБЩЕНИЕМ, А НЕ ПОДПИСЬЮ ПУНКТА.
@@ -1545,12 +1800,17 @@ if (kipRows.length) {
     }
     // Одна таблица группы: отступ, заголовок, строки.
     const emitOne = (g, rows, sys, scoped) => {
+      // Если ВСЕ строки группы живут под одним условием — условие переезжает на её таблицы.
+      // Частичное совпадение не годится: спрятали бы заодно и то, что видно всегда.
+      const conds = new Set(rows.map(r => r.visible_when ? `${r.visible_when.offset}|${r.visible_when.value}` : ''))
+      const vc = conds.size === 1 && [...conds][0] ? visCond(rows[0].visible_when) : null
+      const gate = vc ? [`;visibility_condition=${vc}`] : []
       // A gap BEFORE the heading, not only between tables: without it the next section's
       // caption was printed flush against the previous frame and overlapped it.
-      kl.push('[Gap]', ';mode=table', ';background=false', ...sys, `;gap=${HEAD_GAP}`, '')
-      kl.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ...sys,
+      kl.push('[Gap]', ';mode=table', ';background=false', ...sys, ...gate, `;gap=${HEAD_GAP}`, '')
+      kl.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ...sys, ...gate,
               `'${safeName(g.name)}' = '${g.ctx ?? ''}'`, '')
-      kl.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ...sys, ...src)
+      kl.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ...sys, ...gate, ...src)
       emitGroupRows(kl, rows, valueOf, scoped)
       kl.push('')
     }
@@ -1567,6 +1827,74 @@ if (kipRows.length) {
       const inOrder = rows => wanted
         ? [...rows].sort((a, b) => wanted.indexOf(a.offset) - wanted.indexOf(b.offset))
         : rows
+
+      // КРИВАЯ GPU В СВОДКЕ ПОКАЗЫВАЕТ ТУ ТАБЛИЦУ, КОТОРУЮ ПРОШИВКА СЕЙЧАС ЧИТАЕТ.
+      //
+      // Блок остаётся прежним на вид — «GPU Voltage Table» и те же строки частот, — но
+      // источник у него меняется вместе с режимом. Раньше он всегда читал редактируемый
+      // массив, а прошивка берёт его ТОЛЬКО в режиме Custom Table: человек выбирал ступень,
+      // открывал сводку и видел прежние числа, решая, что ступень не применилась.
+      //
+      // Печатается по варианту на каждый режим ступени, на экране появляется ровно один:
+      // движок вычисляет условие видимости при построении страницы и чужие блоки
+      // не создаёт вовсе. Вариант для Custom Table — это сама группа ниже, у неё своё
+      // условие уже стоит в карте меню.
+      //
+      // Значения читаются ИЗ ЖИВОГО KIP. Словарь подписей не нужен: микровольты делятся
+      // на тысячу прямо в подстановке, а «mV» и так стоит в каждой строке этой сводки.
+      // Группа «GPU Voltage Table» СМЕШАННАЯ: в неё попадают строки обеих ревизий,
+      // 24 точки Mariko и 29 Erista. Берём только свои — иначе блок печатает 53 строки
+      // вместо 24 и таблица на экране становится вдвое длиннее. Ровно это и случилось.
+      const mrows = g.rows.filter(r => r.series === 'gpu_curve_mariko')
+      if (mrows.length && curveTables) {
+        // Таблицы читаются мариковские, значит и блок мариковский. Метка обязательна:
+        // без неё блок показался бы и на Erista, где этих таблиц нет.
+        const sys = [';system=mariko']
+        for (const m of curveTables.modes) {
+          const cond = [`;visibility_condition=matching_hex_val_custom ${KIP} CUST 44 ${m.hex}`]
+          kl.push('[Gap]', ';mode=table', ';background=false', ...sys, ...cond, `;gap=${HEAD_GAP}`, '')
+          kl.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ...sys, ...cond,
+                  // Подпись справа пустая — как было до правки. Какая ступень выбрана,
+                  // говорит строка `Undervolt Mode` выше, дублировать её здесь незачем.
+                  `'${safeName(g.name)}' = ''`, '')
+          kl.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ...sys, ...cond,
+                  `hex_file '${KIP}'`, `json_file '${curveTables.map}'`)
+          /**
+           * ПОКАЗЫВАЕМ ВСЕ СТРОКИ ТАБЛИЦЫ, А НЕ 24 ИЗ МЕНЮ.
+           *
+           * Подписи раньше брались из группы меню, а в ней ровно столько строк, сколько
+           * точек у редактируемого массива `Custom Table`, — двадцать четыре. У настоящих
+           * таблиц строк тридцать одна, и обрезано было СВЕРХУ: 1228…1420 МГц и потолок
+           * не показывались вовсе. Это разгонный конец кривой, ради которого тюнер
+           * и открывают. Наследство от массива, а не решение.
+           */
+          const labels = curveTables.labels.length ? curveTables.labels : mrows.map(r => r.title)
+          labels.forEach((title, i) => {
+            const off = m.base + curveTables.step * i + 32
+            kl.push(`'${safeName(title)}' = '{json_file(0,{hex_file(CUST,${off},4)})}'`)
+          })
+          /**
+           * ПОСЛЕДНЯЯ СТРОКА — ПОТОЛОК, И ПОДПИСАТЬ ЕГО ЧИСЛОМ НЕЛЬЗЯ.
+           *
+           * Блок выбирается по РЕЖИМУ, а режим `01` обслуживают три ступени сразу:
+           * ST1.5 с потолком 1459,2 МГц, ST2 и ST2.5 с 1536. Постоянная подпись «1536MHz»
+           * врала бы на ST1.5 — а потолок по решению оператора и есть главное отличие
+           * половинчатой ступени от соседки.
+           *
+           * Поэтому подпись слева постоянная, а частота читается из живого kip и
+           * переводится в текст тем же словарём. Ступень называет себя сама, и любая
+           * будущая подхватится без правки.
+           *
+           * Напряжение верхней строки не показываем: у всех таблиц оно одно и то же,
+           * 960 мВ — это предел шины, а не свойство ступени.
+           */
+          if (curveTables.labels.length) {
+            const top = m.base + curveTables.step * curveTables.labels.length
+            kl.push(`'Max Clock' = '{json_file(0,{hex_file(CUST,${top},4)})}'`)
+          }
+          kl.push('')
+        }
+      }
 
       if (plats.size > 1) {
         // СМЕШАННАЯ ГРУППА ПЕЧАТАЕТСЯ ДВУМЯ ТАБЛИЦАМИ, ПО ОДНОЙ НА РЕВИЗИЮ.
@@ -1775,7 +2103,7 @@ if (kipRows.length) {
    * «относительно чего» (до этого: `package_source`, словари в подпакетах, форвардеры).
    * Поэтому не «поправить руками», а пересчитать при выводе — глубиной, а не заменой строк.
    */
-  const rebase = (p, depth) => depth ? p.replace(/^\.\//, './' + '../'.repeat(depth)) : p
+  const rebase = (p, depth) => p && depth ? p.replace(/^\.\//, './' + '../'.repeat(depth)) : p
   /**
    * ПРЕДПРОСМОТР ПЕРЕД ПРИМЕНЕНИЕМ.
    *
@@ -1905,7 +2233,7 @@ if (kipRows.length) {
         // Ключ — смещение ВМЕСТЕ с ревизией: одно смещение может обслуживаться двумя
         // строками, по одной на ревизию, и они не дубликаты друг друга.
         .filter(r => { const k = `${r.offset}|${r.platform ?? 'both'}`; return !seen.has(k) && seen.add(k) })
-        .map(r => ({ ...r, map: rebase(r.map, depth) }))
+        .map(r => ({ ...r, map: rebase(r.map, depth), flatMap: rebase(r.flatMap, depth) }))
         // Сортировка по платформе нужна ТОЛЬКО когда ревизия не задана: метка `mariko:`
         // действует до следующей и не возвращается к «обеим». Превью копии всегда знает
         // свою ревизию (`rev`), поэтому там метки не появляются вовсе и порядок остаётся
@@ -1935,12 +2263,30 @@ if (kipRows.length) {
             lastMap = null            // объявление словаря не переживает смену ветки
           }
         }
-        if (r.map !== lastMap) { pl.push(`json_file '${r.map}'`); lastMap = r.map }
         // Имя группы уже в заголовке — в строке оставляем только само поле.
         const label = r.group && r.title.startsWith(r.group)
           ? r.title.slice(r.group.length).trim() || r.title
           : r.title
-        pl.push(`'${safeName(label)}' = '{json_file(0,{ini_file(Fields,${r.offset})})}'`)
+        // СОСТАВНОЙ КЛЮЧ И ЗДЕСЬ. У ступеней GPU подпись адресуется парой ячеек, и если
+        // предпросмотр подставит только первую, ключ не найдётся НИКОГДА — на экране
+        // встанет «null». Так и было: обе страницы «что будет применено» врали про GPU
+        // при любом значении поля, а это ровно те экраны, по которым человек решается
+        // нажать удержание.
+        //
+        // Вторая ячейка есть не во всяком источнике: в копии настроек она лежит, а в
+        // заводском наборе её нет и по замыслу быть не должно — сброс таблицу не трогает.
+        // Поэтому ключ достраивается ТОЛЬКО когда источник её содержит; иначе строка
+        // читается плоским словарём, где тот же режим назван без оглядки на таблицу.
+        const probeInSrc = r.probe && (!only || only.has(r.probe.offset))
+        const key = probeInSrc
+          ? `{ini_file(Fields,${r.offset})}{ini_file(Fields,${r.probe.offset})}`
+          : `{ini_file(Fields,${r.offset})}`
+        //
+        // Объявление идёт ПОСЛЕ выбора, а не до него. Иначе страница открывает два файла
+        // подряд и пользуется вторым: лишнее открытие на карте памяти и путаница в чтении.
+        const mapPath = probeInSrc || !r.flatMap ? r.map : r.flatMap
+        if (mapPath !== lastMap) { pl.push(`json_file '${mapPath}'`); lastMap = mapPath }
+        pl.push(`'${safeName(label)}' = '{json_file(0,${key})}'`)
       }
       pl.push('')
     }

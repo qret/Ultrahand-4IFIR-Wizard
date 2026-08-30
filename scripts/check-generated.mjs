@@ -14,7 +14,7 @@
 // Exit code: 0 — everything is in place, 1 — there are discrepancies.
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
-import { join, dirname, relative } from 'node:path'
+import { join, dirname, relative, resolve, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -1010,6 +1010,349 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   }
   if (bad.length) problems.push({ sev: 'CRITICAL', what: `словарь названий сужен — стоящее в kip значение будет названо «недоступно»:\n     ${bad.slice(0, 6).join('\n     ')}` })
   else ok.push(`no naming dictionary is narrower than its field map (${checked} checked, ${widened} deliberately wider than their selector)`)
+}
+
+// -------- 27. Кривая ступени не совпадает с константами поиска прошивки (гейт сборки)
+//
+// ПРАВИЛО, СТОИВШЕЕ ЗАГРУЗКИ КОНСОЛИ. Прошивка патчит PCV не по адресам, а СКАНЕРОМ:
+// идёт по памяти словами по четыре байта и сравнивает каждое со списком искомых констант.
+// У каждой константы свой предел совпадений; недобор законен, а ПЕРЕБОР — аварийный выход
+// с именем записи на экране. Таблицу GPU прошивка подменяет ПОСРЕДИ этого же скана,
+// копируя её вперёд, в ещё не прочитанную область. Поэтому строки с 16-й и выше сканер
+// читает уже как наши данные.
+//
+// Значение 625000 в строке 16 дало третье совпадение записи «MEM Freq Limit» при двух
+// разрешённых — и консоль перестала грузиться. Разбор — docs/NOTES.md №180.
+//
+// ПОЧЕМУ ПРОВЕРКА ЗДЕСЬ, А НЕ ТОЛЬКО В СКРИПТЕ КАРТЫ. Сторож там есть, но `make-gpu-stages`
+// запускается руками и в сборке не участвует. Правило, роняющее консоль, обязано стоять
+// в гейте — рядом с правилами про длину имени файла, а не слабее их.
+//
+// Список констант и границу видимости сюда привозит сама карта меню (`scan_guard`):
+// они читаются из живого kip тем скриптом, а проверка сверяется с ними, не открывая kip.
+{
+  const guards = []
+  const walk = n => {
+    if (Array.isArray(n)) return n.forEach(walk)
+    if (!n || typeof n !== 'object') return
+    if (n.scan_guard && (n.values ?? []).length) guards.push(n)
+    Object.values(n).forEach(walk)
+  }
+  walk(menu.sections ?? [])
+
+  if (!guards.length) ok.push('no stage writes a DVFS table — the PCV scanner rule does not apply')
+  else {
+    const bad = []
+    let rows = 0
+    for (const item of guards) {
+      const g = item.scan_guard
+      const consts = new Set(g.consts)
+      for (const v of item.values ?? []) {
+        for (const [key, hex] of Object.entries(v.writes ?? {})) {
+          const off = Number(key)
+          // Только напряжения: у частоты верхней строки своё смещение внутри строки.
+          if ((off - g.base) % g.step !== 0) continue
+          const row = (off - g.base) / g.step
+          if (row < g.from_row) continue          // эти строки сканер уже прошёл
+          rows++
+          const val = parseInt(String(hex).match(/../g).reverse().join(''), 16)
+          if (consts.has(val))
+            bad.push(`«${v.name}» строка ${row} = ${val} совпадает с искомой константой прошивки`)
+        }
+      }
+    }
+    if (bad.length) problems.push({ sev: 'CRITICAL', what: `ступень совпала с константой поиска прошивки — консоль не загрузится:\n     ${bad.slice(0, 6).join('\n     ')}` })
+    else ok.push(`no stage voltage collides with a firmware search constant (${rows} rows in the scanned range checked)`)
+  }
+}
+
+// ------------ 28. Одноимённые блоки сводки не могут показаться одновременно
+//
+// СЕГОДНЯШНЯЯ ОШИБКА, ПРЕВРАЩЁННАЯ В СТОРОЖ — СО ВТОРОГО РАЗА.
+//
+// Блок «GPU Voltage Table» печатается по варианту на каждый режим ступени, и на экране
+// должен появляться ровно один. Я взял в него ВСЕ строки группы, а группа в сводке
+// смешанная — 24 точки Mariko и 29 Erista. Вышло 53 строки вместо 24, вдобавок без метки
+// ревизии, то есть на Erista показался бы мариковский блок поверх эристовского.
+//
+// ПЕРВАЯ РЕДАКЦИЯ ЭТОЙ ПРОВЕРКИ ТУ ПОРЧУ ПРОПУСКАЛА. Она сравнивала длины только внутри
+// одной ревизии, а сломанные блоки метки не имели вовсе и сравнивались лишь друг с другом —
+// все три по 53, значит «сходится». Два дефекта замаскировали друг друга.
+//
+// Правило сформулировано заново и от следствия, а не от признака: два одноимённых блока
+// НЕ ДОЛЖНЫ МОЧЬ показаться одновременно. Могут — если их ревизии совместимы (равны или
+// одна из них «обе») И условия видимости не исключают друг друга. Исключают только условия
+// на ОДНО И ТО ЖЕ смещение с РАЗНЫМИ значениями: на разных смещениях оба могут оказаться
+// истинными, а отсутствие условия истинно всегда.
+//
+// Если же блоки взаимоисключающие — это варианты одного и того же, и длина у них обязана
+// совпадать. Разная длина здесь означает, что в один из вариантов попало лишнее.
+{
+  const bad = []
+  for (const file of iniFiles) {
+    const secs = readFileSync(file, 'utf8').split(/\r?\n(?=\[)/)
+    const blocks = []
+    for (let i = 0; i < secs.length; i++) {
+      if (!/^\[Header\]/.test(secs[i]) || !/^;mode=table/m.test(secs[i])) continue
+      const title = secs[i].match(/^'([^']*)'\s*=/m)?.[1]
+      if (!title) continue
+      const info = secs.slice(i + 1).find(x => /^\[Info\]/.test(x))
+      const cond = secs[i].match(/CUST (\d+) ([0-9A-F]+)/)
+      blocks.push({
+        title,
+        rev: secs[i].match(/^;system=(\w+)/m)?.[1] ?? 'both',
+        // Условие раскладываем на смещение и значение: только так видно, исключают ли
+        // два условия друг друга, или просто отличаются текстом.
+        off: cond ? cond[1] : null,
+        val: cond ? cond[2] : null,
+        rows: info ? (info.match(/^'/gm) ?? []).length : 0,
+        // Не только счёт, но и сами подписи: длина ловит не всякую порчу, а вот
+        // ЧУЖИЕ подписи среди своих — ловит всегда.
+        labels: info ? [...info.matchAll(/^'([^']*)'\s*=/gm)].map(m => m[1]) : [],
+      })
+    }
+    // Короткий вариант обязан быть НАЧАЛОМ длинного: усечение законно, подмена — нет.
+    const prefixOf = (x, y) => {
+      const [sh, lo] = x.length <= y.length ? [x, y] : [y, x]
+      return sh.every((v, k) => lo[k] === v)
+    }
+    const byTitle = new Map()
+    for (const b of blocks) { if (!byTitle.has(b.title)) byTitle.set(b.title, []); byTitle.get(b.title).push(b) }
+
+    for (const [title, list] of byTitle) {
+      for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+        const a = list[i], b = list[j]
+        const sameConsole = a.rev === b.rev || a.rev === 'both' || b.rev === 'both'
+        if (!sameConsole) continue                       // разные ревизии — вместе не встретятся
+        const exclusive = a.off && b.off && a.off === b.off && a.val !== b.val
+        if (!exclusive) {
+          bad.push(`${relative(ROOT, file)}: «${title}» — два блока могут показаться разом `
+                 + `(${a.rev}/${a.off ? `${a.off}=${a.val}` : 'без условия'} и ${b.rev}/${b.off ? `${b.off}=${b.val}` : 'без условия'})`)
+        } else if (!prefixOf(a.labels, b.labels)) {
+          /**
+           * ПРАВИЛО — НЕ «ОДИНАКОВАЯ ДЛИНА», А «КОРОТКИЙ ЕСТЬ НАЧАЛО ДЛИННОГО».
+           *
+           * Равенство длин было слишком грубым и запрещало законное: `Custom Table`
+           * читает редактируемый массив, а у того слотов физически 24 против 31 строки
+           * настоящих таблиц. Это не порча, это устройство железа.
+           *
+           * А порча, ради которой сторож заводился, — чужие подписи среди своих: блок
+           * набрал строки обеих ревизий и стал вдвое длиннее. Такой набор началом
+           * другого не является ни при какой длине, и правило его ловит.
+           */
+          const [sh, lo] = a.labels.length <= b.labels.length ? [a.labels, b.labels] : [b.labels, a.labels]
+          const at = sh.findIndex((x, k) => lo[k] !== x)
+          bad.push(`${relative(ROOT, file)}: «${title}» — взаимоисключающие варианты разошлись `
+                 + `(${a.rows} и ${b.rows} строк; на месте ${at + 1} «${sh[at]}» против «${lo[at] ?? '—'}»)`)
+        }
+      }
+    }
+  }
+  if (bad.length) problems.push({ sev: 'CRITICAL', what: `одноимённые блоки сводки разойдутся на экране:\n     ${bad.slice(0, 6).join('\n     ')}` })
+  else ok.push('same-named summary blocks cannot appear together and equal-length variants agree')
+}
+
+// ------------------------------- 29. подстановка по словарю реально что-то находит
+//
+// САМАЯ ДЕШЁВАЯ ПОЛОМКА ИЗ ВСЕХ: строка на экране печатает «null», проверки молчат.
+//
+// `{json_file(0,КЛЮЧ)}` — это поиск в словаре. Промахнулся ключом — движок не ругается,
+// он просто печатает «null» там, где человек ждёт название. Так и жили обе страницы
+// «что будет применено»: подпись ступени GPU адресуется ПАРОЙ ячеек, а предпросмотр
+// подставлял одну, и ключ из 6 знаков искался в словаре с ключами по 14. Промах был
+// гарантирован при любом значении поля — и ни одна из 60 проверок этого не видела.
+//
+// Сторож смотрит две вещи, обе — про промах мимо словаря, а не про его содержимое:
+//   1. объявленный файл словаря существует по тому пути, как его прочитает движок,
+//      то есть ОТНОСИТЕЛЬНО САМОГО ФАЙЛА (на этом я и споткнулся: путь посчитался
+//      от корня пакета, и сброс открывал несуществующий файл);
+//   2. длина ключа совпадает с длиной ключей в словаре — сумма ширин подставляемых
+//      полей против того, что реально лежит в json.
+//
+// Ширину поля берём из карты (`length` в байтах), для второй ячейки — из `label_probe`.
+// Если ширина неизвестна хоть одному куску ключа, строка пропускается: врать «всё
+// хорошо» нельзя, но и падать на том, чего не умеем измерить, тоже.
+{
+  const hexLen = new Map()
+  for (const f of fields) if (f.length) hexLen.set(f.offset, f.length * 2)
+  for (const it of items) {
+    const pr = it.label_probe
+    if (pr && pr.offset != null && pr.len) hexLen.set(pr.offset, pr.len * 2)
+  }
+
+  const dictKeyLens = new Map()          // путь на диске -> набор длин ключей
+  const keyLensOf = abs => {
+    if (dictKeyLens.has(abs)) return dictKeyLens.get(abs)
+    let set = null
+    try {
+      const j = JSON.parse(readFileSync(abs, 'utf8'))
+      const obj = Array.isArray(j) ? j[0] : j
+      if (obj && typeof obj === 'object') set = new Set(Object.keys(obj).map(k => k.length))
+    } catch { set = null }
+    dictKeyLens.set(abs, set)
+    return set
+  }
+
+  const bad = []
+  for (const file of iniFiles) {
+    const here = dirname(file)
+    let dict = null
+    for (const raw of readFileSync(file, 'utf8').split(/\r?\n/)) {
+      const decl = raw.match(/^\s*json_file\s+'([^']+)'/)
+      if (decl) {
+        // Путь может собираться на ходу (`{file_source}` — выбранный пользователем файл).
+        // Такой заранее не проверить: он существует только в момент показа страницы.
+        if (decl[1].includes('{')) { dict = null; continue }
+        dict = resolve(here, decl[1])
+        if (!existsSync(dict)) {
+          bad.push(`${relative(ROOT, file)}: словарь '${decl[1]}' не существует по этому пути`)
+          dict = null
+        }
+        continue
+      }
+      const use = raw.match(/=\s*'\{json_file\(0,(.+?)\)\}'\s*$/)
+      if (!use) continue
+      if (!dict) continue
+      const lens = keyLensOf(dict)
+      if (!lens || !lens.size) continue
+      // Ключ собран из подстановок; если между ними есть что-то ещё, мерить не берёмся.
+      const parts = [...use[1].matchAll(/\{(?:ini|hex)_file\([^,]+,\s*(\d+)\s*\)\}/g)]
+      const plain = use[1].replace(/\{(?:ini|hex)_file\([^,]+,\s*\d+\s*\)\}/g, '')
+      if (!parts.length || plain.trim()) continue
+      let sum = 0, known = true
+      for (const m of parts) {
+        const w = hexLen.get(Number(m[1]))
+        if (!w) { known = false; break }
+        sum += w
+      }
+      if (!known) continue
+      if (!lens.has(sum)) {
+        bad.push(`${relative(ROOT, file)}: ключ на ${sum} знаков ищется в словаре с ключами по `
+               + `${[...lens].join('/')} (${relative(ROOT, dict)}) — на экране встанет «null»`)
+      }
+    }
+  }
+  if (bad.length) problems.push({ sev: 'CRITICAL', what: `подстановка по словарю промахнётся:\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else ok.push('every dictionary lookup resolves: the file exists and the key width matches')
+}
+
+// ---------------------------- 30. источник пишет всё, что страница читает ключом
+//
+// БЕДА, КОТОРУЮ ЭТО ЛОВИТ: копия создана одним способом, а страница «что будет
+// применено» адресует поле, которого этот способ не пишет. Промах, «null» на экране,
+// и — хуже — применение молча пропускает пропущенное. Так импорт профиля KipTool
+// ставил режим андервольта GPU, не трогая кривую: получался режим ST2 поверх кривой
+// ST2.5, состояние, которого нет ни в одном меню.
+//
+// Проверка НЕ держит списка источников: она находит их сама. Страница называет каталог
+// в своём `file_source`, а производитель — тот, кто кладёт в этот каталог `Path`.
+//
+// ДВА РАЗНЫХ ПРИГОВОРА, И РАЗНИЦА СУЩЕСТВЕННА:
+//   - производитель МОГ записать (смещение есть в его исходной схеме), но не записал —
+//     это наша ошибка, CRITICAL;
+//   - производителю НЕЧЕГО записать (чужая схема такого поля не содержит вовсе) —
+//     это свойство донора, IMPORTANT. Выдумывать значение нельзя, а молчать нечестно.
+//
+// Списка исключений нет намеренно: список пришлось бы поддерживать руками, и он
+// разошёлся бы с картой молча — ровно та беда, от которой мы уже страдали.
+{
+  const bad = [], soft = []
+  const pkgPath = join(DIST, 'service', 'package.ini')
+  const pkg = existsSync(pkgPath) ? readFileSync(pkgPath, 'utf8') : ''
+  let impMap = {}
+  try { impMap = JSON.parse(readFileSync(join(ROOT, 'package', 'backup-import.json'), 'utf8')).import_map ?? {} } catch {}
+
+  for (const file of iniFiles) {
+    // basename, а не разбор строки: разделитель пути платформенный, и класс
+    // символов с обратным слэшем здесь уже один раз съелся при правке.
+    const base = basename(file)
+    const mrev = base.match(/^restore-(\w+)\.ini$/)
+    if (!mrev) continue
+    const rev = mrev[1]
+    const text = readFileSync(file, 'utf8')
+    const dir = text.match(/^\s*file_source\s+(\S+)\/\*\.ini/m)?.[1]
+    if (!dir) continue
+
+    // Ключевые смещения: всё, что участвует в подстановке по словарю.
+    const keys = new Set()
+    for (const m of text.matchAll(/=\s*'\{json_file\(0,(.+?)\)\}'/g))
+      for (const k of m[1].matchAll(/ini_file\(Fields,(\d+)\)/g)) keys.add(Number(k[1]))
+    if (!keys.size) continue
+
+    // Производители этого каталога — по секциям пакета.
+    for (const sec of pkg.split(/^(?=\[)/m)) {
+      const title = sec.match(/^\[([^\]]+)\]/)?.[1]
+      if (!title) continue
+      const pm = sec.match(/set-ini-val '\.\/config\.ini' (\w+) Path '([^']+)'/)
+      if (!pm || !pm[2].startsWith(dir + '/')) continue
+      // Регулярка ЛИТЕРАЛЬНАЯ, а не собранная строкой: в шаблонной строке обратные
+      // слэши съедаются, регулярка выходит без экранирования и молча не находит
+      // ничего — сторож при этом светится зелёным. Проверено: так и было.
+      const offs = new Set([...sec.matchAll(/\{ini_file\((\w+),Path\)\}' Fields (\d+)/g)]
+        .filter(x => x[1] === pm[1]).map(x => Number(x[2])))
+      if (!offs.size) continue
+      const missing = [...keys].filter(o => !offs.has(o)).sort((a, b) => a - b)
+      if (!missing.length) continue
+      // Что производитель В ПРИНЦИПЕ мог бы записать: для импорта — своя схема донора.
+      const isImport = /Import/i.test(title)
+      const available = new Set(isImport
+        ? (impMap[rev] ?? []).flatMap(r => [...(r.offsets ?? []), ...(r.table_offsets ?? [])])
+        : missing)                                   // копия читает живой kip: доступно всё
+      const couldHave = missing.filter(o => available.has(o))
+      const nothingToTake = missing.filter(o => !available.has(o))
+      if (couldHave.length) {
+        bad.push(`${relative(ROOT, file)}: «${title}» не пишет ${couldHave.join(', ')} — `
+               + `а в его схеме они есть; на экране встанет «null»`)
+      }
+      if (nothingToTake.length) {
+        soft.push(`${relative(ROOT, file)}: «${title}» не несёт ${nothingToTake.join(', ')} — `
+                + `в схеме донора таких полей нет вовсе, значение брать неоткуда`)
+      }
+    }
+  }
+  if (bad.length) problems.push({ sev: 'CRITICAL', what: `страница читает то, чего источник не пишет:\n     ${bad.slice(0, 6).join('\n     ')}` })
+  if (soft.length) problems.push({ sev: 'IMPORTANT', what: `источник не может дать часть строк предпросмотра:\n     ${soft.slice(0, 6).join('\n     ')}` })
+  if (!bad.length) ok.push('every offset a preview page keys on is written by every source that fills its folder')
+}
+
+// ------------------- 31. ступени с общим режимом различимы по опорной ячейке
+//
+// НА ЧЁМ ЭТО ДЕРЖИТСЯ. Три ступени GPU пишут в поле 44 одно и то же значение 01
+// и отличаются только содержимым таблицы. Поэтому подпись читает ПАРУ ячеек — режим
+// плюс первую ячейку кривой, — и всё опознание держится на том, что первые ячейки
+// у них разные: 475000 у ST1.5, 465000 у ST2, 455000 у ST2.5.
+//
+// Инвариант нигде не закреплён. Достаточно сдвинуть нижний конец одной кривой на клетку
+// сетки — и две ступени станут неотличимы при чтении: тюнер назовёт чужую, предпросмотр
+// покажет чужую, а сводка молча соврёт. Разведение со списком поиска патчера сдвигает
+// значения САМО, то есть случай не гипотетический.
+{
+  const bad = []
+  const walkV = (n, acc = []) => {
+    if (Array.isArray(n)) { n.forEach(x => walkV(x, acc)); return acc }
+    if (!n || typeof n !== 'object') return acc
+    if (n.label_probe && (n.values ?? []).length) acc.push(n)
+    Object.values(n).forEach(x => walkV(x, acc))
+    return acc
+  }
+  let checked = 0
+  for (const item of walkV(menu.sections ?? [])) {
+    const off = String(item.label_probe.offset)
+    const byMode = new Map()
+    for (const v of item.values ?? []) {
+      const pr = v.writes?.[off]
+      if (!pr) continue
+      if (!byMode.has(v.hex)) byMode.set(v.hex, new Map())
+      const seen = byMode.get(v.hex)
+      if (seen.has(pr)) {
+        bad.push(`${item.id ?? item.name}: «${v.name}» и «${seen.get(pr)}» пишут режим ${v.hex} `
+               + `и одинаковую опорную ячейку ${off}=${pr} — при чтении они неразличимы`)
+      } else seen.set(pr, v.name)
+      checked++
+    }
+  }
+  if (bad.length) problems.push({ sev: 'CRITICAL', what: `ступени неразличимы при чтении:\n     ${bad.slice(0, 6).join('\n     ')}` })
+  else ok.push(`stages sharing a mode differ in their probe cell (${checked} values checked)`)
 }
 
 // ---------------------------------------------------------------- output
