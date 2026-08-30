@@ -331,7 +331,7 @@
                 44
               ],
               "help": "Eco ST1/ST2/ST3 - the kip calculates voltages itself. Custom Table - your own value per frequency, opens the Voltage Curve section. On Erista it works differently: a -12.5 mV multiplier.",
-              "note": "THIS is the gate: value 03 switches the curve on. Written once by picking the mode, not through 31 side writes as in the original; только Erista: там 44 — множитель, а не выбор таблицы; Mariko обслуживает gpu_uv_mode_mariko; только Erista: там 44 — множитель, а не выбор таблицы; Mariko обслуживает gpu_uv_mode_mariko",
+              "note": "THIS is the gate: value 03 switches the curve on. Written once by picking the mode, not through 31 side writes as in the original; только Erista: там 44 — множитель, а не выбор таблицы; Mariko обслуживает gpu_uv_mode_mariko; только Erista: там 44 — множитель, а не выбор таблицы; Mariko обслуживает gpu_uv_mode_mariko; только Erista: там 44 — множитель, а не выбор таблицы; Mariko обслуживает gpu_uv_mode_mariko",
               "platform": "erista"
             },
             {
@@ -1156,15 +1156,6 @@
           "header_context": "{ram_vendor} {ram_model}",
           "children": [
             {
-              "id": "ram_mhz_erista",
-              "title": "Frequency",
-              "platform": "erista",
-              "offsets": [
-                24
-              ],
-              "units": "kHz"
-            },
-            {
               "id": "ram_mhz_mariko",
               "title": "Frequency",
               "platform": "mariko",
@@ -1174,30 +1165,13 @@
               "units": "kHz"
             },
             {
-              "id": "ram_vdd2",
-              "title": "Vdd2",
+              "id": "ram_mhz_erista",
+              "title": "Frequency",
+              "platform": "erista",
               "offsets": [
-                16
+                24
               ],
-              "units": "mV",
-              "help": "Memory supply voltage (Vdd2). Which voltage the kip uses on its own is decided by the RAM speed together with the eBal mode - it is a lookup, not a fixed number, and it differs from console to console. Setting a value here overrides that choice. ECO, DEFAULT and SRT are the names the firmware gives those three presets; none of them is \"what your console shipped with\". Range 950-1400 mV, step 12.5 mV."
-            },
-            {
-              "id": "ram_vddq",
-              "title": "Vddq",
-              "offsets": [
-                36
-              ],
-              "units": "mV",
-              "help": "Memory interface voltage (Vddq). Which voltage the kip uses on its own is decided by the RAM speed together with the eBal mode - it is a lookup, not a fixed number, and it differs from console to console. Setting a value here overrides that choice. ECO, DEFAULT and SRT are the names the firmware gives those three presets; none of them is \"what your console shipped with\". Range 300-800 mV, step 5 mV."
-            },
-            {
-              "id": "emc_dvb",
-              "title": "EMC DVB Mode",
-              "offsets": [
-                56
-              ],
-              "help": "Voltage of the SoC domain the memory controller lives in. Mariko only. Default is automatic - the kip picks the voltage itself. Eco ST1, ST2 and ST3 are its automatic steps, ST3 being the deepest undervolt. A manual voltage can be set instead: the firmware documents 600-1150 mV for that. Lower values are offered because both donor packages shipped them, but the firmware does not document them - go below 600 mV only if you know why. If the console is unstable, return to automatic before anything else."
+              "units": "kHz"
             },
             {
               "id": "emc_balance",
@@ -1213,6 +1187,32 @@
                 12360
               ],
               "help": "Shifts the eBal mode for one family of derived values. Its practical use is the eighth core timing: the smaller the distance between eBal and this shift, the further that timing can be raised. The trade-off runs the opposite way to eBal itself - towards frequency rather than efficiency."
+            },
+            {
+              "id": "ram_vddq",
+              "title": "Vddq",
+              "offsets": [
+                36
+              ],
+              "units": "mV",
+              "help": "Memory interface voltage (Vddq). Which voltage the kip uses on its own is decided by the RAM speed together with the eBal mode - it is a lookup, not a fixed number, and it differs from console to console. Setting a value here overrides that choice. ECO, DEFAULT and SRT are the names the firmware gives those three presets; none of them is \"what your console shipped with\". Range 300-800 mV, step 5 mV."
+            },
+            {
+              "id": "ram_vdd2",
+              "title": "Vdd2",
+              "offsets": [
+                16
+              ],
+              "units": "mV",
+              "help": "Memory supply voltage (Vdd2). Which voltage the kip uses on its own is decided by the RAM speed together with the eBal mode - it is a lookup, not a fixed number, and it differs from console to console. Setting a value here overrides that choice. ECO, DEFAULT and SRT are the names the firmware gives those three presets; none of them is \"what your console shipped with\". Range 950-1400 mV, step 12.5 mV."
+            },
+            {
+              "id": "emc_dvb",
+              "title": "EMC DVB Mode",
+              "offsets": [
+                56
+              ],
+              "help": "Voltage of the SoC domain the memory controller lives in. Mariko only. Default is automatic - the kip picks the voltage itself. Eco ST1, ST2 and ST3 are its automatic steps, ST3 being the deepest undervolt. A manual voltage can be set instead: the firmware documents 600-1150 mV for that. Lower values are offered because both donor packages shipped them, but the firmware does not document them - go below 600 mV only if you know why. If the console is unstable, return to automatic before anything else."
             },
             {
               "id": "ram_optimized",
@@ -1256,7 +1256,8 @@
               "help": "Fine memory timings T1-T8. Leave them alone unless you know what each one does - the kip works them out from the eBAL stage on its own.",
               "note": "T1…T8; offset 12356 breaks out of the 60…84 run. own_package: eight items in a row clogged the RAM list, so the operator asked to fold them away like Optimized mode"
             }
-          ]
+          ],
+          "note": "Порядок пунктов задан GROUP_ORDER.RAM в генераторе — тем же, что и в сводке текущих настроек и в предпросмотре восстановления. Три места, один источник: расходиться им больше нечем. Подстраницы (Optimized Mode, Core Timings) движок выводит первыми независимо от места в карте."
         },
         {
           "id": "micro_enhance",

@@ -137,8 +137,18 @@ if (dupTitles.length) {
   // Только ПЕРВАЯ страница: за `[@Help]` идут блоки справки, они не пункты меню.
   // Первая `[@…]` — заголовок самой страницы, вторая — начало справки. Режем по второй.
   const pages = rootSections.map((l, i) => (/^\[@/.test(l) ? i : -1)).filter(i => i >= 0)
-  const menuItems = rootSections.slice(0, pages[1] ?? rootSections.length)
-    .filter(l => /^\[[^@]/.test(l))
+  // Считаем ПУНКТЫ, а не секции. Таблица — это подпись, а не пункт меню: на неё нельзя
+  // встать курсором и её нельзя нажать. Под перезагрузкой стоит строка «какая прошивка
+  // стоит», и решение «перезагрузка последняя» она не нарушает — оно про то, чем работа
+  // с тюнером заканчивается, а не про последнюю строку на экране.
+  const body = rootSections.slice(0, pages[1] ?? rootSections.length)
+  const menuItems = body.filter((l, i) => {
+    if (!/^\[[^@]/.test(l)) return false
+    // Директивы секции идут сразу за её заголовком, до следующей пустой строки.
+    for (let k = i + 1; k < body.length && body[k].trim() !== ''; k++)
+      if (/^;mode=table/.test(body[k])) return false
+    return true
+  })
   const last = menuItems.at(-1)
   if (last === '[Reboot the console]') ok.push('«Reboot the console» — последний пункт корня')
   else problems.push({ sev: 'IMPORTANT', what: `«Reboot the console» должен быть последним пунктом корня, а последний — ${last}` })

@@ -2481,27 +2481,27 @@
         },
         {
           "hex": "01",
-          "name": "1 level"
+          "name": "lvl 1"
         },
         {
           "hex": "02",
-          "name": "2 level"
+          "name": "lvl 2"
         },
         {
           "hex": "03",
-          "name": "3 level"
+          "name": "lvl 3"
         },
         {
           "hex": "04",
-          "name": "Level 4"
+          "name": "lvl 4"
         },
         {
           "hex": "05",
-          "name": "Level 5"
+          "name": "lvl 5"
         },
         {
           "hex": "06",
-          "name": "Level 6"
+          "name": "lvl 6"
         },
         {
           "hex": "010000",
@@ -3050,6 +3050,10 @@
       "confidence": "high",
       "values": [
         {
+          "hex": "000000",
+          "name": "Auto — eBAMATIC"
+        },
+        {
           "hex": "0300",
           "name": "Auto — Eco ST1 — Default",
           "name_ebal": "ST1 - Default"
@@ -3075,10 +3079,6 @@
         {
           "hex": "010000",
           "name": "Auto — Eco ST3"
-        },
-        {
-          "hex": "000000",
-          "name": "Auto — eBAMATIC"
         },
         {
           "hex": "AE0100",
@@ -16845,7 +16845,7 @@
         },
         {
           "hex": "AF00",
-          "name": "175"
+          "name": "ECO Stage 4"
         },
         {
           "hex": "000000",
@@ -17016,31 +17016,31 @@
         },
         {
           "hex": "01",
-          "name": "1 level"
+          "name": "lvl 1"
         },
         {
           "hex": "02",
-          "name": "2 level"
+          "name": "lvl 2"
         },
         {
           "hex": "03",
-          "name": "3 level"
+          "name": "lvl 3"
         },
         {
           "hex": "04",
-          "name": "Level 4"
+          "name": "lvl 4"
         },
         {
           "hex": "05",
-          "name": "Level 5"
+          "name": "lvl 5"
         },
         {
           "hex": "06",
-          "name": "Level 6"
+          "name": "lvl 6"
         },
         {
           "hex": "07",
-          "name": "Level 7"
+          "name": "lvl 7"
         },
         {
           "hex": "000000",
