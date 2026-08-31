@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=2bade1a35554 self=b7cdf71e1c58 -->
+<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=ee54026a1ea4 self=5880a578c172 -->
 # If something goes wrong
 
 <!-- nav:begin -->
@@ -24,7 +24,7 @@ If the console still boots, you can settle this on the spot:
 
 - **`Service → Restore Factory Defaults`**: back to factory. Nothing needs to be prepared
   in advance.
-- **`Service → Restore backup`**: back to your own saved setup, if you have a copy.
+- **`Service → Backup manager`**: back to your own saved setup, if you have a copy.
 
 Both open a preview page. To apply, **hold A** on the entry at the bottom.
 
@@ -34,7 +34,7 @@ Both open a preview page. To apply, **hold A** on the entry at the bottom.
 > taking effect in a different way. The mode becomes `Eco ST1` again, and that mode reads
 > another table, which was never touched.
 >
-> Only `Restore backup` brings the whole state back, curve included.
+> Only `Backup manager` brings the whole state back, curve included.
 
 ### 2. Boot into `Stock (semi-stock)`
 

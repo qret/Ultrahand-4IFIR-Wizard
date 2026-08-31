@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/10-profiles.md sha=84d27bb31ef4 self=01a09525dcfe -->
+<!-- i18n: source=Guides/ru/10-profiles.md sha=53237a24e3af self=bf0b8a48e614 -->
 # Profiles, backups and reset
 
 <!-- nav:begin -->
@@ -41,7 +41,7 @@ state and throws your work away; a backup gives you back exactly what you had.
 
 ## Restoring
 
-**`Service → Restore backup`** — pick a copy and the tuner shows a **preview**: what
+**`Service → Backup manager`** — pick a copy and the tuner shows a **preview**: what
 will be written, before anything is applied.
 
 Read it. The GPU stage line in particular names the stage, so you can see at a glance

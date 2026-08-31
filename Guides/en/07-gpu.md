@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=958669f94f76 self=61d1f5c1faf4 -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=4b84b9d3dd0c self=b2d3cfeab1c0 -->
 # GPU and stages
 
 <!-- nav:begin -->
@@ -183,9 +183,10 @@ Practical consequences:
   For emergency recovery that is convenient: **the first entry in KipTool is the safest
   thing you can pick.** But the statement above that "`ECO ST2` changes nothing" applies
   to Mariko only. On Erista it gives you a real first stage.
-- **The `Custom Table` entry is misleading on Erista.** There is no manual table there;
-  picking it simply gives you the deepest voltage offset. Do not pick it until we have
-  fixed this.
+- **This tuner has no `Custom Table` entry on Erista.** There is no manual table on that
+  revision, and the entry quietly gave you the deepest voltage offset instead of the editor
+  it promised — so it was taken out of the list. If you meet it in another tool, do not
+  pick it.
 
 ---
 
