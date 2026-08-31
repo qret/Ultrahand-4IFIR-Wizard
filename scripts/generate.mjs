@@ -2094,7 +2094,7 @@ if (kipRows.length) {
   kl.push('')
 
   if (deep.length) {
-    kl.push('[@Timings & Micro]', '')
+    kl.push('[@Page 2]', '')
     emitPage(kl, deep)
   }
   write('current.ini', kl.join('\n'))
@@ -2502,7 +2502,7 @@ if (kipRows.length) {
 
     const deepLines = previewGroups(deep, 'Also applied', stageTable)
     if (deepLines.length) {
-      pl.push('[@Timings & Micro]', '')
+      pl.push('[@Page 2]', '')
       pl.push(...deepLines, '')
     }
 
