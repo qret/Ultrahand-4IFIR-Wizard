@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=4b84b9d3dd0c self=b2d3cfeab1c0 -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=6eaa8a98075b self=8f36cb3d5267 -->
 # GPU and stages
 
 <!-- nav:begin -->
@@ -59,8 +59,12 @@ And the other way round: the advertised 1613 MHz is only available on ST3.
 
 ## Five stages instead of three
 
-The firmware has three, and neighbouring ones sit 20–25 mV apart. That is a lot: the gap
-between "comfortably stable" and "artefacts" is often smaller.
+The firmware has three, and the distance between neighbours is **not constant**: about
+twenty millivolts at low clocks, widening to fifty-five at high ones. A stage is not the
+same curve shifted by a fixed amount, it is a separately tuned curve.
+
+And even twenty millivolts is a lot: the gap between "comfortably stable" and
+"artefacts" is often smaller.
 
 This tuner adds two in between — **Eco ST1.5** and **Eco ST2.5**. Each sits roughly
 halfway between its neighbours, closer to the lower one: about ten millivolts below on
