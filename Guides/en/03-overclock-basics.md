@@ -1,8 +1,8 @@
-<!-- i18n: source=Guides/ru/03-overclock-basics.md sha=53b3193fb8e1 self=5b43b651ed23 -->
+<!-- i18n: source=Guides/ru/03-overclock-basics.md sha=bba6d67c523e self=e97c0c98de99 -->
 # Overclocking: where to start
 
 <!-- nav:begin -->
-[← First run](02-first-run.md) · [Contents](README.md) · [eBAMATIC →](04-ebamatic.md)  
+[← First run](02-first-run.md) · [Contents](README.md) · [The 4IFIR overlay: where clocks are set →](04-overlay.md)  
 **English** · [Русский](../ru/03-overclock-basics.md)
 <!-- nav:end -->
 
@@ -42,7 +42,46 @@ not come back to it, even if you redo everything else later.
 Then the GPU, then memory — the fussiest of the three, and the one that depends least
 on the others.
 
-## The routine
+## What to watch with
+
+Tuning blind is guesswork. The build already ships with instruments that show what the
+hardware is actually doing.
+
+**Readings over the game** — the `Status Monitor` overlay. Clocks, load per component,
+frames per second, temperatures, battery drain. It comes in several sizes, from a full
+screen of data down to a tiny line in the corner that does not get in the way.
+
+**Voltages and drain** — the `InfoNX` overlay. It shows the clock and the voltage of each
+component together, plus the fan speed. It also names the memory chip your console has —
+and that decides how far this particular console can go at all.
+
+Both open from the same overlay menu as 4IFIR.
+
+## What to load it with
+
+A game is the honest test, but a slow one that never repeats itself exactly. For a quick
+check there are separate programs, already in the build, launched from the Homebrew Menu —
+hold `R` while starting any game.
+
+| what you are checking | what with |
+|---|---|
+| memory, speed | `MicroMemBench` |
+| memory, stability | `MicroMemTest` |
+| the GPU | `MicroVramTest` |
+| the CPU | `RaytracingNX` |
+
+> [!NOTE]
+> `RaytracingNX` measures the **CPU**, despite the name: it renders the scene on the
+> processor and never touches the GPU. For the GPU, use `MicroVramTest`.
+>
+> And if you run its sweep across all clocks, turn the overclock **off** first — otherwise
+> it measures a single fixed clock.
+
+A quick test does not replace a game: it cannot reproduce the way a game loads everything
+at once. The order is — sift out what plainly does not work with a test, then confirm with
+a game.
+
+## The testing ritual
 
 The same one for any setting:
 
@@ -75,7 +114,7 @@ gives you **your** working setup. Two different buttons for two different situat
 ## If the console stops booting
 
 Do not panic and do not reinstall anything. The procedure is covered separately —
-[If something goes wrong](11-troubleshooting.md).
+[If something goes wrong](12-troubleshooting.md).
 
 In short: the settings live in one file, and that file can be edited from the
 bootloader without starting the system.
@@ -83,6 +122,6 @@ bootloader without starting the system.
 ---
 
 <!-- nav:begin -->
-[← First run](02-first-run.md) · [Contents](README.md) · [eBAMATIC →](04-ebamatic.md)  
+[← First run](02-first-run.md) · [Contents](README.md) · [The 4IFIR overlay: where clocks are set →](04-overlay.md)  
 **English** · [Русский](../ru/03-overclock-basics.md)
 <!-- nav:end -->

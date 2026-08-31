@@ -522,7 +522,11 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     const text = readFileSync(pkg, 'utf8')
     for (const rev of ['mariko', 'erista']) {
       const from = text.indexOf(`[Create backup?${rev}]`)
-      const to = text.indexOf(`[*Restore backup?${rev}]`)
+      // Пункт зовётся `Backup manager` с 31.08: страницы восстановления и удаления слиты
+      // в одну, копия выбирается один раз на два действия. Имя здесь — граница участка,
+      // на котором ищутся записи копии, поэтому переименование пункта ломает проверку
+      // молча: она сообщает «нет секций», а не «имя другое».
+      const to = text.indexOf(`[*Backup manager?${rev}]`)
       const restorePath = join(DIST, 'service', `restore-${rev}.ini`)
       if (from < 0 || to < 0 || !existsSync(restorePath)) { bad.push(`нет секций для ${rev}`); continue }
       const saved = new Set([...text.slice(from, to).matchAll(/Fields (\d+) /g)].map(m => Number(m[1])))
@@ -1228,7 +1232,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       if (!known) continue
       if (!lens.has(sum)) {
         bad.push(`${relative(ROOT, file)}: ключ на ${sum} знаков ищется в словаре с ключами по `
-               + `${[...lens].join('/')} (${relative(ROOT, dict)}) — на экране встанет «null»`)
+               + `${[...lens].join('/')} (${relative(ROOT, dict)}) — на экране встанет «Not available»`)
       }
     }
   }
@@ -1302,7 +1306,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       const nothingToTake = missing.filter(o => !available.has(o))
       if (couldHave.length) {
         bad.push(`${relative(ROOT, file)}: «${title}» не пишет ${couldHave.join(', ')} — `
-               + `а в его схеме они есть; на экране встанет «null»`)
+               + `а в его схеме они есть; на экране встанет «Not available»`)
       }
       if (nothingToTake.length) {
         soft.push(`${relative(ROOT, file)}: «${title}» не несёт ${nothingToTake.join(', ')} — `

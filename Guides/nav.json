@@ -1,19 +1,76 @@
 {
   "_comment": "ЕДИНСТВЕННЫЙ источник порядка страниц и их названий. Отсюда порождаются оглавления обоих языков и блоки навигации в шапке и подвале каждой страницы. Руками навигацию не писать: она разъедется при первой же вставке страницы в середину.",
   "source_lang": "ru",
-  "langs": { "ru": "Русский", "en": "English" },
+  "langs": {
+    "ru": "Русский",
+    "en": "English"
+  },
   "pages": [
-    { "file": "01-install.md",          "ru": "Установка",                    "en": "Installation" },
-    { "file": "02-first-run.md",        "ru": "Первый запуск",                "en": "First run" },
-    { "file": "03-overclock-basics.md", "ru": "Разгон: с чего начать",        "en": "Overclocking: where to start" },
-    { "file": "04-ebamatic.md",         "ru": "eBAMATIC",                     "en": "eBAMATIC" },
-    { "file": "05-cpu.md",              "ru": "Процессор",                    "en": "CPU" },
-    { "file": "06-gpu.md",              "ru": "Видеоядро и ступени",          "en": "GPU and stages" },
-    { "file": "07-ram.md",              "ru": "Память",                       "en": "RAM" },
-    { "file": "08-timings.md",          "ru": "Тайминги и тонкая настройка",  "en": "Timings and fine tuning" },
-    { "file": "09-profiles.md",         "ru": "Профили, копии и сброс",       "en": "Profiles, backups and reset" },
-    { "file": "10-update.md",           "ru": "Обновление",                   "en": "Updating" },
-    { "file": "11-troubleshooting.md",  "ru": "Если что-то пошло не так",     "en": "If something goes wrong" },
-    { "file": "12-reference.md",        "ru": "Справочник настроек",          "en": "Settings reference", "generated": true }
+    {
+      "file": "01-install.md",
+      "ru": "Установка",
+      "en": "Installation"
+    },
+    {
+      "file": "02-first-run.md",
+      "ru": "Первый запуск",
+      "en": "First run"
+    },
+    {
+      "file": "03-overclock-basics.md",
+      "ru": "Разгон: с чего начать",
+      "en": "Overclocking: where to start"
+    },
+    {
+      "file": "04-overlay.md",
+      "ru": "Оверлей 4IFIR: где задаются частоты",
+      "en": "The 4IFIR overlay: where clocks are set"
+    },
+    {
+      "file": "05-ebamatic.md",
+      "ru": "eBAMATIC",
+      "en": "eBAMATIC"
+    },
+    {
+      "file": "06-cpu.md",
+      "ru": "Процессор",
+      "en": "CPU"
+    },
+    {
+      "file": "07-gpu.md",
+      "ru": "Видеоядро и ступени",
+      "en": "GPU and stages"
+    },
+    {
+      "file": "08-ram.md",
+      "ru": "Память",
+      "en": "RAM"
+    },
+    {
+      "file": "09-timings.md",
+      "ru": "Тайминги и тонкая настройка",
+      "en": "Timings and fine tuning"
+    },
+    {
+      "file": "10-profiles.md",
+      "ru": "Профили, копии и сброс",
+      "en": "Profiles, backups and reset"
+    },
+    {
+      "file": "11-update.md",
+      "ru": "Обновление",
+      "en": "Updating"
+    },
+    {
+      "file": "12-troubleshooting.md",
+      "ru": "Если что-то пошло не так",
+      "en": "If something goes wrong"
+    },
+    {
+      "file": "13-reference.md",
+      "ru": "Справочник настроек",
+      "en": "Settings reference",
+      "generated": true
+    }
   ]
 }

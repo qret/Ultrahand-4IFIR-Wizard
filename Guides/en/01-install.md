@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/01-install.md sha=99e743ba49ba self=c7588c5b6a98 -->
+<!-- i18n: source=Guides/ru/01-install.md sha=4ac3a735880f self=ef1512b3a9ae -->
 # Installation
 
 <!-- nav:begin -->
@@ -27,7 +27,7 @@ them, and side by side the two will get in each other's way.
 
 > [!IMPORTANT]
 > **Do not delete `atmosphere\kips\kip-json\`.** Those are your saved setting profiles,
-> not scratch files. The tuner can read them — [importing old profiles](09-profiles.md).
+> not scratch files. The tuner can read them — [importing old profiles](10-profiles.md).
 
 ## Step 2. Copy the archive
 
@@ -49,7 +49,7 @@ separately.
 
 ## Step 3. Check
 
-Open the overlay: **L + R + ↑**
+Open the overlay: **`L` + `R` + `↑`**
 
 It opens on the **list of overlays** — press **right** and you get the list of
 **packages**. That is where **4IFIR Wizard** lives.

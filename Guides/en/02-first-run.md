@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/02-first-run.md sha=823c490d14b4 self=930a95a3a010 -->
+<!-- i18n: source=Guides/ru/02-first-run.md sha=27a1919dc0eb self=1db135e09ee0 -->
 # First run
 
 <!-- nav:begin -->
@@ -6,7 +6,7 @@
 **English** · [Русский](../ru/02-first-run.md)
 <!-- nav:end -->
 
-You opened the overlay (**L + R + ↑**) and it shows the list of overlays. You pressed
+You opened the overlay (**`L` + `R` + `↑`**) and it shows the list of overlays. You pressed
 **right** to get the list of packages and went into **4IFIR Wizard**. Here is what you
 are looking at.
 
