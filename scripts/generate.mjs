@@ -302,10 +302,23 @@ try { DEPS = JSON.parse(readFileSync(join(ROOT, 'package', 'semantics-src', 'dep
  * Collect everything the reader needs to know about this field but was never told in the
  * original. Returns short lines for the help table.
  */
-function warningsFor(offset) {
+function warningsFor(offset, plat) {
   if (!DEPS) return []
   const out = []
   const n = Number(offset)
+
+  /**
+   * РЕВИЗИЯ ОТСЕИВАЕТСЯ ЗДЕСЬ, А НЕ ТОЛЬКО У САМИХ ПУНКТОВ.
+   *
+   * Одно смещение обслуживают ДВА пункта, по одному на ревизию, и в карте связей у него
+   * тоже две записи с пометкой `platform`. Раньше отбор шёл по одному номеру смещения,
+   * и мариковская подсказка «Set to Custom Table to enable the voltage curve» печаталась
+   * на ЭРИСТОВСКОМ экране — где ни `Custom Table`, ни ворот не существует вовсе: там
+   * поле работает множителем, а кривая правится всегда.
+   *
+   * Запись без пометки платформы годится обеим — таких большинство.
+   */
+  const forThis = sw => !sw.platform || !plat || plat === 'both' || sw.platform === plat
 
   // The tuner's interface is English only — a deliberate choice for an international audience.
   //
@@ -324,7 +337,7 @@ function warningsFor(offset) {
   }
 
   // The field is gated by a switch — without it, editing the field does nothing.
-  for (const sw of DEPS.switches ?? []) {
+  for (const sw of (DEPS.switches ?? []).filter(forThis)) {
     for (const en of sw.enables ?? []) {
       if ((en.offsets ?? []).includes(n)) {
         const label = (sw.values ?? {})[en.when] ?? en.when
@@ -885,7 +898,7 @@ function emitItem(item, lines) {
   // The block used to be added ONLY when there were warnings, and a description without any
   // warning silently vanished: all 39 pMeh/sMeh fields have help text in the map, yet only
   // six blocks out of thirty-nine reached the screen.
-  const warns = warningsFor(field.offset)
+  const warns = warningsFor(field.offset, plat)
   const help = item.help ?? field.help_text
   // Ревизия едет вместе со справкой: у расщеплённого по платформам пункта справок ДВЕ,
   // и без пометки эристовец читал бы подряд мариковские границы и свои. Приём тот же,
@@ -1727,8 +1740,9 @@ if (kipRows.length) {
   // series they would drift off to their numbers, while people look for them among the
   // ordinary settings.
   //
-  // The voltage curves stay on the FIRST page even though they are long: they are a setting
-  // you look at alongside the undervolt mode, not an internal row.
+  // The voltage curves go to the SECOND page: they are long, and the first page has to stay
+  // readable. See PAGE2_SERIES below — it is what actually decides, and this caption used to
+  // claim the opposite.
   // Which rows belong on the second page — decided by the SERIES, not by the section title.
   //
   // This used to be a set of literal captions: `['pMeh 0-21', 'sMeh 0-16']`. Adding pMeh 22

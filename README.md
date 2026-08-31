@@ -20,6 +20,12 @@ replaces it.
 >
 > This repository is for building it yourself or understanding how it works.
 
+### 📖 [User guide — how to set it up](Guides/en/README.md)
+
+Twelve pages: installation, what to tune first, the CPU, the GPU and its stages, memory,
+timings, backups, and what to do when the console will not boot.
+[На русском](Guides/ru/README.md).
+
 ---
 
 ## Using it
@@ -383,6 +389,12 @@ your console. Use at your own risk.
 
 > **Просто хотите пользоваться?** Один архив из [Releases](../../releases),
 > распаковать в корень SD-карты. Внутри движок, его конфиг и сам тюнер.
+
+### 📖 [Руководство — как всё настроить](Guides/ru/README.md)
+
+Двенадцать страниц: установка, с чего начать, процессор, видеоядро и ступени, память,
+тайминги, копии настроек и что делать, если консоль перестала грузиться.
+[In English](Guides/en/README.md).
 >
 > **Ultrahand уже стоит?** Пропустите `config/ultrahand/config.ini` и
 > `config/ultrahand/overlays.ini` — первый заменит вашу комбинацию открытия
