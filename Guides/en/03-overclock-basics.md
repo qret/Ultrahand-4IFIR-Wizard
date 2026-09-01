@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/03-overclock-basics.md sha=bba6d67c523e self=e97c0c98de99 -->
+<!-- i18n: source=Guides/ru/03-overclock-basics.md sha=c64e680d086f self=bef8978ef692 -->
 # Overclocking: where to start
 
 <!-- nav:begin -->
@@ -81,7 +81,7 @@ A quick test does not replace a game: it cannot reproduce the way a game loads e
 at once. The order is — sift out what plainly does not work with a test, then confirm with
 a game.
 
-## The testing ritual
+## How to check
 
 The same one for any setting:
 
@@ -107,7 +107,8 @@ The symptom usually names the culprit:
 
 All at once — **`Service → Restore Factory Defaults`**: factory state, one step.
 
-Once you have a set of values you are happy with, use **`Service → Create backup`**.
+Once you have a set of values you are happy with, use
+**`Service → Backup manager → Create backup`**.
 After that you can experiment freely: a reset gives you the factory state, a backup
 gives you **your** working setup. Two different buttons for two different situations.
 

@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/05-ebamatic.md sha=a14b06c31493 self=f11db7b0300b -->
+<!-- i18n: source=Guides/ru/05-ebamatic.md sha=3ea1f7b5f6f3 self=f11db7b0300b -->
 # eBAMATIC
 
 <!-- nav:begin -->

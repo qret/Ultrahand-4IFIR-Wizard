@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/09-timings.md sha=4761fcaecb94 self=e70140d8f47c -->
+<!-- i18n: source=Guides/ru/09-timings.md sha=50b5bbbd65fe self=e70140d8f47c -->
 # Timings and fine tuning
 
 <!-- nav:begin -->

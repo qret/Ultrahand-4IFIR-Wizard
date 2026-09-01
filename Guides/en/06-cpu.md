@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/06-cpu.md sha=1b8eb687efbe self=693c3af3a0dc -->
+<!-- i18n: source=Guides/ru/06-cpu.md sha=c8260aae8e4f self=693c3af3a0dc -->
 # CPU
 
 <!-- nav:begin -->

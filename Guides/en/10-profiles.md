@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/10-profiles.md sha=53237a24e3af self=bf0b8a48e614 -->
+<!-- i18n: source=Guides/ru/10-profiles.md sha=0ed436441ffd self=3917a5021047 -->
 # Profiles, backups and reset
 
 <!-- nav:begin -->
@@ -24,7 +24,10 @@ nothing of your own set up, it is all you need.
 
 ## Backups
 
-**`Service → Create backup`** stores your current overclock settings in a file.
+**`Service → Backup manager`** holds everything about copies on one page: create, pick,
+see what is inside, apply or delete.
+
+The first item, **`Create backup`**, stores your current overclock settings in a file.
 
 A backup is not a firmware image, it is a list of values. That means it:
 

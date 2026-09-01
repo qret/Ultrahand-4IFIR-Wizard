@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=6eaa8a98075b self=8f36cb3d5267 -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=05c5a012a965 self=8f36cb3d5267 -->
 # GPU and stages
 
 <!-- nav:begin -->

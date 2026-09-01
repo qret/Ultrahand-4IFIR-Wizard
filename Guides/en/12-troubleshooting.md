@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=ee54026a1ea4 self=5880a578c172 -->
+<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=a060745131b7 self=5880a578c172 -->
 # If something goes wrong
 
 <!-- nav:begin -->

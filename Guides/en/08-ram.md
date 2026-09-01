@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/08-ram.md sha=234a15f98807 self=c08392068325 -->
+<!-- i18n: source=Guides/ru/08-ram.md sha=62cba22a83c0 self=c08392068325 -->
 # RAM
 
 <!-- nav:begin -->

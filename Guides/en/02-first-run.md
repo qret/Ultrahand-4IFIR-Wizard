@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/02-first-run.md sha=27a1919dc0eb self=1db135e09ee0 -->
+<!-- i18n: source=Guides/ru/02-first-run.md sha=111e79f6f7c6 self=4be70fdb2f4f -->
 # First run
 
 <!-- nav:begin -->
@@ -48,7 +48,8 @@ values. The tuner shows you what will change before applying it.
 That is enough while you have nothing of your own set up: there is nothing to lose, and
 the factory state is always one press away.
 
-A backup (`Service → Create backup`) comes later and serves a different purpose:
+A backup (`Service → Backup manager → Create backup`) comes later and serves a
+different purpose:
 **keeping a setup that works**, so you can come back to it after further experiments.
 A reset gives you the factory state and throws your work away; a backup gives you your
 own.

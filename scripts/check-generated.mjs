@@ -517,18 +517,24 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // из пустоты. И дубликаты: раньше восстановление писало 95 команд на 90 значений.
 {
   const bad = []
-  const pkg = join(DIST, 'service', 'package.ini')
-  if (existsSync(pkg)) {
-    const text = readFileSync(pkg, 'utf8')
-    for (const rev of ['mariko', 'erista']) {
+  // СОЗДАНИЕ И ПРИМЕНЕНИЕ КОПИИ ЛЕЖАТ ТЕПЕРЬ В ОДНОМ ФАЙЛЕ.
+  //
+  // Секция `Create backup` переехала из списка `Service` на страницу `Backup manager`
+  // (решение оператора: всё про копии в одном месте). Проверка искала её в `package.ini`
+  // и после переезда говорила «нет секций» — то есть жаловалась не на то, чего нет,
+  // а на то, что сама смотрит не туда. Второй раз за день: имя пункта и место секции —
+  // хрупкие опоры для сторожа, и оба уже подводили.
+  for (const rev of ['mariko', 'erista']) {
+    const restorePath = join(DIST, 'service', `restore-${rev}.ini`)
+    if (!existsSync(restorePath)) { bad.push(`нет страницы восстановления для ${rev}`); continue }
+    {
+      const text = readFileSync(restorePath, 'utf8')
       const from = text.indexOf(`[Create backup?${rev}]`)
-      // Пункт зовётся `Backup manager` с 31.08: страницы восстановления и удаления слиты
-      // в одну, копия выбирается один раз на два действия. Имя здесь — граница участка,
-      // на котором ищутся записи копии, поэтому переименование пункта ломает проверку
-      // молча: она сообщает «нет секций», а не «имя другое».
-      const to = text.indexOf(`[*Backup manager?${rev}]`)
-      const restorePath = join(DIST, 'service', `restore-${rev}.ini`)
-      if (from < 0 || to < 0 || !existsSync(restorePath)) { bad.push(`нет секций для ${rev}`); continue }
+      if (from < 0) { bad.push(`нет секции создания копии для ${rev}`); continue }
+      // Границей служит следующая секция: создание идёт первым пунктом страницы,
+      // сразу за ним `Choose backup`.
+      const nl = text.indexOf('\n[', from + 1)
+      const to = nl < 0 ? text.length : nl
       const saved = new Set([...text.slice(from, to).matchAll(/Fields (\d+) /g)].map(m => Number(m[1])))
       // Секция применения ОДНА, а блоков `try:` внутри неё два: первый для копий
       // нашей раскладки, второй для импортированных. Оба обязаны писать один и тот же

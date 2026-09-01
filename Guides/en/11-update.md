@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/11-update.md sha=c66778503feb self=ed60dbe1e346 -->
+<!-- i18n: source=Guides/ru/11-update.md sha=4dbe520c3b5c self=ae512bb22317 -->
 # Updating
 
 <!-- nav:begin -->
@@ -53,7 +53,8 @@ That is not done with our tuner but with a separate program — **All-in-One Swi
 Updater**, which ships with the build and runs from the Homebrew Menu.
 
 > [!IMPORTANT]
-> **Make a backup before updating 4IFIR** — `Service → Create backup`. The update replaces
+> **Make a backup before updating 4IFIR** —
+> `Service → Backup manager → Create backup`. The update replaces
 > the firmware's settings file wholesale, and the whole overclock returns to factory.
 >
 > The backup itself survives: it sits elsewhere and the update knows nothing about it.
@@ -80,7 +81,8 @@ firmware download refuses to work.
 
 ## Before updating
 
-Make a backup, **`Service → Create backup`**. For a tuner update that is belt and braces;
+Make a backup, **`Service → Backup manager → Create backup`**. For a tuner update that
+is belt and braces;
 for a 4IFIR update it is a required step.
 
 ## If no update is found

@@ -933,6 +933,25 @@ function emitItem(item, lines) {
 }
 
 /**
+ * СЕКЦИИ СОЗДАНИЯ КОПИИ, ОТЛОЖЕННЫЕ ДО СТРАНИЦЫ `Backup manager`.
+ *
+ * Пункт «Create backup» больше НЕ стоит в разделе Service. Решение оператора: всё про
+ * копии — создать, выбрать, посмотреть, применить, удалить — живёт на одной странице,
+ * а Service остаётся списком обслуживания, а не половиной менеджера копий.
+ *
+ * Почему через промежуточный склад, а не прямой вызов. Секции собираются при обходе
+ * меню (`emitBackup`, его зовёт `emitPackage`), а страница восстановления пишется позже,
+ * из общего блока сводки (`emitPreviewPage`). Между ними нет ни общего вызова, ни порядка,
+ * который можно было бы переставить: обход обязан идти первым, потому что из него же
+ * берутся строки сводки. Поэтому `emitBackup` кладёт готовые строки сюда, а страница
+ * забирает их по ревизии.
+ *
+ * Ключ — ревизия, значение — массив строк готовой секции. Пусто быть не может: обе
+ * ревизии заполняются в одном цикле.
+ */
+const backupCreate = {}
+
+/**
  * BACKUP AND RESTORE.
  *
  * Taken from Ebal (`boot_package.ini`, sections `[backup]` and `[restore]`): a backup is saved
@@ -1019,13 +1038,31 @@ function emitBackup(item, lines) {
     if (!freqField) throw new Error(`нет поля "RAM MHz" для ${rev} — имя бэкапа собрать не из чего`)
     if (!balField) throw new Error('нет поля "EMC Balance" — имя бэкапа собрать не из чего')
 
-    lines.push(`[${title}?${rev}]`)
-    lines.push(';mini=true')
-    lines.push(`;system=${rev}`)
-    lines.push(`mkdir ${dir}`)
-    lines.push('clear hex_sum_cache')
-    lines.push(`hex_file '${KIP}'`)
-    lines.push(`ini_file './config.ini'`)
+    // СЕКЦИЯ СОБИРАЕТСЯ В ОТДЕЛЬНЫЙ МАССИВ, а не в `lines`: её место не здесь.
+    // `lines` — это `service/package.ini`, а пункт создания уехал на страницу
+    // `Backup manager` (`service/restore-<ревизия>.ini`). Оттуда его и заберут.
+    const mk = []
+
+    // Суффикс ревизии в имени ОСТАЁТСЯ, хотя страница уже своя у каждой ревизии.
+    // Он не фильтр, а различитель имён: движок его при отрисовке срезает, зато
+    // две секции `Create backup` в двух файлах остаются различимы — и по нему же
+    // ищут секцию проверки (`check-generated.mjs` №14, `verify-import.mjs`).
+    mk.push(`[${title}?${rev}]`)
+    mk.push(';mini=true')
+    // `;system=` ЗДЕСЬ БОЛЬШЕ НЕ НУЖЕН, И ЭТО НЕ ОСЛАБЛЕНИЕ ЗАЩИТЫ.
+    //
+    // Фильтр отсекал пункт по ревизии, когда оба лежали в одном файле — в общем
+    // списке Service. Теперь файл СВОЙ у каждой ревизии, а единственный вход в него —
+    // форвардер `[*Backup manager?<ревизия>]` ниже, и вот на нём `;system=` стоит.
+    // На чужой консоли форвардер не показывается вовсе, значит и страница недостижима.
+    //
+    // Это ровно то, на чём уже держатся `Apply this backup` и `Delete this backup`:
+    // они пишут в kip и тоже обходятся без собственного фильтра. Оставить его одному
+    // созданию значило бы завести на странице два разных правила вместо одного.
+    mk.push(`mkdir ${dir}`)
+    mk.push('clear hex_sum_cache')
+    mk.push(`hex_file '${KIP}'`)
+    mk.push(`ini_file './config.ini'`)
     // Разложено по шагам, а не собрано в одно выражение, СПЕЦИАЛЬНО. Вложенное
     // `{if_==(…,{math(…,true)}…)}` зависело бы от того, что внутренние подстановки
     // раскрываются раньше внешней: парсер `if_` режет аргументы по запятым
@@ -1033,36 +1070,43 @@ function emitBackup(item, lines) {
     // раскройся она позже. Промежуточные значения в `config.ini` эту зависимость
     // убирают совсем и вдобавок видны глазами, если что-то пойдёт не так.
     const raw = f => `{hex_to_decimal({hex_to_rhex({hex_file(CUST,${f.offset},${f.length ?? 3})})})}`
-    lines.push(`set-ini-val './config.ini' Backup Khz '${raw(freqField)}'`)
-    lines.push(`set-ini-val './config.ini' Backup Bal '${raw(balField)}'`)
-    lines.push(`set-ini-val './config.ini' Backup Mhz '{math({ini_file(Backup,Khz)}/1000,true)}'`)
-    lines.push(`set-ini-val './config.ini' Backup Freq '{if_==({ini_file(Backup,Khz)},0,auto,{ini_file(Backup,Mhz)})}'`)
-    lines.push(`set-ini-val './config.ini' Backup Bals '{if_==({ini_file(Backup,Bal)},0,auto,eBal{ini_file(Backup,Bal)})}'`)
+    mk.push(`set-ini-val './config.ini' Backup Khz '${raw(freqField)}'`)
+    mk.push(`set-ini-val './config.ini' Backup Bal '${raw(balField)}'`)
+    mk.push(`set-ini-val './config.ini' Backup Mhz '{math({ini_file(Backup,Khz)}/1000,true)}'`)
+    mk.push(`set-ini-val './config.ini' Backup Freq '{if_==({ini_file(Backup,Khz)},0,auto,{ini_file(Backup,Mhz)})}'`)
+    mk.push(`set-ini-val './config.ini' Backup Bals '{if_==({ini_file(Backup,Bal)},0,auto,eBal{ini_file(Backup,Bal)})}'`)
     // name first, values second — otherwise a second boundary splits the file in two
-    lines.push(`set-ini-val './config.ini' Backup Path '${dir}/{ini_file(Backup,Freq)}-{ini_file(Backup,Bals)}-{timestamp(%d%m%y-%H%M%S)}.ini'`)
+    mk.push(`set-ini-val './config.ini' Backup Path '${dir}/{ini_file(Backup,Freq)}-{ini_file(Backup,Bals)}-{timestamp(%d%m%y-%H%M%S)}.ini'`)
     // the backup's passport: where it came from and whether it fits this console
-    lines.push(`set-ini-val '${path}' Meta revision '${rev}'`)
+    mk.push(`set-ini-val '${path}' Meta revision '${rev}'`)
     // Версия раскладки блока CUST. Без неё копия, снятая на одной прошивке, молча
     // применилась бы на другой: смещения — это позиции в структуре, и если автор её
     // изменит, те же числа станут указывать не туда, а запись пойдёт прямо в загрузчик.
     // Восстановление сверяет это поле и отказывается работать при несовпадении.
-    lines.push(`set-ini-val '${path}' Meta kipver '${KIPVER}'`)
-    lines.push(`set-ini-val '${path}' Meta created '{timestamp("%Y-%m-%d %H:%M")}'`)
-    lines.push(`set-ini-val '${path}' Meta ram '{ram_vendor} {ram_model}'`)
+    mk.push(`set-ini-val '${path}' Meta kipver '${KIPVER}'`)
+    mk.push(`set-ini-val '${path}' Meta created '{timestamp("%Y-%m-%d %H:%M")}'`)
+    mk.push(`set-ini-val '${path}' Meta ram '{ram_vendor} {ram_model}'`)
     // Паспорт копии обязан считать ВСЁ, что в неё легло, включая попутные ячейки таблицы:
     // иначе число в файле разойдётся с числом строк, и первый же, кто станет по нему сверять
     // полноту копии, получит ложную тревогу.
-    lines.push(`set-ini-val '${path}' Meta fields '${mine.length + sideSet(rev).length}'`)
+    mk.push(`set-ini-val '${path}' Meta fields '${mine.length + sideSet(rev).length}'`)
     for (const f of mine) {
-      lines.push(`set-ini-val '${path}' Fields ${f.offset} '{hex_file(CUST,${f.offset},${f.length ?? 3})}'`)
+      mk.push(`set-ini-val '${path}' Fields ${f.offset} '{hex_file(CUST,${f.offset},${f.length ?? 3})}'`)
     }
     // Попутные ячейки — после полей и тем же ключом-смещением: восстановление читает файл
     // одним списком и не отличает их от прочего, а копия остаётся полной.
     for (const f of sideSet(rev)) {
-      lines.push(`set-ini-val '${path}' Fields ${f.offset} '{hex_file(CUST,${f.offset},${f.length})}'`)
+      mk.push(`set-ini-val '${path}' Fields ${f.offset} '{hex_file(CUST,${f.offset},${f.length})}'`)
     }
-    lines.push(`set-footer 'saved {timestamp("%d.%m %H:%M")}'`)
-    lines.push('')
+    // ПОДПИСЬ ОБ УСПЕХЕ ОСТАЁТСЯ ПОДПИСЬЮ, а не превращается в `notify`.
+    //
+    // `set-footer` у обычного пункта садится на сам пункт, а не на родительский:
+    // разбор про `notify` (`emitImport` ниже, `NOTES` №114) касается секций-селекторов
+    // `;mode=option`, где итог уезжает на пункт-родитель. Здесь пункт обычный, и на
+    // новой странице он остаётся таким же — поведение переезда не меняет.
+    mk.push(`set-footer 'saved {timestamp("%d.%m %H:%M")}'`)
+    mk.push('')
+    backupCreate[rev] = mk
     stats.backupFields = (stats.backupFields ?? 0) + mine.length
 
     // ОДИН ПУНКТ НА ОБА ДЕЙСТВИЯ — «BACKUP MANAGER».
@@ -2158,9 +2202,34 @@ if (kipRows.length) {
     //
     // `polling` нужен только там, где источник меняется по ходу дела (выбор копии).
     // У заводского снимка файл неизменный, и опрос раз в секунду просто жёг бы батарею.
-    const { title, rev, source, chooser, apply, del, note, note2, depth = 0, only = null } = opts
+    const { title, rev, source, chooser, apply, del, note, note2, create = null, depth = 0, only = null } = opts
     const poll = chooser ? [';polling=true'] : []
     const pl = [`[@${safeName(title)}]`, '']
+
+    /**
+     * СОЗДАНИЕ КОПИИ — ПЕРВЫМ ПУНКТОМ СТРАНИЦЫ, ДО ВЫБОРА.
+     *
+     * Почему вообще здесь: раньше пункт стоял в Service, а рядом с ним — вход в этот
+     * менеджер. Получалось, что половина работы с копиями в разделе обслуживания,
+     * половина на отдельной странице, и человек обязан помнить, где что. Теперь всё
+     * про копии на одном экране: создать, выбрать, посмотреть, применить, удалить.
+     *
+     * Почему ПЕРВЫМ, а не после выбора. Всё, что ниже, — одна цепочка вокруг ВЫБРАННОЙ
+     * копии: выбор, её имя, паспорт, содержимое, применить, удалить. Создание в эту
+     * цепочку не входит вовсе — оно ничего не выбирает и от выбора не зависит. Встань
+     * оно в середине, между выбором и его последствиями появился бы посторонний пункт,
+     * и читать страницу пришлось бы через него.
+     *
+     * Есть и порядок во времени: сначала копия появляется, потом её выбирают. Первый
+     * пункт отвечает первому вопросу пришедшего сюда впервые — копий ещё нет, и выбирать
+     * не из чего.
+     *
+     * Отступа между ним и `Choose backup` нет намеренно. Зазоры на этой странице
+     * отводятся там, где пункт соседствует с ТАБЛИЦЕЙ: подсветка выделенной строки
+     * рисуется выше её самой и налезает на чужую рамку. Два пункта подряд рисуются
+     * общим списком, и разделять их нечем и незачем.
+     */
+    if (create) pl.push(...create)
 
     if (chooser) pl.push(...chooser, '')
 
@@ -2518,6 +2587,11 @@ if (kipRows.length) {
 
     emitPreviewPage(`service/restore-${rev}.ini`, {
       title: 'Backup manager', rev, source: src, depth: 1,
+      // Готовые строки пункта создания копии — их собрал `emitBackup` при обходе меню.
+      // Пути внутри переезд переживают: `./config.ini` разворачивается в каталог
+      // подпакета, а `restore-<ревизия>.ini` лежит в том же `service/`, что и прежний
+      // хозяин секции — `package.ini`. Путь до kip абсолютный и от места не зависит.
+      create: backupCreate[rev],
       chooser: [
         `[*Choose backup?${rev}]`, ';mode=option',
         `file_source ${dir}/*.ini`,
