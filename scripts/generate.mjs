@@ -267,6 +267,31 @@ function withMagnitude(name, hex, field) {
   return `${mhz}MHz — ${name}`
 }
 
+/**
+ * КОРОТКАЯ ПОДПИСЬ — то, что человек ВЫБРАЛ, без пояснений рядом.
+ *
+ * Подписи доноров составные: `650 mV — DEFAULT`, `2 — ECO ST1`, `2707MHz — 2707`,
+ * `Auto — Eco ST3`, `eBamatic — Default (automatic)`. В СПИСКЕ ВЫБОРА это ценно — там
+ * человек сравнивает варианты и пояснение помогает. Там, где показано УЖЕ ВЫБРАННОЕ
+ * (сводка, предпросмотр копии, футер пункта), пояснение только мешает: строка длинная,
+ * полоса узкая, а второе слово ничего не добавляет к первому.
+ *
+ * Правило: берём первую часть, а если она — слово-заполнитель, следующую за ним.
+ * `Auto` и `Default` сами по себе выбором не являются: за ними всегда стоит настоящее имя
+ * (`Auto — Eco ST3` → `Eco ST3`), а вот `eBamatic — Default (automatic)` начинается
+ * с настоящего имени, и брать надо его (`eBamatic`).
+ *
+ * Решение оператора 02.09.2026. Сознательная цена: вместе с дописками уходят и полезные
+ * пометки — профиль у `EMC Balance` и `EBA-Shift`, метка ступени у частоты памяти,
+ * `DEBUG` у двух частот процессора. Всё это остаётся в СПИСКЕ, где и нужно.
+ */
+function shortLabel(name) {
+  const parts = String(name).split(' — ').map(p => p.trim()).filter(Boolean)
+  if (parts.length < 2) return name
+  for (const p of parts) if (!/^(auto|default|automatic)$/i.test(p)) return p
+  return parts[0]
+}
+
 /** Normalise hex to the field length: dictionaries store both `01` and `010000`. */
 function padHex(hex, lenBytes) {
   const h = (hex ?? '').toUpperCase().replace(/[^0-9A-F]/g, '')
@@ -493,15 +518,21 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
     // а таблицей, одного поля мало: `probeLen` включает составной ключ — значение поля
     // плюс контрольная ячейка таблицы, склеенные подряд. Ровно так же его собирает и
     // движок, читая две ячейки в одной подстановке.
-    map[probeLen ? hex + padHex(v.writes[String(probeLen.offset)], probeLen.len) : hex] = name
+    map[probeLen ? hex + padHex(v.writes[String(probeLen.offset)], probeLen.len) : hex] = shortLabel(name)
     seenInMap.add(hex)
     if (v.not_in_menu) continue
-    if (!extraOffsets.length) { list.push({ name, hex }); continue }
+    if (!extraOffsets.length) { list.push({ name, short: shortLabel(name), hex }); continue }
     // Пропущенный ключ движок молча превращает в `null`, а запись с `null` так же молча
     // не выполняется — пункт при этом покажет галочку. Поэтому недостающее смещение это
     // ошибка сборки, а не повод подставить ноль: половина таблицы осталась бы от прошлой
     // ступени, и получилась бы кривая, которой никто не выбирал.
-    const row = { name, hex }
+    // `short` — та же подпись без дописок, для футера. Полное имя остаётся в `name`
+    // и показывается в списке выбора.
+    //
+    // Ключ обязан быть у КАЖДОЙ записи, даже когда он равен `name`: движок, не найдя
+    // ключа, печатает `null`. Лишние ~60 КБ на пакет — цена того, чтобы футер не менял
+    // текст при первом касании пункта.
+    const row = { name, short: shortLabel(name), hex }
     for (const o of extraOffsets) {
       const val = v.writes?.[String(o)]
       if (!val) throw new Error(`значение «${name}» поля ${field.offset} не задаёт запись в смещение ${o}`)
@@ -555,7 +586,7 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
       const hex = padHex(v.hex, len)
       if (!hex || seenInMap.has(hex)) continue
       seenInMap.add(hex)
-      map[hex] = withMagnitude((v.name ?? hex).replace(/\s+-\s+/g, ' — ').replace(/(\d),(\d)/g, '$1.$2'), hex, field)
+      map[hex] = shortLabel(withMagnitude((v.name ?? hex).replace(/\s+-\s+/g, ' — ').replace(/(\d),(\d)/g, '$1.$2'), hex, field))
     }
   }
 
@@ -589,7 +620,7 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
       // «Своя» — та, что не половинчатая: половинчатые живут в чужом слоте.
       // Тире как у всех остальных подписей: иначе одна и та же ступень называется
       // на разных экранах через дефис и через тире, и это читается как две разные.
-      const nm = String(v.name).replace(/\s+-\s+/g, ' — ')
+      const nm = shortLabel(String(v.name).replace(/\s+-\s+/g, ' — '))
       if (!byMode.has(hex) || !/\d\.\d/.test(v.name)) byMode.set(hex, nm)
     }
     for (const [hex, name] of byMode) {
@@ -741,7 +772,17 @@ const curveTables = (() => {
     map[hex] = `${khz / 1000} MHz`
     map[hex + '00000000'] = `${khz / 1000} MHz`
   }
-  write('json/dvfs_uv.map.json', JSON.stringify([map], null, 2))
+  // ПРОЧЕРК ВМЕСТО «NOT AVAILABLE» — как и во всех остальных словарях подписей.
+  //
+  // Этот словарь единственный собирается отдельным кодом, и ключ `null` в него не попадал:
+  // решение оператора от 31.08.2026 исполнялось в общем сборщике словарей, а сюда просто
+  // не дошло. Найдено аудитом 01.09.2026.
+  //
+  // Именно здесь пропуск и был заметнее всего: этим словарём подписана таблица ступеней
+  // на второй странице копии, а импортированная копия части строк не несёт — старый
+  // формат их не хранил. То есть до трёх десятков строк показывали «Not available» там,
+  // где отсутствие значения является нормой.
+  write('json/dvfs_uv.map.json', JSON.stringify([{ null: '—', ...map }], null, 2))
   stats.dicts++
 
   return {
@@ -870,7 +911,13 @@ function emitItem(item, lines) {
   if (d.extraOffsets.length) lines.push('clear hex_sum_cache')
   lines.push(`${cmd} ${KIP} CUST ${field.offset} {json_file_source(*,hex)}`)
   for (const o of d.extraOffsets) lines.push(`${cmd} ${KIP} CUST ${o} {json_file_source(*,w${o})}`)
-  lines.push(`set-footer '{json_file_source(*,name)}'`)
+  // ФУТЕР БЕРЁТ `short`, А НЕ `name`, И ЭТО НЕ ПРИДИРКА.
+  //
+  // Подпись под пунктом приходит из ДВУХ разных файлов: при открытии пакета — из словаря
+  // (`[boot]`, `set-ini-val … footer`), а сразу после выбора значения — отсюда, из списка.
+  // Оставь здесь `name` — и пункт показывал бы короткую подпись до касания и длинную
+  // после, до следующего открытия оверлея. Найдено разбором 02.09.2026 ДО правки.
+  lines.push(`set-footer '{json_file_source(*,short)}'`)
   lines.push('')
 
   // The footer shown when the package opens — from THE SAME offset and THE SAME dictionary.
@@ -2176,8 +2223,16 @@ if (kipRows.length) {
    *      против `:1354`), поэтому вторая строка перепривязывает чтение к выбранному файлу;
    *   4. значения совпадают с форматом бэкапа бит в бит, поэтому идут те же словари.
    *
-   * `;polling=true` намеренно НЕ используется: он пересобирает таблицу раз в секунду, а тут
-   * больше сотни чтений ini — у Ebal таблицы по шесть строк, он может себе позволить, мы нет.
+   * ЭТОТ БЛОК ОПИСЫВАЕТ ОТМЕНЁННОЕ УСТРОЙСТВО. Оставлен как история решения, но по нему
+   * НЕЛЬЗЯ судить о том, что делает код: `refresh-return` из пункта 2 на консоли не
+   * сработал и в пакете его нет, а `;polling=true`, который здесь объявлен неприемлемым,
+   * ниже включается для страницы выбора — и работает. Действующее объяснение стоит
+   * в следующем блоке.
+   *
+   * Расхождение найдено аудитом 01.09.2026. Это второй случай в этом же файле, когда два
+   * комментария подряд утверждали противоположное; первый разобран у таблицы имени копии.
+   * Опасность у них разная: там расходились описания, здесь — рекомендации. Тот, кто
+   * поверил бы верхнему блоку и «починил» полинг, сломал бы работающий экран.
    */
   /**
    * Пути к словарям считаются ОТ КОРНЯ ПАКЕТА, потому что так их видит `current.ini`.
@@ -2551,12 +2606,19 @@ if (kipRows.length) {
      *   она лежит в `SIDE_WRITES` и уезжает в файл вместе с настройками. Читаем оттуда.
      *   Ручной массив `Custom Table` — тоже в копии, его печатает группа ниже.
      *
-     * Чего НЕ показываем и почему: таблицы `@7160` (ST1) и `@10632` (ST3) копия не несёт —
-     * мы их никогда не трогаем, и они у всех одинаковы. Показать их можно было бы из карты,
-     * но в `menu.json` их сейчас нет, а читать живой kip из генератора нельзя: kip есть
-     * только на машине оператора, а пакет обязан собираться и из публичного набора
-     * (`NOTES` №80). Нужен отдельный скрипт-вычитыватель по образцу `make-gpu-stages.mjs`,
-     * который положит обе таблицы в карту — тогда сюда добавятся ещё два блока.
+     * Чего НЕ показываем и почему: заводские таблицы `@7160` (ST1) и `@10632` (ST3).
+     *
+     * РЕШЕНИЕ ОПЕРАТОРА 01.09.2026, ОКОНЧАТЕЛЬНОЕ: «забудь про это и никогда не надо
+     * делать». Экран показывает ВЫБРАННУЮ ступень — остальные человеку не нужны, и двух
+     * лишних блоков на странице копии быть не должно.
+     *
+     * Прежняя редакция этого комментария звала доделать: «в карте их сейчас нет, нужен
+     * отдельный скрипт-вычитыватель — тогда сюда добавятся ещё два блока». К 01.09 это
+     * стало неправдой дважды: скрипт написан (`make-stock-curves.mjs`), данные лежат
+     * в карте ключом `stock_tables` — а показывать их всё равно не надо.
+     *
+     * Поэтому `stock_tables` генератор не читает СОЗНАТЕЛЬНО. Если однажды заметите, что
+     * данные в карте есть, а на экране их нет, — так и задумано, это не забытое звено.
      *
      * Смещения выводятся из `curveTables`, а не перечисляются: сводка считает их той же
      * формулой, и разойтись эти два места не должны.
@@ -2913,14 +2975,33 @@ if (menu.root_help?.blocks?.length) {
     '[Kip version mismatch]', ';mode=table', ';background=false',
     ';alignment=left', ';offset=10', ';spacing=4', ';gap=26',
     `;visibility_condition=!${KIP_OK}`,
-    `''='This package is built for kip layout ${KIPVER}, and'`,
-    `''='the installed loader.kip reports a different one.'`,
+    // ЭКРАН ОБЯЗАН ПОКАЗАТЬ ВЫХОД, А НЕ ТОЛЬКО ДИАГНОЗ.
+    //
+    // Прежний текст говорил «обновите пакет до подходящей сборки» — и человек шёл
+    // качать архив на компьютер, потому что из слов «the tuner is disabled» следует,
+    // что мёртв весь пакет. А средство стоит прямо здесь же: пункты обновления
+    // затвор не закрывает, они видны и работают именно тогда, когда всё остальное
+    // отключено. Об этом и надо сказать, назвав пункты по именам.
+    //
+    // Ставки на это выросли 01.09.2026: из движка убран его собственный экран
+    // обновления, и пакетный апдейтер стал ЕДИНСТВЕННЫМ способом обновиться
+    // с консоли. Человек, не заметивший кнопку, останется без выхода вовсе.
+    `''='This package is built for kip layout ${KIPVER}, and the'`,
+    `''='installed loader.kip reports a different one.'`,
     `''=''`,
-    `''='Every offset would point at the wrong field, so'`,
-    `''='the tuner is disabled rather than shown wrong.'`,
+    `''='Every offset would point at the wrong field, so the'`,
+    `''='tuner is disabled rather than shown wrong.'`,
     `''=''`,
-    `''='Update the package to a build that matches your'`,
-    `''='firmware, or restore the matching loader.kip.'`,
+    `''='THE FIX IS ON THIS SCREEN, just below.'`,
+    `''=''`,
+    `''='1. Press Check for updates.'`,
+    `''='2. If a newer build is found, press Update.'`,
+    `''=''`,
+    `''='Both work while the tuner is off - that is on'`,
+    `''='purpose, so you are never locked out.'`,
+    `''=''`,
+    `''='No newer build yet? Put back the loader.kip this'`,
+    `''='package was made for, or wait for a release.'`,
     '',
   ]
   if (firstItem >= 0) gate.splice(firstItem, 0, ...warn)

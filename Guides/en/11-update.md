@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/11-update.md sha=4dbe520c3b5c self=ae512bb22317 -->
+<!-- i18n: source=Guides/ru/11-update.md sha=4dbe520c3b5c self=add6140703e7 -->
 # Updating
 
 <!-- nav:begin -->
@@ -46,6 +46,10 @@ settings structure.
 > The tuner checks the version of the settings structure and refuses to work with one it
 > does not know. That is a safeguard: writing values using the wrong layout is a reliable
 > way to end up with a console that will not boot.
+>
+> **You will not be locked out.** The settings are hidden, but `Check for updates` and
+> `Update` stay on screen and keep working. Press the first one: if a build for your
+> firmware exists, the second one installs it and the tuner comes back.
 
 ## If you are updating 4IFIR itself
 

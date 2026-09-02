@@ -162,13 +162,19 @@ The result lands in `package/dist/` — copy it to your SD card as
 
 ### Validating what you built
 
-Three checks, all of which must pass:
+Four checks run from a clone, all of which must pass:
 
 ```sh
 node scripts/uhlint package/dist       # DSL syntax
 node scripts/check-menu.mjs            # every offset is reachable from exactly one item
 node scripts/check-generated.mjs       # generated output matches intent
+node scripts/make-guide.mjs --check    # the guide still matches the package
 ```
+
+A full build runs two more that are not in this repository, because they read the live
+`loader.kip` from the console this was developed against: one compares the field map
+against the firmware actually installed, the other replays the old-profile importer.
+`BUILD.txt` inside every release archive lists all six by name.
 
 `uhlint` matters more than it sounds. **Both overlay engines swallow errors silently:**
 an unknown command is simply ignored, and a failed kip write reports success. For an
@@ -432,9 +438,13 @@ your console. Use at your own risk.
 
 Ничего не вступает в силу до перезагрузки консоли.
 
-Если конфигуратор открылся одним экраном с сообщением о несовпадении раскладки kip,
-меню спрятано намеренно: этот `loader.kip` от другой прошивки, и запись по нашей
-карте полей попала бы не в те байты.
+Если конфигуратор открылся сообщением о несовпадении раскладки kip, настройки спрятаны
+намеренно: этот `loader.kip` от другой прошивки, и запись по нашей карте полей попала бы
+не в те байты.
+
+Обновление при этом работает — и это тоже сделано намеренно. На том же экране остаются
+`Check for updates` и `Update`: нажмите первое, и если вышла сборка под вашу прошивку,
+второе её поставит. Заперты вы не будете.
 
 ### Как читать значения
 
@@ -539,13 +549,19 @@ node scripts/generate.mjs --clean
 
 ### Проверка того, что собралось
 
-Три проверки, все должны пройти:
+Четыре проверки запускаются из клона, все должны пройти:
 
 ```sh
 node scripts/uhlint package/dist       # синтаксис DSL
 node scripts/check-menu.mjs            # каждое смещение достижимо ровно из одного пункта
 node scripts/check-generated.mjs       # сгенерированное соответствует намерению
+node scripts/make-guide.mjs --check    # руководство не разошлось с пакетом
 ```
+
+Полная сборка гоняет ещё две, которых в этом репозитории нет: они читают **живой**
+`loader.kip` с консоли, на которой всё это писалось. Одна сверяет карту полей с реально
+установленной прошивкой, вторая прогоняет импорт старых профилей. `BUILD.txt` внутри
+каждого архива релиза перечисляет все шесть поимённо.
 
 `uhlint` важнее, чем кажется. **Оба движка оверлеев глотают ошибки молча:** неизвестная
 команда просто игнорируется, а неудавшаяся запись в kip рапортует об успехе. Для оверлея,

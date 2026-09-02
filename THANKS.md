@@ -129,7 +129,7 @@ So as not to claim more than due. Our contribution is only this:
 - the field map, merged from three sources and verified against a live `loader.kip`;
 - a generator that derives the label and the write from the same map entry — so they
   cannot drift apart;
-- three checks a package cannot pass with known defects;
+- six checks a package cannot pass with known defects (four of them from a clone);
 - the bugs we found that both original packages shared: writes into seven offsets holding
   the CPU frequency table rather than the GPU voltage curve; reset to defaults in one
   keypress, with no question and no backup.

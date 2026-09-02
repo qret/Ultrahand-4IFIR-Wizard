@@ -80,9 +80,20 @@ for (const it of items) {
 for (const it of items) {
   const v = it.visible_when
   if (!v?.offset) continue
+  // СРАВНИВАЕМ И ЗНАЧЕНИЕ, А НЕ ТОЛЬКО СМЕЩЕНИЕ.
+  //
+  // Здесь проверялось лишь то, что где-то в пакете есть условие на нужную ячейку —
+  // а на какое значение оно смотрит, не спрашивалось вовсе. Значит карта могла обещать
+  // «показывать при 03», пакет — проверять `99`, и сторож был доволен. Найдено аудитом
+  // 01.09.2026 и доказано опытом: подмена ожидаемого значения в карте проходила молча.
+  //
+  // Проверять есть что: движок сравнивает содержимое ячейки с последним словом строки,
+  // и написано оно ровно так, как лежит в карте.
   const needle = `matching_hex_val_custom`
-  const found = lines.some(l => l.includes(needle) && l.includes(` CUST ${v.offset} `))
-  if (found) ok.push(`visibility condition for "${it.title ?? it.id}" (on ${v.offset})`)
+  const onOffset = lines.filter(l => l.includes(needle) && l.includes(` CUST ${v.offset} `))
+  const withValue = v.value == null ? onOffset : onOffset.filter(l => l.trimEnd().endsWith(` ${v.value}`))
+  if (withValue.length) ok.push(`visibility condition for "${it.title ?? it.id}" (on ${v.offset}=${v.value})`)
+  else if (onOffset.length) problems.push({ sev: 'CRITICAL', what: `"${it.title ?? it.id}" is declared visible when ${v.offset}=${v.value}, but dist checks that cell against a different value` })
   else problems.push({ sev: 'CRITICAL', what: `"${it.title ?? it.id}" is declared visible when ${v.offset}=${v.value}, but dist has no visibility_condition` })
 }
 
@@ -1363,6 +1374,150 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   }
   if (bad.length) problems.push({ sev: 'CRITICAL', what: `ступени неразличимы при чтении:\n     ${bad.slice(0, 6).join('\n     ')}` })
   else ok.push(`stages sharing a mode differ in their probe cell (${checked} values checked)`)
+}
+
+// ---------------- 32. путь обновления переживает смену версии раскладки kip
+//
+// ЧТО СТЕРЕЖЁМ И ПОЧЕМУ ЭТО ВАЖНЕЕ, ЧЕМ ВЫГЛЯДИТ.
+//
+// Пункты тюнера закрыты затвором по версии раскладки: чужой kip — и они исчезают,
+// чтобы не писать по неверным адресам. Правильно. Но обновление самого пакета живёт
+// ВНУТРИ пакета, и если затвор накроет и его, человек окажется заперт: старый пакет
+// не работает, а обновиться нечем. Правило записано в `docs/ONLINE-WIZARD-UPDATE.md`
+// §11.1 — «обновление обязано быть доступно ровно тогда, когда тюнер отключён».
+//
+// Ставки выросли 01.09.2026: из движка убран его собственный экран обновления, и
+// пакетный апдейтер стал ЕДИНСТВЕННЫМ способом обновиться с консоли.
+//
+// НА ЧЁМ ЭТО ДЕРЖАЛОСЬ ДО ЭТОЙ ПРОВЕРКИ. Затвор навешивается на секции, начинающиеся
+// со звёздочки, а пункты-действия печатаются без неё. Но звёздочка в движке означает
+// «пункт открывает подменю» и про kip не знает ничего. Сегодня два множества совпадают;
+// ни одна строка кода не обязывает их совпадать завтра. Достаточно дать пункту
+// обновления свою страницу — и он закроется вместе со всеми, молча.
+//
+// Проверяем четыре вещи, и третья — не про затвор, а про человека: экран должен
+// называть выход, иначе прочитавший «тюнер отключён» пойдёт искать компьютер.
+{
+  const rootIni = join(DIST, 'package.ini')
+  if (!existsSync(rootIni)) {
+    problems.push({ sev: 'CRITICAL', what: 'нет package.ini — проверить путь обновления не на чем' })
+  } else {
+    const text = readFileSync(rootIni, 'utf8')
+    // Режем на секции: заголовок плюс всё до следующего заголовка.
+    const chunks = text.split(/^(?=\[)/m).filter(c => c.trim())
+    const sectionOf = re => chunks.find(c => re.test(c.split(/\r?\n/)[0] ?? ''))
+    const gated = c => /visibility_condition=[^\n]*CUST 4 /.test(c)
+
+    // (а) пункты, ведущие наружу, обязаны быть БЕЗ затвора.
+    const escapes = [
+      [/^\[Check for updates\]/, 'Check for updates'],
+      [/^\[Update\b/,             'Update'],
+    ]
+    for (const [re, name] of escapes) {
+      const sec = sectionOf(re)
+      if (!sec) problems.push({ sev: 'CRITICAL', what: `в корне нет пункта "${name}" — единственный путь обновиться с консоли исчез` })
+      else if (gated(sec)) problems.push({ sev: 'CRITICAL', what: `"${name}" закрыт затвором версии kip — при чужом kip человек останется заперт без возможности обновиться` })
+      else ok.push(`escape hatch "${name}" survives a kip layout change`)
+    }
+
+    // (б) пункты, пишущие в kip, обязаны быть С затвором. Не по звёздочке в имени,
+    //     а по тому, что секция реально трогает kip: так проверка переживёт смену
+    //     соглашения об именовании, на которой всё и держалось.
+    for (const c of chunks) {
+      const head = (c.split(/\r?\n/)[0] ?? '').trim()
+      if (!/hex-by-custom|loader\.kip/.test(c)) continue
+      if (/^\[@/.test(head)) continue                 // объявление страницы
+      if (/^\[Kip version mismatch\]/.test(head)) continue
+      if (!gated(c)) problems.push({ sev: 'CRITICAL', what: `секция ${head} в корне трогает kip, но не закрыта затвором версии — на чужой раскладке она писала бы по неверным адресам` })
+    }
+
+    // (в) экран-предупреждение существует, несёт РОВНО обратное условие и называет выход.
+    const warnSec = sectionOf(/^\[Kip version mismatch\]/)
+    if (!warnSec) {
+      problems.push({ sev: 'CRITICAL', what: 'нет экрана "Kip version mismatch" — при чужом kip человек увидит пустой корень без объяснения' })
+    } else {
+      const cond = (warnSec.match(/visibility_condition=([^\r\n]+)/) ?? [])[1] ?? ''
+      if (!cond.startsWith('!')) problems.push({ sev: 'CRITICAL', what: 'экран "Kip version mismatch" показывается не по ОБРАТНОМУ условию — он либо не покажется никогда, либо будет висеть поверх работающего тюнера' })
+      // Текст обязан назвать оба пункта: диагноз без выхода отправляет человека к компьютеру.
+      for (const must of ['Check for updates', 'Update']) {
+        if (!warnSec.includes(must)) problems.push({ sev: 'CRITICAL', what: `экран "Kip version mismatch" не называет пункт "${must}" — человек не поймёт, что средство стоит на том же экране` })
+      }
+      if (cond.startsWith('!') && warnSec.includes('Check for updates') && warnSec.includes('Update'))
+        ok.push('kip mismatch screen shows the way out by name')
+    }
+  }
+}
+
+// ---------------- 33. подпись показывает ВЫБРАННОЕ, без дописок
+//
+// ЧТО СТЕРЕЖЁМ. Решение оператора 02.09.2026: там, где показано уже выбранное значение —
+// сводка, предпросмотр копии, футер пункта — подпись не несёт пояснений. `650 mV — DEFAULT`
+// стало `650 mV`, `Auto — Eco ST3` стало `Eco ST3`. В СПИСКЕ ВЫБОРА пояснения остаются:
+// там они помогают выбирать.
+//
+// ПОЧЕМУ ЭТО НУЖНО СТЕРЕЧЬ. Короткая форма считается из полного имени функцией
+// `shortLabel` в генераторе. Имена приходят из `fields.json` и `menu.json`, то есть
+// из данных, которые правятся чаще кода. Появится завтра подпись с новым разделителем
+// или новым словом-заполнителем — правило тихо перестанет срабатывать на ней одной,
+// и на экране среди коротких подписей окажется одна длинная. Заметить это можно только
+// на консоли.
+//
+// ВТОРАЯ ПОЛОВИНА — ПРО МИГАНИЕ. Подпись под пунктом приходит из ДВУХ файлов: при открытии
+// пакета из словаря, а сразу после выбора значения — из списка, по ключу `short`. Нет ключа
+// у записи — движок печатает `null`, а пункт после касания показывает пустоту вместо
+// значения. При первой правке этого места ключ получили шесть записей из двух тысяч,
+// и поймано это было пересчётом, а не проверкой. Теперь есть проверка.
+{
+  const all = []
+  const walkDir = d => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name)
+      if (e.isDirectory()) walkDir(p)
+      else if (e.name.endsWith('.json')) all.push(p)
+    }
+  }
+  walkDir(DIST)
+
+  const longLabels = []
+  const noShort = []
+  let maps = 0, lists = 0, entries = 0
+
+  for (const p of all) {
+    let doc
+    try { doc = JSON.parse(readFileSync(p, 'utf8')) } catch { continue }
+    const rel = relative(DIST, p)
+    if (p.endsWith('.map.json') || p.endsWith('.flat.json')) {
+      const obj = Array.isArray(doc) ? doc[0] : null
+      if (!obj || typeof obj !== 'object') continue
+      maps++
+      for (const [k, v] of Object.entries(obj)) {
+        if (typeof v === 'string' && v.includes(' — ')) longLabels.push(`${rel}: ${k} = «${v}»`)
+      }
+      continue
+    }
+    // список выбора: массив записей с `name` и `hex`
+    if (!Array.isArray(doc) || !doc.length || typeof doc[0] !== 'object') continue
+    if (doc[0].name === undefined || doc[0].hex === undefined) continue
+    lists++
+    for (const e of doc) {
+      if (e.name === undefined) continue
+      entries++
+      if (typeof e.short !== 'string' || !e.short.length) noShort.push(`${rel}: «${e.name}»`)
+    }
+  }
+
+  // НОЛЬ НАЙДЕННЫХ ОБЪЕКТОВ НАДЗОРА — КРАСНЫЙ, А НЕ ЗЕЛЁНЫЙ. Не найдя ни словаря,
+  // ни списка, проверка обязана кричать: значит переехали каталоги или расширения,
+  // и она с этого дня стережёт пустоту.
+  if (!maps || !lists) {
+    problems.push({ sev: 'CRITICAL', what: `проверка подписей не нашла предмет надзора (словарей ${maps}, списков ${lists}) — она смотрит в пустоту` })
+  } else if (longLabels.length) {
+    problems.push({ sev: 'CRITICAL', what: `подпись показывает не только выбранное (${longLabels.length}):\n     ${longLabels.slice(0, 6).join('\n     ')}` })
+  } else if (noShort.length) {
+    problems.push({ sev: 'CRITICAL', what: `у записей списка нет ключа "short" — футер после выбора покажет null (${noShort.length}):\n     ${noShort.slice(0, 6).join('\n     ')}` })
+  } else {
+    ok.push(`labels show only what is selected (${maps} dictionaries, ${entries} list entries carry "short")`)
+  }
 }
 
 // ---------------------------------------------------------------- output
