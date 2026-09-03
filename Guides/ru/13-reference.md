@@ -17,7 +17,7 @@
 |---|---|---|---|---|
 | eBAMATIC Stage | `pMeh 18 eBAMATIC ST` | обе | 4 | 0 — Default, Stage 1 … Stage 3 |
 | Advanced → CPU → Boost Clock | `CPU Boost Clock` | обе | 20 | eBAMATIC, 1400MHz … 3000MHz — S |
-| Advanced → CPU → Min Voltage | `CPU Minimal Voltage` | обе | 53 | Auto — eBAMATIC, Auto — Eco ST1 — Default … 750 mV |
+| Advanced → CPU → Min Voltage | `CPU Minimal Voltage` | обе | 53 | Auto — Eco ST1 — Default, Auto — Eco ST2 … 750 mV |
 | Advanced → CPU → Max Voltage | `CPU Maximum Voltage` | Mariko | 35 | eBamatic — Default (automatic), 1100 mV … 1375mV |
 | Advanced → CPU → Voltage Limit | `CPU Voltage Limit` | Erista | 22 | eBamatic (automatic), 1180mV … 1375mV |
 | Advanced → CPU → dCPUv | `dCPUv` | Mariko | 24 | eBamatic, 1 — ECO ST 1 … 890mV |
@@ -82,8 +82,8 @@
 | Advanced → GPU → Min Voltage | `GPU Minimal Voltage` | обе | 3 | Eco ST1 — Default, Eco ST2, Eco ST3 — lowest voltage |
 | Advanced → GPU → Max Voltage | `GPU Max Voltage` | Mariko | 92 | eBamatic — Default (automatic), 750 mV … 1200 mV |
 | Advanced → GPU → Max Voltage | `GPU Max Voltage` | Erista | 92 | eBamatic — Default (automatic), 850 mV … 1300 mV |
-| Advanced → GPU → vMin Offset | `pMeh 19 vMINetune ST` | обе | 15 | +20 mV, +15 mV … -50 mV |
-| Advanced → GPU → vMin Offset (max RAM) | `pMeh 21 gVMINDick` | обе | 15 | +25 mV, +20 mV … -45 mV |
+| Advanced → GPU → vMin Offset | `pMeh 19 vMINetune ST` | обе | 31 | +75 mV, +70 mV … -75 mV |
+| Advanced → GPU → vMin Offset (max RAM) | `pMeh 21 gVMINDick` | обе | 31 | +75 mV, +70 mV … -75 mV |
 | Advanced → RAM → Optimized Mode (1600 MHz) → Optimized Target | `sMeh 16 SYK-LOH` | обе | 2 | 0, 1 — Default |
 | Advanced → RAM → Optimized Mode (1600 MHz) → VDDQ-VDD2 Voltage | `pMeh 20 rVDDick` | обе | 7 | 0, 1 … 6 |
 | Advanced → RAM → Optimized Mode (1600 MHz) → Efficiency Stages | `sMeh 8 E-Boost` | обе | 3 | 0 — Default, 1, 2 |
@@ -121,9 +121,9 @@
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 16 lovec | `pMeh 16 lovec` | обе | 2 | 0 — Default, 1 |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 17 WL-Set | `pMeh 17 WL-Set` | обе | 2 | 0 — Default, 1 |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 18 eBAMATIC ST | `pMeh 18 eBAMATIC ST` | обе | 4 | 0 — Default, Stage 1 … Stage 3 |
-| Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 19 vMINetune ST | `pMeh 19 vMINetune ST` | обе | 15 | +20 mV, +15 mV … -50 mV |
+| Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 19 vMINetune ST | `pMeh 19 vMINetune ST` | обе | 31 | +75 mV, +70 mV … -75 mV |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 20 rVDDick | `pMeh 20 rVDDick` | обе | 7 | 0, 1 … 6 |
-| Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 21 gVMINDick | `pMeh 21 gVMINDick` | обе | 15 | +25 mV, +20 mV … -45 mV |
+| Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 21 gVMINDick | `pMeh 21 gVMINDick` | обе | 31 | +75 mV, +70 mV … -75 mV |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 22 isKefir | `pMeh 22 isKefir` | обе | 2 | 0 — Default, 1 |
 | Advanced → Micro-Enhance Logic → sMeh 0-17 → sMeh 0 ARB-Boost | `sMeh 0 ARB-Boost` | обе | 9 | 1, 2 … 9 |
 | Advanced → Micro-Enhance Logic → sMeh 0-17 → sMeh 1 ARB-BCD | `sMeh 1 ARB-BCD` | обе | 5 | 0, 1 … 4 |
