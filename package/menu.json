@@ -1730,7 +1730,7 @@
         "delete ./updater/error.flag",
         "path_exists ./updater/newer.flag",
         "set-ini-val './config.ini' 'Update ' footer '{if_null({ini_file(V,short)},{ini_file(V,remote)},{ini_file(V,short)})}'",
-        "set-footer 'update available'",
+        "set-footer 'available'",
         "refresh",
         "try:",
         "path_exists ./updater/same.flag",
