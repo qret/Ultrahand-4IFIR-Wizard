@@ -1683,7 +1683,9 @@ function emitAction(item, lines) {
    * Строки страницы пояснений собирал только `emitItem` — ветка полей-настроек
    * со смещением в kip. Пункт, у которого есть команды, но нет смещения, свою
    * `help` не отдавал никуда: она лежала в карте и никуда не печаталась.
-   * Заодно от этого зависел заголовок страницы `[@Имя]`: он ставится вместе
+   * Заодно от этого зависел заголовок страницы `[@Имя]`. ⚠ ОГОВОРКА: он подписывает
+   * только кнопку листания внизу, а НЕ экран — подпись экрана даёт `;subtitle=`,
+   * см. пояснение в конце `emitPackage`. Он ставится вместе
    * со страницей пояснений, а без неё движок подписывал экран внутренним
    * словом «Commands».
    */
@@ -1923,6 +1925,26 @@ function emitPackage(node, dirPath, depth = 0) {
   if (!body.length) return null
 
   emitInfoPage(infoRows, body, node.title ?? node.id)
+
+  /**
+   * ПОДПИСЬ ЭКРАНА. Без неё подпакет не может назвать себя вообще.
+   *
+   * Движок берёт подзаголовок из ПОСЛЕДНЕЙ врезки-заголовка в списке РОДИТЕЛЯ
+   * (`main.cpp:5825` передаёт `lastPackageHeader` в конструктор `PackageMenu`),
+   * а собственного ключа у экрана не было. Если первая секция файла-родителя несёт
+   * команды и её имя не начинается с `@`, движок вставляет свою врезку и пишет туда
+   * внутреннее слово `Commands` (`main.cpp:5115`) — его и видел человек на одиннадцати
+   * наших экранах. Ещё на ста тридцати семи вместо имени стояла версия пакета.
+   *
+   * `;title=` тут не помогает: на вложенном уровне он затирается `packageRootLayerTitle`
+   * (`main.cpp:6303`), то есть ключ примут, ошибки не будет, эффекта тоже.
+   * `[@Имя]` подписывает только кнопку листания внизу, а не экран — я записал обратное
+   * в трёх документах, и это было неверно.
+   *
+   * Поэтому в форк заведён ключ `;subtitle=` (`patches/0003-package-subtitle.patch`),
+   * и каждый порождаемый подпакет подписывает себя сам.
+   */
+  body.unshift(`;subtitle='${safeName(node.title ?? node.id)}'`, '')
   write(`${here}/package.ini`, body.join('\n'))
 
   // Hand our own footers up: the parent's forwarder will run them when you enter this section.
@@ -2341,7 +2363,8 @@ if (kipRows.length) {
     return [...rest.slice(0, after + 1), ...curve, ...rest.slice(after + 1)]
   })()
 
-  const kl = [`[@Current]`, '']
+  // Подпись экрана — см. пояснение у `;subtitle=` в конце `emitPackage`.
+  const kl = [`;subtitle='Current Settings'`, '', `[@Current]`, '']
   emitPage(kl, main)
   emitModeVoltages(kl)
   // The note goes right at the bottom and without a frame: its own frame overlapped the last table.
@@ -2427,7 +2450,9 @@ if (kipRows.length) {
     // У заводского снимка файл неизменный, и опрос раз в секунду просто жёг бы батарею.
     const { title, rev, source, chooser, apply, del, note, note2, create = null, depth = 0, only = null } = opts
     const poll = chooser ? [';polling=true'] : []
-    const pl = [`[@${safeName(title)}]`, '']
+    // Подпись экрана — тем же ключом, что и у подпакетов; см. пояснение у `;subtitle=`
+    // в конце `emitPackage`. Без него движок подписывал эти два экрана словом `Commands`.
+    const pl = [`;subtitle='${safeName(title)}'`, '', `[@${safeName(title)}]`, '']
 
     /**
      * СОЗДАНИЕ КОПИИ — ПЕРВЫМ ПУНКТОМ СТРАНИЦЫ, ДО ВЫБОРА.

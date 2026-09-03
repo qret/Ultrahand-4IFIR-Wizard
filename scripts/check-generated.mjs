@@ -1760,6 +1760,62 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 
 // ---------------------------------------------------------------- output
 
+// ---------------- 35. у каждого экрана есть человеческое имя
+//
+// СНИМОК С КОНСОЛИ ПОКАЗАЛ ЭКРАН, ПОДПИСАННЫЙ СЛОВОМ `Commands`. Это внутреннее слово
+// движка, и человеку его видеть не должны. Аудит нашёл его на ОДИННАДЦАТИ наших экранах,
+// а ещё на ста тридцати семи вместо имени стояла версия пакета. Подписан по-человечески
+// был ровно один экран, и то случайно.
+//
+// ПОЧЕМУ ТАК ВЫШЛО. Движок берёт подзаголовок экрана из ПОСЛЕДНЕЙ врезки-заголовка
+// в списке РОДИТЕЛЯ, а собственного ключа у экрана не было. Если первая секция файла
+// несёт команды и её имя не начинается с `@`, движок вставляет свою врезку со словом
+// `Commands`. Два наших приёма от этого не спасали: `;title=` на вложенном уровне
+// затирается, а `[@Имя]` подписывает только кнопку листания внизу — я записал обратное
+// в трёх документах, и это было неверно.
+//
+// Лечение — ключ `;subtitle=`, заведённый в нашем форке (`patches/0003-package-subtitle.patch`).
+// Сторож следит, чтобы генератор не забыл его ни на одном экране: проверяются ВСЕ файлы,
+// достижимые из корня по `package_source`, кроме самого корня — у него своя подпись
+// из версии пакета.
+{
+  const bad = []
+  const seen = new Set()
+  const queue = ['package.ini']
+  let screens = 0
+
+  while (queue.length) {
+    const rel = queue.shift()
+    if (seen.has(rel)) continue
+    seen.add(rel)
+    const abs = join(DIST, rel)
+    if (!existsSync(abs)) { bad.push(`${rel}: файл не найден, а на него ведёт package_source`); continue }
+    const text = readFileSync(abs, 'utf8')
+
+    // ссылки на дочерние экраны — пути относительно каталога этого файла
+    for (const m of text.matchAll(/package_source\s+'([^']+)'/g)) {
+      const p = m[1].replace(/^\.\//, '')
+      const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/') + 1) : ''
+      queue.push((dir + p).split('/').reduce((acc, part) => {
+        if (part === '..') acc.pop(); else if (part !== '.') acc.push(part)
+        return acc
+      }, []).join('/'))
+    }
+
+    if (rel === 'package.ini') continue   // корень подписывается версией, это норма
+    screens++
+    const head = text.slice(0, 400)
+    const m = head.match(/^;subtitle='([^']*)'/m)
+    if (!m) bad.push(`${rel}: экран без имени — движок подпишет его словом Commands или версией`)
+    else if (!m[1].trim()) bad.push(`${rel}: имя экрана пустое`)
+    else if (/^commands$/i.test(m[1].trim())) bad.push(`${rel}: имя экрана — внутреннее слово движка`)
+  }
+
+  if (!screens) problems.push({ sev: 'IMPORTANT', what: 'ни одного дочернего экрана не найдено — обход package_source сломан' })
+  else if (bad.length) problems.push({ sev: 'CRITICAL', what: `экраны без имени:\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else ok.push(`every screen names itself (${screens} screens reachable from the root)`)
+}
+
 const crit = problems.filter(p => p.sev === 'CRITICAL')
 const warn = problems.filter(p => p.sev === 'IMPORTANT')
 
@@ -1770,6 +1826,7 @@ console.log(`discrepancies     : ${crit.length} critical, ${warn.length} importa
 console.log()
 
 for (const p of [...crit, ...warn]) console.log(`${p.sev === 'CRITICAL' ? '❌' : '⚠ '} ${p.what}`)
+
 if (!problems.length) {
   console.log('✅ what was generated matches what was intended')
   for (const o of ok) console.log(`   ${o}`)
