@@ -292,6 +292,85 @@ function shortLabel(name) {
   return parts[0]
 }
 
+/**
+ * ТОЧКИ КРИВОЙ GPU ПОКАЗЫВАЮТСЯ ВЫЧИСЛЕНИЕМ, А НЕ СЛОВАРЁМ.
+ *
+ * ПОЧЕМУ. У каждой точки был свой словарь подписи — полоса ±75 мВ вокруг ЗАВОДСКОГО
+ * содержимого ячейки. Но заводской массив это грубая линейка (395 мВ на 307 МГц,
+ * 1020 мВ на 1190 МГц), а настоящая кривая идёт куда положе, и к верхним точкам
+ * расходится с ней на 270 мВ. Всё, что вне полосы, показывалось как «Not available».
+ * У живого пользователя так пропали ПЯТНАДЦАТЬ строк из двадцати четырёх — при том,
+ * что значения в kip лежали правильные и читались.
+ *
+ * Словарь отвечает на вопрос «что мы предлагаем ВЫСТАВИТЬ», и полоса там уместна.
+ * Подпись отвечает на «что лежит в ячейке», а туда могли записать что угодно — чужим
+ * конфигуратором, KIP tool, импортом. Заранее перечислить это нельзя в принципе,
+ * поэтому подпись обязана СЧИТАТЬСЯ.
+ *
+ * ЧТО ЧИТАЕМ. Обе ревизии читают ТРИ БАЙТА — этого хватает и на милливольты Mariko
+ * (485 = 0x0001E5), и на микровольты Erista (675000 = 0x0A4CB8). У Erista ячейка
+ * в карте длиной 24 байта: это весь хвост записи DVFS, и такой она обязана остаться,
+ * потому что ею же ВОССТАНАВЛИВАЮТ копию. Для показа берём из неё первые три байта.
+ *
+ * ГЛУБИНА. Движок раскрывает вложенные подстановки без ограничения и всегда изнутри
+ * наружу (`replacePlaceholdersRecursivelyImpl`, форк `utils.hpp`). Цепочка глубиной
+ * четыре внутри `;mode=table` работает у донора Ebal годами (`backup.ini:74`, `:180`),
+ * а чтение `hex_file` внутри таблицы работает у нас. СТЫКА этих двух приёмов до сих
+ * пор не было ни в одном живом пакете — здесь он появляется впервые.
+ */
+const CURVE_SERIES = new Set(['gpu_curve_mariko', 'gpu_curve_erista'])
+const isCurve = r => CURVE_SERIES.has(r.series)
+
+/** Три байта значения: из kip напрямую, из копии — первые три байта ячейки. */
+const curveCell = (r, fromIni) => fromIni
+  ? (r.len > 3 ? `{slice({ini_file(Fields,${r.offset})},0,6)}` : `{ini_file(Fields,${r.offset})}`)
+  : `{hex_file(CUST,${r.offset},3)}`
+
+/**
+ * ПРОЧЕРК СТАВИТСЯ ТОЛЬКО ТАМ, ГДЕ ОТСУТСТВИЕ — НОРМА.
+ *
+ * Живой kip несёт значение всегда: страница видна только когда файл на месте
+ * и затвор совпал. А импортированная из старого визарда копия части полей не несёт —
+ * их не было в его формате. Там `ini_file` отдаёт `null`, и это не сбой, а «нет данных»
+ * (решение оператора 31.08.2026, NOTES №211).
+ *
+ * Без обёртки такая строка показала бы `0 mV`: цепочка съедает слово `null` молча —
+ * переворот даёт `llnu`, превращение в число даёт ноль. Ноль в ячейке кривой значением
+ * не бывает, но отличить его от «не прочиталось» человек не смог бы.
+ */
+const curveValue = (r, fromIni) => {
+  const n = `{hex_to_decimal({hex_to_rhex(${curveCell(r, fromIni)})})}`
+  // Mariko хранит милливольты как есть, Erista — микровольты. `,true` отбрасывает
+  // дробную часть: решение оператора 03.09.2026, четверть милливольта на экране не нужна.
+  const mv = r.series === 'gpu_curve_erista' ? `{math(${n}/1000,true)}` : n
+  return fromIni
+    ? `{if_==({ini_file(Fields,${r.offset})},null,—,${mv} mV)}`
+    : `${mv} mV`
+}
+
+/**
+ * КОРОТКАЯ ПОДПИСЬ ТОЧКИ КРИВОЙ СЧИТАЕТСЯ ТАК ЖЕ, КАК ЕЁ ПОКАЗ.
+ *
+ * Подпись под пунктом приходит из ДВУХ мест: при открытии раздела её пишет родитель
+ * вычислением, а сразу после выбора значения — сам пункт, из ключа `short` своего списка.
+ * Разойдись эти два текста — пункт менял бы подпись при первом же касании и возвращал
+ * прежнюю при следующем открытии оверлея. Ровно этот дефект мы ловили 02.09.2026
+ * на другом поле, и тогда ключ `short` для того и заводился.
+ *
+ * У Mariko тексты и так совпадали («320 mV» с обеих сторон), а у Erista расходились
+ * дважды: список хранит «612.5mV» — без пробела и с половинкой, — тогда как вычисление
+ * даёт «612 mV». Половинка теряется намеренно (решение оператора 03.09.2026): `{math}`
+ * умеет либо целое, либо две цифры после точки, и «612.50» хуже, чем «612».
+ */
+function curveShort(hex, field) {
+  // Три байта с начала ячейки — столько же читает показ. У Erista дальше лежит хвост
+  // записи DVFS, и брать его в число нельзя.
+  const bytes = String(hex).slice(0, 6).match(/../g) ?? []
+  let n = 0
+  for (let i = bytes.length - 1; i >= 0; i--) n = n * 256 + parseInt(bytes[i], 16)
+  return `${field.units === 'uV' ? Math.trunc(n / 1000) : n} mV`
+}
+
 /** Normalise hex to the field length: dictionaries store both `01` and `010000`. */
 function padHex(hex, lenBytes) {
   const h = (hex ?? '').toUpperCase().replace(/[^0-9A-F]/g, '')
@@ -521,7 +600,8 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
     map[probeLen ? hex + padHex(v.writes[String(probeLen.offset)], probeLen.len) : hex] = shortLabel(name)
     seenInMap.add(hex)
     if (v.not_in_menu) continue
-    if (!extraOffsets.length) { list.push({ name, short: shortLabel(name), hex }); continue }
+    const short = CURVE_SERIES.has(field.series) ? curveShort(hex, field) : shortLabel(name)
+    if (!extraOffsets.length) { list.push({ name, short, hex }); continue }
     // Пропущенный ключ движок молча превращает в `null`, а запись с `null` так же молча
     // не выполняется — пункт при этом покажет галочку. Поэтому недостающее смещение это
     // ошибка сборки, а не повод подставить ноль: половина таблицы осталась бы от прошлой
@@ -532,7 +612,7 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
     // Ключ обязан быть у КАЖДОЙ записи, даже когда он равен `name`: движок, не найдя
     // ключа, печатает `null`. Лишние ~60 КБ на пакет — цена того, чтобы футер не менял
     // текст при первом касании пункта.
-    const row = { name, short: shortLabel(name), hex }
+    const row = { name, short, hex }
     for (const o of extraOffsets) {
       const val = v.writes?.[String(o)]
       if (!val) throw new Error(`значение «${name}» поля ${field.offset} не задаёт запись в смещение ${o}`)
@@ -638,6 +718,12 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
   /**
    * One dictionary for every point of a series, instead of a copy per point.
    *
+   * ⚠ ПРИМЕР НИЖЕ УСТАРЕЛ ДВАЖДЫ, и это стоит знать, прежде чем на него опираться.
+   * Во-первых, у точек кривой словари давно РАЗНЫЕ: каждый список — своя полоса вокруг
+   * своего заводского значения, так что кэш на них не срабатывает ни разу. Во-вторых,
+   * с 03.09.2026 у кривой нет словаря показа вовсе — подпись считается. Механизм ниже
+   * работает и нужен, но его единственный пример в комментарии исчез.
+   *
    * The voltage curve has 24 points, and their value dictionary is THE SAME one — a set of
    * voltages. That used to mean 24 identical files and 24 `json_file` declarations in [boot].
    * Every declaration is a file open on the SD card, and opening the package waits for all
@@ -662,8 +748,18 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
   // Оговорка на будущее: подмена гасит `Not available` ВЕЗДЕ, в том числе там, где оно
   // означало бы настоящий сбой чтения. Различить эти два случая средствами пакета нельзя —
   // движок в обоих отдаёт один и тот же `null`.
-  write(`${dir}/${base}.map.json`, JSON.stringify([{ null: '—', ...map }], null, 2))
-  stats.dicts += 2
+  // СЛОВАРЬ ПОКАЗА ТОЧКЕ КРИВОЙ БОЛЬШЕ НЕ ПИШЕТСЯ — её подпись считается (`curveValue`).
+  //
+  // Файл, который никто не читает, — не безобидный лишний байт. Он выглядит источником
+  // правды, его находит поиск, на него ссылаются сторожа, и однажды кто-то поверит,
+  // что подпись берётся оттуда. Пятьдесят три таких файла весили 44 КБ и открывались
+  // при каждом входе в раздел GPU, пока объявления не убрали.
+  //
+  // Список выбора (`${base}.json`) остаётся: он отвечает на другой вопрос — что можно
+  // ВЫСТАВИТЬ, — и полоса ±75 мВ живёт именно там.
+  const curveDict = CURVE_SERIES.has(field.series)
+  if (!curveDict) write(`${dir}/${base}.map.json`, JSON.stringify([{ null: '—', ...map }], null, 2))
+  stats.dicts += curveDict ? 1 : 2
   // Two paths to the same footer dictionary:
   //   map     — relative to the sub-package directory (the item reads it itself)
   //   mapRoot — relative to the package root: [boot] runs ONLY at the root (see emitPackage)
@@ -928,14 +1024,31 @@ function emitItem(item, lines) {
   // however, is read from the `config.ini` sitting NEXT TO its package.ini (main.cpp:6258),
   // so the target file is the config.ini of that very subdirectory.
   // declaring the same dictionary twice in a row is one more file open at startup
-  if (d.mapRoot !== lastBootMap) { bootLines.push(`json_file '${d.mapRoot}'`); lastBootMap = d.mapRoot }
+  //
+  // ТОЧКЕ КРИВОЙ ОБЪЯВЛЕНИЕ НЕ НУЖНО ВОВСЕ: её подпись считается, словарь не открывается.
+  // Оставь объявление — и получишь полсотни открытий файла при входе в раздел ради
+  // словаря, к которому никто не обратится. `lastBootMap` при этом НЕ двигаем: объявление
+  // это курсор, и раз мы его не сдвинули, следующая словарная строка вправе не объявлять
+  // свой словарь заново. Пропускаются объявление И подстановка разом, иначе строка осталась
+  // бы с чужим словарём.
+  if (!isCurve({ series: field.series }) && d.mapRoot !== lastBootMap) { bootLines.push(`json_file '${d.mapRoot}'`); lastBootMap = d.mapRoot }
   // Ключ чтения. Обычно одна ячейка. Если ступени различаются таблицей, а не полем, то
   // по одной ячейке три из пяти неотличимы — читаем две подряд и склеиваем. Движок это
   // умеет: подстановки резолвятся все, а не первая (replacePlaceholdersRecursivelyImpl).
   const probe = item.label_probe
     ? `{hex_file(CUST,${field.offset},${d.len})}{hex_file(CUST,${item.label_probe.offset},${item.label_probe.len})}`
     : `{hex_file(CUST,${field.offset},${d.len})}`
-  bootLines.push(`set-ini-val '${d.dir ? `./${d.dir}/config.ini` : './config.ini'}' '*${title}' footer {json_file(0,${probe})}`)
+  // ТРЕТИЙ ПОТРЕБИТЕЛЬ ТОГО ЖЕ ЗНАЧЕНИЯ — подпись под пунктом. Точка кривой и здесь
+  // считается, а не ищется в словаре: иначе на экране вышло бы разное — сводка назвала бы
+  // напряжение, а пункт под ней промолчал бы «Not available».
+  //
+  // Значение ОБЯЗАНО быть в кавычках: в нём есть пробел перед «mV», а `set-ini-val` берёт
+  // значением ровно один разобранный токен. Без кавычек в конфиг легло бы одно число,
+  // а слово «mV» потерялось бы по дороге.
+  const curveRow = { series: field.series, offset: field.offset }
+  bootLines.push(isCurve(curveRow)
+    ? `set-ini-val '${d.dir ? `./${d.dir}/config.ini` : './config.ini'}' '*${title}' footer '${curveValue(curveRow, false)}'`
+    : `set-ini-val '${d.dir ? `./${d.dir}/config.ini` : './config.ini'}' '*${title}' footer {json_file(0,${probe})}`)
   stats.bootLines++
   stats.items++
 
@@ -1895,6 +2008,10 @@ if (kipRows.length) {
                       + (r.probe ? `{hex_file(CUST,${r.probe.offset},${r.probe.len})}` : '')
   const FROM_INI = r => `{ini_file(Fields,${r.offset})}`
 
+  // Точки кривой показываются вычислением: `curveValue` и `isCurve` объявлены на верхнем
+  // уровне, потому что тем же значением подписывается и пункт меню, а он порождается
+  // раньше этого места.
+
   const emitGroupRows = (kl, rows, valueOf = FROM_KIP, scoped = false) => {
     const order = { both: 0, erista: 1, mariko: 2 }
     // `scoped` — таблица уже ограничена одной ревизией через `;system=`, метки внутри
@@ -1909,6 +2026,14 @@ if (kipRows.length) {
         if (plat !== 'both') kl.push(`${plat}:`)
         lastPlat = plat
         lastMap = null              // dictionary declarations do not survive a branch change
+      }
+      // ТОЧКА КРИВОЙ СЛОВАРЯ НЕ ОТКРЫВАЕТ ВОВСЕ — ни объявления, ни подстановки.
+      // `lastMap` при этом не трогаем: объявление `json_file` это КУРСОР, и раз мы его
+      // не двигаем, следующая словарная строка с тем же словарём вправе не объявлять его
+      // заново.
+      if (isCurve(r)) {
+        kl.push(`'${safeName(r.title)}' = '${curveValue(r, valueOf === FROM_INI)}'`)
+        continue
       }
       // `json_file` is declared once per run of consecutive rows sharing a dictionary:
       // that is what the reference does, and extra declarations only slow the parse down.
@@ -2527,6 +2652,11 @@ if (kipRows.length) {
           //
           // Объявление идёт ПОСЛЕ выбора, а не до него. Иначе страница открывает два файла
           // подряд и пользуется вторым: лишнее открытие на карте памяти и путаница в чтении.
+          // Точка кривой считается, а не ищется в словаре — см. `curveValue`.
+          if (isCurve(r)) {
+            out.push(`'${safeName(label)}' = '${curveValue(r, true)}'`)
+            continue
+          }
           const mapPath = probeInSrc || !r.flatMap ? r.map : r.flatMap
           if (mapPath !== lastMap) { out.push(`json_file '${mapPath}'`); lastMap = mapPath }
           out.push(`'${safeName(label)}' = '{json_file(0,${key})}'`)

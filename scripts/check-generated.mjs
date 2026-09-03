@@ -1000,7 +1000,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // Здесь правило проверяется для ВСЕХ полей сразу.
 {
   const bad = []
-  let checked = 0, widened = 0
+  let checked = 0, widened = 0, computed = 0
   for (const f of fields) {
     if (blacklist.has(f.offset) || !(f.values ?? []).length) continue
     const len = f.length ?? 3
@@ -1016,7 +1016,20 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       }
       return out
     })) {
-      if (!existsSync(mapFile)) continue
+      // ПРОПУСК ОБЯЗАН БЫТЬ ИМЕНОВАННЫМ, А НЕ МОЛЧАЛИВЫМ.
+      //
+      // У точек кривой GPU словаря показа нет вовсе с 03.09.2026: подпись считается
+      // из ячейки, и назвать она умеет ЛЮБОЕ значение — то есть решение «словарь названий
+      // не сужается никогда» там выполняется сильнее, чем словарём. Это законный пропуск,
+      // и его стережёт проверка №34.
+      //
+      // А вот пропавший словарь у ЛЮБОГО другого поля — это дефект: раньше строка
+      // `if (!existsSync) continue` глотала такое молча, и сторож тихо переставал смотреть.
+      if (!existsSync(mapFile)) {
+        if (String(f.series).startsWith('gpu_curve')) { computed++; continue }
+        bad.push(`${relative(ROOT, mapFile)}: словаря нет, а подпись поля не считается — сторож ослеп бы на этом поле`)
+        continue
+      }
       checked++
       const map = JSON.parse(readFileSync(mapFile, 'utf8'))[0] ?? {}
       const keys = Object.keys(map)
@@ -1030,7 +1043,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     }
   }
   if (bad.length) problems.push({ sev: 'CRITICAL', what: `словарь названий сужен — стоящее в kip значение будет названо «недоступно»:\n     ${bad.slice(0, 6).join('\n     ')}` })
-  else ok.push(`no naming dictionary is narrower than its field map (${checked} checked, ${widened} deliberately wider than their selector)`)
+  else ok.push(`no naming dictionary is narrower than its field map (${checked} checked, ${computed} computed instead of looked up, ${widened} deliberately wider than their selector)`)
 }
 
 // -------- 27. Кривая ступени не совпадает с константами поиска прошивки (гейт сборки)
@@ -1294,10 +1307,18 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     const dir = text.match(/^\s*file_source\s+(\S+)\/\*\.ini/m)?.[1]
     if (!dir) continue
 
-    // Ключевые смещения: всё, что участвует в подстановке по словарю.
+    // Ключевые смещения: всё, что страница читает из копии, — и через словарь,
+    // и вычислением.
+    //
+    // ВТОРАЯ ПОЛОВИНА ДОБАВЛЕНА 03.09.2026 И БЕЗ НЕЁ СТОРОЖ ОСЛЕП БЫ на полусотне
+    // строк: точки кривой перестали ходить через `json_file`, и прежняя регулярка
+    // их просто не находила. Проверка при этом осталась бы ЗЕЛЁНОЙ — худший исход
+    // из возможных, потому что заметить его нечем.
     const keys = new Set()
     for (const m of text.matchAll(/=\s*'\{json_file\(0,(.+?)\)\}'/g))
       for (const k of m[1].matchAll(/ini_file\(Fields,(\d+)\)/g)) keys.add(Number(k[1]))
+    for (const m of text.matchAll(/=\s*'\{(?:if_==|math|hex_to_decimal)\(.+?\)\}'/g))
+      for (const k of m[0].matchAll(/ini_file\(Fields,(\d+)\)/g)) keys.add(Number(k[1]))
     if (!keys.size) continue
 
     // Производители этого каталога — по секциям пакета.
@@ -1517,6 +1538,140 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     problems.push({ sev: 'CRITICAL', what: `у записей списка нет ключа "short" — футер после выбора покажет null (${noShort.length}):\n     ${noShort.slice(0, 6).join('\n     ')}` })
   } else {
     ok.push(`labels show only what is selected (${maps} dictionaries, ${entries} list entries carry "short")`)
+  }
+}
+
+// ---------------- 34. подпись точки кривой СЧИТАЕТСЯ, а не ищется в словаре
+//
+// ЧТО СТЕРЕЖЁМ. У точек кривой GPU словаря показа нет с 03.09.2026: подпись собирается
+// арифметикой прямо из ячейки. Это заменило прежнюю гарантию «словарь названий не
+// сужается» — и заменило её сильнее: вычисление назовёт ЛЮБОЕ значение, а словарь
+// умел назвать лишь заранее перечисленное.
+//
+// ЦЕНА ПРЕЖНЕГО УСТРОЙСТВА, ради которой всё и переделано. Словарь каждой точки был
+// полосой ±75 мВ вокруг ЗАВОДСКОГО содержимого ячейки, а настоящая кривая уходит
+// от заводской на сотни милливольт. У живого пользователя пятнадцать строк из двадцати
+// четырёх показали «Not available» при совершенно исправных данных в kip.
+//
+// ПОЧЕМУ БЕЗ ЭТОГО СТОРОЖА НЕЛЬЗЯ. Проверки №26, №29 и №30 ищут строки по образцу
+// `json_file(0,…)`. Вычисленная строка под него не подпадает — и все три молча
+// перестали бы смотреть на полсотни полей, оставаясь зелёными. Ослепший сторож хуже
+// отсутствующего: он создаёт уверенность, ничем не обеспеченную.
+//
+// Проверяем четыре вещи:
+//   1. у каждой точки кривой подпись вычислена во ВСЕХ трёх местах (сводка,
+//      предпросмотр копии, футер пункта) — иначе экраны разойдутся между собой;
+//   2. ни одна точка кривой нигде не ходит через словарь;
+//   3. из kip читается ровно три байта — этого хватает и милливольтам Mariko,
+//      и микровольтам Erista, а больше брать нельзя: у Erista следом лежит хвост записи;
+//   4. Erista делит на тысячу, Mariko не делит — перепутать единицы значит показать
+//      675000 mV вместо 675.
+{
+  const curveFields = fields.filter(f => String(f.series ?? '').startsWith('gpu_curve'))
+  const iniText = new Map()
+  for (const f of iniFiles) iniText.set(f, readFileSync(f, 'utf8'))
+
+  const bad = []
+  let computed = 0, viaDict = 0
+  const seenOffsets = new Set()
+  const byRole = {}
+
+  for (const [file, text] of iniText) {
+    const rel = relative(ROOT, file)
+    // Строки показа и футеры, читающие смещение кривой.
+    //
+    // РАЗБОР ПОСТРОЧНЫЙ, А НЕ ПО КОНЦУ СТРОКИ. Первая редакция требовала, чтобы строка
+    // КОНЧАЛАСЬ подстановкой — и потому не видела ни одной строки сводки и ни одного
+    // футера: они кончаются словом `mV` после закрывающей скобки. Из трёх отрицательных
+    // прогонов покраснел один; два дефекта сторож пропустил. Ровно тот случай, ради
+    // которого отрицательный прогон и делается.
+    for (const body of text.split(/\r?\n/)) {
+      if (!body.includes('hex_to_decimal(')) continue
+      const offs = [...body.matchAll(/(?:hex_file\(CUST,(\d+),(\d+)\)|ini_file\(Fields,(\d+)\))/g)]
+      for (const o of offs) {
+        const off = Number(o[1] ?? o[3])
+        const fld = curveFields.find(f => f.offset === off)
+        if (!fld) continue
+        computed++
+        seenOffsets.add(off)
+        // Роль файла: сводка, футер пункта, предпросмотр копии. Нужны ВСЕ ТРИ —
+        // пропади один, экраны разойдутся между собой, а `computed` останется ненулевым.
+        const role = /current\.ini$/.test(rel) ? 'сводка'
+          : /restore-\w+\.ini$/.test(rel) ? 'копия'
+          : body.includes('footer') ? 'футер' : 'прочее'
+        ;(byRole[role] ??= new Set()).add(off)
+        if (o[1] !== undefined && o[2] !== '3')
+          bad.push(`${rel}: точка кривой ${off} читается ${o[2]} байт вместо трёх`)
+        // ИСТОЧНИК ОБЯЗАН СООТВЕТСТВОВАТЬ СТРАНИЦЕ. Читать живой kip на странице копии —
+        // значит показать текущее состояние вместо содержимого копии, то есть соврать
+        // ровно там, где человек решается нажать удержание.
+        if (role === 'копия' && o[1] !== undefined)
+          bad.push(`${rel}: точка кривой ${off} на странице копии читает живой kip вместо файла копии`)
+        if ((role === 'сводка' || role === 'футер') && o[3] !== undefined)
+          bad.push(`${rel}: точка кривой ${off} читает файл копии там, где должен читаться kip`)
+        // Единица обязана быть на экране: «485» без неё не значит ничего.
+        if (!body.includes(' mV'))
+          bad.push(`${rel}: у точки кривой ${off} пропала единица измерения`)
+        // Три байта из 24-байтовой ячейки берутся срезом. Без него в число уйдёт
+        // весь хвост записи DVFS — самая правдоподобная поломка этой ветки.
+        if (o[3] !== undefined && fld.length > 3 && !body.includes('slice('))
+          bad.push(`${rel}: точка кривой ${off} читает из копии ${fld.length} байт без среза`)
+        // Прочерк на странице копии: отсутствие поля там законно, и показать вместо
+        // него «0 mV» значит выдать пустоту за настройку.
+        if (role === 'копия' && !body.includes('if_=='))
+          bad.push(`${rel}: у точки кривой ${off} на странице копии нет обёртки с прочерком`)
+        // Значение футера содержит пробел перед «mV», а `set-ini-val` берёт ровно один
+        // разобранный токен — без кавычек единица потерялась бы по дороге.
+        if (role === 'футер' && !/footer '/.test(body))
+          bad.push(`${rel}: футер точки кривой ${off} записан без кавычек — единица потеряется`)
+        const needsDiv = fld.platform === 'erista'
+        const hasDiv = body.includes('/1000')
+        if (needsDiv !== hasDiv)
+          bad.push(`${rel}: точка кривой ${off} (${fld.platform}) ${hasDiv ? 'делится на 1000, хотя хранит милливольты' : 'не делится на 1000, хотя хранит микровольты'}`)
+      }
+    }
+    // Ни одна точка кривой не должна ходить через словарь.
+    //
+    // РЕГУЛЯРКА БЕРЁТ ВСЮ СТРОКУ (`m[0]`), А НЕ ЗАХВАТ. Первая редакция брала `m[1]`
+    // с ленивым `(.+?)` перед `\)\}` — и он съедал закрывающую скобку. Из-за этого
+    // альтернатива `hex_file\(CUST,(\d+),` (кончается запятой) выживала, а
+    // `ini_file\(Fields,(\d+)\)` (требует скобку) — нет. Итог: откат на словарь
+    // ловился на стороне kip и НЕ ловился на страницах копии, то есть ровно там,
+    // ради чего правка делалась. Найдено ревью 03.09.2026; отрицательный прогон это
+    // пропустил, потому что пробу ставили на кип-стороне.
+    for (const m of text.matchAll(/\{json_file\(0,.+?\)\}'/g)) {
+      for (const k of m[0].matchAll(/(?:hex_file\(CUST,(\d+),|ini_file\(Fields,(\d+)\))/g)) {
+        const off = Number(k[1] ?? k[2])
+        if (curveFields.some(f => f.offset === off)) {
+          viaDict++
+          bad.push(`${rel}: точка кривой ${off} всё ещё ищется в словаре`)
+        }
+      }
+    }
+  }
+
+  // НОЛЬ НАЙДЕННЫХ ОБЪЕКТОВ НАДЗОРА — КРАСНЫЙ. Не найдя ни одной вычисленной строки,
+  // проверка обязана кричать: значит показ вернули на словарь или переименовали серию,
+  // и она с этого дня стережёт пустоту.
+  if (!curveFields.length) {
+    problems.push({ sev: 'CRITICAL', what: 'проверка подписи кривой не нашла ни одного поля серии gpu_curve — она смотрит в пустоту' })
+  } else if (!computed) {
+    problems.push({ sev: 'CRITICAL', what: `подпись кривой нигде не вычисляется (${curveFields.length} полей в карте, 0 вычисленных строк) — либо показ вернули на словарь, либо сторож ослеп` })
+  } else if (bad.length) {
+    problems.push({ sev: 'CRITICAL', what: `подпись точки кривой собрана неверно (${bad.length}):\n     ${bad.slice(0, 6).join('\n     ')}` })
+  } else if (seenOffsets.size !== curveFields.length) {
+    // НЕПОЛНОЕ ПОКРЫТИЕ — ТОЖЕ ДЕФЕКТ. Без этой сверки зелёным оставалась бы даже
+    // одна вычисленная точка из пятидесяти трёх: `computed` считает вхождения,
+    // а не полноту.
+    const lost = curveFields.filter(f => !seenOffsets.has(f.offset)).map(f => f.offset)
+    problems.push({ sev: 'CRITICAL', what: `подпись вычисляется не у всех точек кривой: ${seenOffsets.size} из ${curveFields.length}, потеряны ${lost.slice(0, 8).join(', ')}` })
+  } else if (['сводка', 'копия', 'футер'].some(r => (byRole[r]?.size ?? 0) !== curveFields.length)) {
+    // ВСЕ ТРИ ПОТРЕБИТЕЛЯ ИЛИ НИ ОДНОГО. Пропади сводка — останутся футеры и копия,
+    // общий счёт не ноль, и прежняя редакция сторожа этого не заметила бы.
+    const got = ['сводка', 'копия', 'футер'].map(r => `${r}: ${byRole[r]?.size ?? 0}`).join(', ')
+    problems.push({ sev: 'CRITICAL', what: `подпись кривой вычисляется не во всех трёх местах (нужно по ${curveFields.length}; ${got})` })
+  } else {
+    ok.push(`curve points are computed, not looked up (${seenOffsets.size} offsets × 3 places, ${computed} occurrences, ${viaDict} via dictionary)`)
   }
 }
 
