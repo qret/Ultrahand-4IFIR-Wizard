@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/02-first-run.md sha=111e79f6f7c6 self=4be70fdb2f4f -->
+<!-- i18n: source=Guides/ru/02-first-run.md sha=054b248f9714 self=a65acbe03244 -->
 # First run
 
 <!-- nav:begin -->
@@ -18,7 +18,8 @@ Advanced              ← everything per component
   ├ CPU
   ├ GPU
   ├ RAM
-  └ Micro-Enhance Logic  ← fine tuning and emergency access
+  ├ Micro-Enhance Logic  ← fine tuning and emergency access
+  └ Fan Control          ← cooling curve
 Service               ← backups, import, reset, console info
 Current Settings      ← what is written right now
 Check for updates     ← ask GitHub for a newer build

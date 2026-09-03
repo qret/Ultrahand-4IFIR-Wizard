@@ -1655,6 +1655,156 @@
               "series": "sMeh"
             }
           ]
+        },
+        {
+          "id": "fan",
+          "title": "Fan Control",
+          "pre_commands": [
+            "ini_file './fan/config.ini'",
+            "set-ini-val './fan/config.ini' '16-35°C' index '{if_null({ini_file(16-35°C,index)},0,{ini_file(16-35°C,index)})}'",
+            "set-ini-val './fan/config.ini' '36-40°C' index '{if_null({ini_file(36-40°C,index)},4,{ini_file(36-40°C,index)})}'",
+            "set-ini-val './fan/config.ini' '41-46°C' index '{if_null({ini_file(41-46°C,index)},6,{ini_file(41-46°C,index)})}'",
+            "set-ini-val './fan/config.ini' '47-57°C' index '{if_null({ini_file(47-57°C,index)},12,{ini_file(47-57°C,index)})}'",
+            "set-ini-val './fan/config.ini' '58-100°C' index '{if_null({ini_file(58-100°C,index)},20,{ini_file(58-100°C,index)})}'",
+            "set-ini-val './fan/config.ini' '16-35°C' value '{math({ini_file(16-35°C,index)}*5,true)}'",
+            "set-ini-val './fan/config.ini' '36-40°C' value '{math({ini_file(36-40°C,index)}*5,true)}'",
+            "set-ini-val './fan/config.ini' '41-46°C' value '{math({ini_file(41-46°C,index)}*5,true)}'",
+            "set-ini-val './fan/config.ini' '47-57°C' value '{math({ini_file(47-57°C,index)}*5,true)}'",
+            "set-ini-val './fan/config.ini' '58-100°C' value '{math({ini_file(58-100°C,index)}*5,true)}'"
+          ],
+          "note": "перенос раздела Fan Control из донорского 4IFIR Wizard. У донора это экран, зашитый в бинарник Uberhand; у нас пять пунктов-ползунков на штатном DSL. Пишет в /atmosphere/config/system_settings.ini секцию [tc], kip не трогает. Применяется после перезагрузки. Разбор — docs/FAN-CONTROL.md",
+          "children": [
+            {
+              "id": "fan_16_35",
+              "title": "16-35°C",
+              "mode": "step_trackbar",
+              "commands": [
+                ";steps=21",
+                ";min_value=0",
+                ";max_value=100",
+                ";units=%",
+                ";unlocked=false",
+                "ini_file './config.ini'",
+                "set-ini-val './config.ini' '36-40°C' index '{if_<({if_null({ini_file(36-40°C,index)},4,{ini_file(36-40°C,index)})},{index},{index},{if_null({ini_file(36-40°C,index)},4,{ini_file(36-40°C,index)})})}'",
+                "set-ini-val './config.ini' '41-46°C' index '{if_<({if_null({ini_file(41-46°C,index)},6,{ini_file(41-46°C,index)})},{index},{index},{if_null({ini_file(41-46°C,index)},6,{ini_file(41-46°C,index)})})}'",
+                "set-ini-val './config.ini' '47-57°C' index '{if_<({if_null({ini_file(47-57°C,index)},12,{ini_file(47-57°C,index)})},{index},{index},{if_null({ini_file(47-57°C,index)},12,{ini_file(47-57°C,index)})})}'",
+                "set-ini-val './config.ini' '58-100°C' index '{if_<({if_null({ini_file(58-100°C,index)},20,{ini_file(58-100°C,index)})},{index},{index},{if_null({ini_file(58-100°C,index)},20,{ini_file(58-100°C,index)})})}'",
+                "set-ini-val './config.ini' '36-40°C' value '{math({ini_file(36-40°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '41-46°C' value '{math({ini_file(41-46°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '47-57°C' value '{math({ini_file(47-57°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '58-100°C' value '{math({ini_file(58-100°C,index)}*5,true)}'",
+                "set-ini-val /atmosphere/config/system_settings.ini tc use_configurations_on_fwdbg u8!0x1",
+                "set-ini-val /atmosphere/config/system_settings.ini tc tskin_rate_table_console_on_fwdbg 'str!\"[[-1000000, 16000, -255, 0], [16000, 36000, 0, {math({ini_file(16-35°C,index)}*12.75,true)}], [36000, 41000, {math({ini_file(16-35°C,index)}*12.75,true)}, {math({ini_file(36-40°C,index)}*12.75,true)}], [41000, 47000, {math({ini_file(36-40°C,index)}*12.75,true)}, {math({ini_file(41-46°C,index)}*12.75,true)}], [47000, 58000, {math({ini_file(41-46°C,index)}*12.75,true)}, {math({ini_file(47-57°C,index)}*12.75,true)}], [58000, 1000000, {math({ini_file(47-57°C,index)}*12.75,true)}, {math({ini_file(58-100°C,index)}*12.75,true)}]]\"'",
+                "set-ini-val /atmosphere/config/system_settings.ini tc tskin_rate_table_handheld_on_fwdbg 'str!\"[[-1000000, 16000, -255, 0], [16000, 36000, 0, {math({ini_file(16-35°C,index)}*12.75,true)}], [36000, 41000, {math({ini_file(16-35°C,index)}*12.75,true)}, {math({ini_file(36-40°C,index)}*12.75,true)}], [41000, 47000, {math({ini_file(36-40°C,index)}*12.75,true)}, {math({ini_file(41-46°C,index)}*12.75,true)}], [47000, 58000, {math({ini_file(41-46°C,index)}*12.75,true)}, {math({ini_file(47-57°C,index)}*12.75,true)}], [58000, 1000000, {math({ini_file(47-57°C,index)}*12.75,true)}, {math({ini_file(58-100°C,index)}*12.75,true)}]]\"'"
+              ],
+              "help": "Highest fan speed allowed while the console sits in this temperature range. A range starts at the speed the range below it ended on, so the curve never steps down. Setting a value lower than the range below, or higher than the range above, pulls those ranges along with it; they show their new positions the next time you open this screen. The fan reads the curve when the console starts, so reboot to apply.",
+              "help_source": "system_settings.ini [tc] tskin_rate_table_*_on_fwdbg"
+            },
+            {
+              "id": "fan_36_40",
+              "title": "36-40°C",
+              "mode": "step_trackbar",
+              "commands": [
+                ";steps=21",
+                ";min_value=0",
+                ";max_value=100",
+                ";units=%",
+                ";unlocked=false",
+                "ini_file './config.ini'",
+                "set-ini-val './config.ini' '16-35°C' index '{if_>({if_null({ini_file(16-35°C,index)},0,{ini_file(16-35°C,index)})},{index},{index},{if_null({ini_file(16-35°C,index)},0,{ini_file(16-35°C,index)})})}'",
+                "set-ini-val './config.ini' '41-46°C' index '{if_<({if_null({ini_file(41-46°C,index)},6,{ini_file(41-46°C,index)})},{index},{index},{if_null({ini_file(41-46°C,index)},6,{ini_file(41-46°C,index)})})}'",
+                "set-ini-val './config.ini' '47-57°C' index '{if_<({if_null({ini_file(47-57°C,index)},12,{ini_file(47-57°C,index)})},{index},{index},{if_null({ini_file(47-57°C,index)},12,{ini_file(47-57°C,index)})})}'",
+                "set-ini-val './config.ini' '58-100°C' index '{if_<({if_null({ini_file(58-100°C,index)},20,{ini_file(58-100°C,index)})},{index},{index},{if_null({ini_file(58-100°C,index)},20,{ini_file(58-100°C,index)})})}'",
+                "set-ini-val './config.ini' '16-35°C' value '{math({ini_file(16-35°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '41-46°C' value '{math({ini_file(41-46°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '47-57°C' value '{math({ini_file(47-57°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '58-100°C' value '{math({ini_file(58-100°C,index)}*5,true)}'",
+                "set-ini-val /atmosphere/config/system_settings.ini tc use_configurations_on_fwdbg u8!0x1",
+                "set-ini-val /atmosphere/config/system_settings.ini tc tskin_rate_table_console_on_fwdbg 'str!\"[[-1000000, 16000, -255, 0], [16000, 36000, 0, {math({ini_file(16-35°C,index)}*12.75,true)}], [36000, 41000, {math({ini_file(16-35°C,index)}*12.75,true)}, {math({ini_file(36-40°C,index)}*12.75,true)}], [41000, 47000, {math({ini_file(36-40°C,index)}*12.75,true)}, {math({ini_file(41-46°C,index)}*12.75,true)}], [47000, 58000, {math({ini_file(41-46°C,index)}*12.75,true)}, {math({ini_file(47-57°C,index)}*12.75,true)}], [58000, 1000000, {math({ini_file(47-57°C,index)}*12.75,true)}, {math({ini_file(58-100°C,index)}*12.75,true)}]]\"'",
+                "set-ini-val /atmosphere/config/system_settings.ini tc tskin_rate_table_handheld_on_fwdbg 'str!\"[[-1000000, 16000, -255, 0], [16000, 36000, 0, {math({ini_file(16-35°C,index)}*12.75,true)}], [36000, 41000, {math({ini_file(16-35°C,index)}*12.75,true)}, {math({ini_file(36-40°C,index)}*12.75,true)}], [41000, 47000, {math({ini_file(36-40°C,index)}*12.75,true)}, {math({ini_file(41-46°C,index)}*12.75,true)}], [47000, 58000, {math({ini_file(41-46°C,index)}*12.75,true)}, {math({ini_file(47-57°C,index)}*12.75,true)}], [58000, 1000000, {math({ini_file(47-57°C,index)}*12.75,true)}, {math({ini_file(58-100°C,index)}*12.75,true)}]]\"'"
+              ],
+              "help": "Highest fan speed allowed while the console sits in this temperature range. A range starts at the speed the range below it ended on, so the curve never steps down. Setting a value lower than the range below, or higher than the range above, pulls those ranges along with it; they show their new positions the next time you open this screen. The fan reads the curve when the console starts, so reboot to apply.",
+              "help_source": "system_settings.ini [tc] tskin_rate_table_*_on_fwdbg"
+            },
+            {
+              "id": "fan_41_46",
+              "title": "41-46°C",
+              "mode": "step_trackbar",
+              "commands": [
+                ";steps=21",
+                ";min_value=0",
+                ";max_value=100",
+                ";units=%",
+                ";unlocked=false",
+                "ini_file './config.ini'",
+                "set-ini-val './config.ini' '16-35°C' index '{if_>({if_null({ini_file(16-35°C,index)},0,{ini_file(16-35°C,index)})},{index},{index},{if_null({ini_file(16-35°C,index)},0,{ini_file(16-35°C,index)})})}'",
+                "set-ini-val './config.ini' '36-40°C' index '{if_>({if_null({ini_file(36-40°C,index)},4,{ini_file(36-40°C,index)})},{index},{index},{if_null({ini_file(36-40°C,index)},4,{ini_file(36-40°C,index)})})}'",
+                "set-ini-val './config.ini' '47-57°C' index '{if_<({if_null({ini_file(47-57°C,index)},12,{ini_file(47-57°C,index)})},{index},{index},{if_null({ini_file(47-57°C,index)},12,{ini_file(47-57°C,index)})})}'",
+                "set-ini-val './config.ini' '58-100°C' index '{if_<({if_null({ini_file(58-100°C,index)},20,{ini_file(58-100°C,index)})},{index},{index},{if_null({ini_file(58-100°C,index)},20,{ini_file(58-100°C,index)})})}'",
+                "set-ini-val './config.ini' '16-35°C' value '{math({ini_file(16-35°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '36-40°C' value '{math({ini_file(36-40°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '47-57°C' value '{math({ini_file(47-57°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '58-100°C' value '{math({ini_file(58-100°C,index)}*5,true)}'",
+                "set-ini-val /atmosphere/config/system_settings.ini tc use_configurations_on_fwdbg u8!0x1",
+                "set-ini-val /atmosphere/config/system_settings.ini tc tskin_rate_table_console_on_fwdbg 'str!\"[[-1000000, 16000, -255, 0], [16000, 36000, 0, {math({ini_file(16-35°C,index)}*12.75,true)}], [36000, 41000, {math({ini_file(16-35°C,index)}*12.75,true)}, {math({ini_file(36-40°C,index)}*12.75,true)}], [41000, 47000, {math({ini_file(36-40°C,index)}*12.75,true)}, {math({ini_file(41-46°C,index)}*12.75,true)}], [47000, 58000, {math({ini_file(41-46°C,index)}*12.75,true)}, {math({ini_file(47-57°C,index)}*12.75,true)}], [58000, 1000000, {math({ini_file(47-57°C,index)}*12.75,true)}, {math({ini_file(58-100°C,index)}*12.75,true)}]]\"'",
+                "set-ini-val /atmosphere/config/system_settings.ini tc tskin_rate_table_handheld_on_fwdbg 'str!\"[[-1000000, 16000, -255, 0], [16000, 36000, 0, {math({ini_file(16-35°C,index)}*12.75,true)}], [36000, 41000, {math({ini_file(16-35°C,index)}*12.75,true)}, {math({ini_file(36-40°C,index)}*12.75,true)}], [41000, 47000, {math({ini_file(36-40°C,index)}*12.75,true)}, {math({ini_file(41-46°C,index)}*12.75,true)}], [47000, 58000, {math({ini_file(41-46°C,index)}*12.75,true)}, {math({ini_file(47-57°C,index)}*12.75,true)}], [58000, 1000000, {math({ini_file(47-57°C,index)}*12.75,true)}, {math({ini_file(58-100°C,index)}*12.75,true)}]]\"'"
+              ],
+              "help": "Highest fan speed allowed while the console sits in this temperature range. A range starts at the speed the range below it ended on, so the curve never steps down. Setting a value lower than the range below, or higher than the range above, pulls those ranges along with it; they show their new positions the next time you open this screen. The fan reads the curve when the console starts, so reboot to apply.",
+              "help_source": "system_settings.ini [tc] tskin_rate_table_*_on_fwdbg"
+            },
+            {
+              "id": "fan_47_57",
+              "title": "47-57°C",
+              "mode": "step_trackbar",
+              "commands": [
+                ";steps=21",
+                ";min_value=0",
+                ";max_value=100",
+                ";units=%",
+                ";unlocked=false",
+                "ini_file './config.ini'",
+                "set-ini-val './config.ini' '16-35°C' index '{if_>({if_null({ini_file(16-35°C,index)},0,{ini_file(16-35°C,index)})},{index},{index},{if_null({ini_file(16-35°C,index)},0,{ini_file(16-35°C,index)})})}'",
+                "set-ini-val './config.ini' '36-40°C' index '{if_>({if_null({ini_file(36-40°C,index)},4,{ini_file(36-40°C,index)})},{index},{index},{if_null({ini_file(36-40°C,index)},4,{ini_file(36-40°C,index)})})}'",
+                "set-ini-val './config.ini' '41-46°C' index '{if_>({if_null({ini_file(41-46°C,index)},6,{ini_file(41-46°C,index)})},{index},{index},{if_null({ini_file(41-46°C,index)},6,{ini_file(41-46°C,index)})})}'",
+                "set-ini-val './config.ini' '58-100°C' index '{if_<({if_null({ini_file(58-100°C,index)},20,{ini_file(58-100°C,index)})},{index},{index},{if_null({ini_file(58-100°C,index)},20,{ini_file(58-100°C,index)})})}'",
+                "set-ini-val './config.ini' '16-35°C' value '{math({ini_file(16-35°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '36-40°C' value '{math({ini_file(36-40°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '41-46°C' value '{math({ini_file(41-46°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '58-100°C' value '{math({ini_file(58-100°C,index)}*5,true)}'",
+                "set-ini-val /atmosphere/config/system_settings.ini tc use_configurations_on_fwdbg u8!0x1",
+                "set-ini-val /atmosphere/config/system_settings.ini tc tskin_rate_table_console_on_fwdbg 'str!\"[[-1000000, 16000, -255, 0], [16000, 36000, 0, {math({ini_file(16-35°C,index)}*12.75,true)}], [36000, 41000, {math({ini_file(16-35°C,index)}*12.75,true)}, {math({ini_file(36-40°C,index)}*12.75,true)}], [41000, 47000, {math({ini_file(36-40°C,index)}*12.75,true)}, {math({ini_file(41-46°C,index)}*12.75,true)}], [47000, 58000, {math({ini_file(41-46°C,index)}*12.75,true)}, {math({ini_file(47-57°C,index)}*12.75,true)}], [58000, 1000000, {math({ini_file(47-57°C,index)}*12.75,true)}, {math({ini_file(58-100°C,index)}*12.75,true)}]]\"'",
+                "set-ini-val /atmosphere/config/system_settings.ini tc tskin_rate_table_handheld_on_fwdbg 'str!\"[[-1000000, 16000, -255, 0], [16000, 36000, 0, {math({ini_file(16-35°C,index)}*12.75,true)}], [36000, 41000, {math({ini_file(16-35°C,index)}*12.75,true)}, {math({ini_file(36-40°C,index)}*12.75,true)}], [41000, 47000, {math({ini_file(36-40°C,index)}*12.75,true)}, {math({ini_file(41-46°C,index)}*12.75,true)}], [47000, 58000, {math({ini_file(41-46°C,index)}*12.75,true)}, {math({ini_file(47-57°C,index)}*12.75,true)}], [58000, 1000000, {math({ini_file(47-57°C,index)}*12.75,true)}, {math({ini_file(58-100°C,index)}*12.75,true)}]]\"'"
+              ],
+              "help": "Highest fan speed allowed while the console sits in this temperature range. A range starts at the speed the range below it ended on, so the curve never steps down. Setting a value lower than the range below, or higher than the range above, pulls those ranges along with it; they show their new positions the next time you open this screen. The fan reads the curve when the console starts, so reboot to apply.",
+              "help_source": "system_settings.ini [tc] tskin_rate_table_*_on_fwdbg"
+            },
+            {
+              "id": "fan_58_100",
+              "title": "58-100°C",
+              "mode": "step_trackbar",
+              "commands": [
+                ";steps=21",
+                ";min_value=0",
+                ";max_value=100",
+                ";units=%",
+                ";unlocked=false",
+                "ini_file './config.ini'",
+                "set-ini-val './config.ini' '16-35°C' index '{if_>({if_null({ini_file(16-35°C,index)},0,{ini_file(16-35°C,index)})},{index},{index},{if_null({ini_file(16-35°C,index)},0,{ini_file(16-35°C,index)})})}'",
+                "set-ini-val './config.ini' '36-40°C' index '{if_>({if_null({ini_file(36-40°C,index)},4,{ini_file(36-40°C,index)})},{index},{index},{if_null({ini_file(36-40°C,index)},4,{ini_file(36-40°C,index)})})}'",
+                "set-ini-val './config.ini' '41-46°C' index '{if_>({if_null({ini_file(41-46°C,index)},6,{ini_file(41-46°C,index)})},{index},{index},{if_null({ini_file(41-46°C,index)},6,{ini_file(41-46°C,index)})})}'",
+                "set-ini-val './config.ini' '47-57°C' index '{if_>({if_null({ini_file(47-57°C,index)},12,{ini_file(47-57°C,index)})},{index},{index},{if_null({ini_file(47-57°C,index)},12,{ini_file(47-57°C,index)})})}'",
+                "set-ini-val './config.ini' '16-35°C' value '{math({ini_file(16-35°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '36-40°C' value '{math({ini_file(36-40°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '41-46°C' value '{math({ini_file(41-46°C,index)}*5,true)}'",
+                "set-ini-val './config.ini' '47-57°C' value '{math({ini_file(47-57°C,index)}*5,true)}'",
+                "set-ini-val /atmosphere/config/system_settings.ini tc use_configurations_on_fwdbg u8!0x1",
+                "set-ini-val /atmosphere/config/system_settings.ini tc tskin_rate_table_console_on_fwdbg 'str!\"[[-1000000, 16000, -255, 0], [16000, 36000, 0, {math({ini_file(16-35°C,index)}*12.75,true)}], [36000, 41000, {math({ini_file(16-35°C,index)}*12.75,true)}, {math({ini_file(36-40°C,index)}*12.75,true)}], [41000, 47000, {math({ini_file(36-40°C,index)}*12.75,true)}, {math({ini_file(41-46°C,index)}*12.75,true)}], [47000, 58000, {math({ini_file(41-46°C,index)}*12.75,true)}, {math({ini_file(47-57°C,index)}*12.75,true)}], [58000, 1000000, {math({ini_file(47-57°C,index)}*12.75,true)}, {math({ini_file(58-100°C,index)}*12.75,true)}]]\"'",
+                "set-ini-val /atmosphere/config/system_settings.ini tc tskin_rate_table_handheld_on_fwdbg 'str!\"[[-1000000, 16000, -255, 0], [16000, 36000, 0, {math({ini_file(16-35°C,index)}*12.75,true)}], [36000, 41000, {math({ini_file(16-35°C,index)}*12.75,true)}, {math({ini_file(36-40°C,index)}*12.75,true)}], [41000, 47000, {math({ini_file(36-40°C,index)}*12.75,true)}, {math({ini_file(41-46°C,index)}*12.75,true)}], [47000, 58000, {math({ini_file(41-46°C,index)}*12.75,true)}, {math({ini_file(47-57°C,index)}*12.75,true)}], [58000, 1000000, {math({ini_file(47-57°C,index)}*12.75,true)}, {math({ini_file(58-100°C,index)}*12.75,true)}]]\"'"
+              ],
+              "help": "Highest fan speed allowed while the console sits in this temperature range. A range starts at the speed the range below it ended on, so the curve never steps down. Setting a value lower than the range below, or higher than the range above, pulls those ranges along with it; they show their new positions the next time you open this screen. The fan reads the curve when the console starts, so reboot to apply.",
+              "help_source": "system_settings.ini [tc] tskin_rate_table_*_on_fwdbg"
+            }
+          ]
         }
       ]
     },

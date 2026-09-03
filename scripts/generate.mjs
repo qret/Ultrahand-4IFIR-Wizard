@@ -1676,6 +1676,18 @@ function emitAction(item, lines) {
   if (item.hold) lines.push(';hold=true')
   for (const c of cmds) lines.push(c)
   lines.push('')
+
+  /**
+   * СПРАВКА У ПУНКТА-ДЕЙСТВИЯ ТЕРЯЛАСЬ МОЛЧА.
+   *
+   * Строки страницы пояснений собирал только `emitItem` — ветка полей-настроек
+   * со смещением в kip. Пункт, у которого есть команды, но нет смещения, свою
+   * `help` не отдавал никуда: она лежала в карте и никуда не печаталась.
+   * Заодно от этого зависел заголовок страницы `[@Имя]`: он ставится вместе
+   * со страницей пояснений, а без неё движок подписывал экран внутренним
+   * словом «Commands».
+   */
+  if (item.help) infoRows.push({ title: item.title ?? item.id, warns: [], help: item.help, platform: item.platform })
   stats.actions++
   if (resetCmds.length) stats.resetFields = resetCmds.length
 }
@@ -1855,6 +1867,21 @@ function emitPackage(node, dirPath, depth = 0) {
         const prefix = here ? `./${here}/` : './'
         links.push(`hex_file '${KIP}'`, ...kidBoot.map(l => l.split(prefix).join('./')))
       }
+
+      /**
+       * ПОСЕВ ПЕРЕД ВХОДОМ В ПОДПАКЕТ.
+       *
+       * Ползунки берут своё начальное положение ТОЛЬКО из `config.ini` подпакета
+       * (`tesla.hpp:11838`) — из целевого файла движок не читает ничего. Пока секций
+       * там нет, `{ini_file(...)}` отдаёт `null`, и первое же движение уехало бы
+       * в системный файл строкой с `null` внутри.
+       *
+       * Форвардер исполняет свои команды ДО перехода в подпакет (`main.cpp:5799`
+       * стоит выше `main.cpp:5825`), то есть раньше, чем конструкторы ползунков
+       * прочитают файл. Здесь и сеем — идемпотентно, через `{if_null(A,умолчание,A)}`:
+       * повторный вход чужого значения не затирает.
+       */
+      if (k.pre_commands?.length) links.push(...k.pre_commands)
 
       links.push(`package_source './${kn}/package.ini'`, '')
       stats.lazySections = (stats.lazySections ?? 0) + 1

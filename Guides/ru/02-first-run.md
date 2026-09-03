@@ -16,7 +16,8 @@ Advanced              ← всё по узлам
   ├ CPU
   ├ GPU
   ├ RAM
-  └ Micro-Enhance Logic  ← тонкая настройка и аварийный доступ
+  ├ Micro-Enhance Logic  ← тонкая настройка и аварийный доступ
+  └ Fan Control          ← кривая охлаждения
 Service               ← копии, импорт, сброс, сведения о консоли
 Current Settings      ← что записано прямо сейчас
 Check for updates     ← спросить GitHub о новой сборке

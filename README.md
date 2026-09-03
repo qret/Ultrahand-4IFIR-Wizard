@@ -47,7 +47,7 @@ you can read on a PC.
 |---|---|
 | **eBAMATIC Stage** | the easy path. One setting for everything — the kip works out CPU, GPU and memory voltages itself, you only choose how far it goes. If unsure, change only this. |
 | **Current Settings** | what is in the kip right now, read-only. Press L or R for the second page with timings and fine tuning. |
-| **Advanced** | every parameter individually: CPU, GPU, RAM, Micro-Enhance Logic. Sections that hold settings have a second page with help — press L or R. |
+| **Advanced** | every parameter individually: CPU, GPU, RAM, Micro-Enhance Logic, Fan Control. Sections that hold settings have a second page with help — press L or R. |
 | **Service** | backups, restore, import from the old Wizard, reset to defaults, system info. |
 | **Check for updates** | asks GitHub whether a newer build exists and says so on the spot. |
 | **Install update** | downloads and installs it. The old package is kept aside and put back if anything goes wrong. |
