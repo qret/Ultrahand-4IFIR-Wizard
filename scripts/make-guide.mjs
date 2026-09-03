@@ -139,7 +139,9 @@ const changed = []
             'выбирать в них нечего.\n\n' +
             '«Значений» — длина того самого списка, который открывается на экране. Словарь названий у поля ' +
             'шире: тюнер умеет назвать и значение, которое поставил чужой пакет, но выбрать такое не ' +
-            'предлагает, и в счёт оно не идёт.\n\n' +
+            'предлагает, и в счёт оно не идёт. У точек кривой напряжений видеоядра словаря нет вовсе — ' +
+            'значение читается прямо из файла настроек, поэтому там называется любое, кем бы оно ' +
+            'ни было записано.\n\n' +
             'Таблица порождается из **собранного пакета** — из тех же файлов, которые едут на карту ' +
             'памяти. Разойтись с меню она не может.',
           h: ['Пункт меню', 'Поле в прошивке', 'Ревизия', 'Значений', 'Примеры'],
@@ -152,6 +154,7 @@ const changed = []
             'to pick in them.\n\n' +
             '"Values" is the length of the very list that opens on screen. A field\'s name dictionary is ' +
             'wider: the tuner can name a value some other package wrote, but it does not offer such a value ' +
+            'The GPU voltage curve has no dictionary at all: its value is read straight from the settings file, so whatever is written there gets named, by whoever wrote it. ' +
             'for picking, and it is not counted here.\n\n' +
             'The table is generated from the **built package** — the same files that go onto the SD card, ' +
             'so it cannot drift out of step with the menu.',

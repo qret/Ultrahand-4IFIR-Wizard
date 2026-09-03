@@ -9,7 +9,7 @@
 
 Действия — копия, восстановление, сброс к заводским, сведения о системе — в таблицу не входят: выбирать в них нечего.
 
-«Значений» — длина того самого списка, который открывается на экране. Словарь названий у поля шире: тюнер умеет назвать и значение, которое поставил чужой пакет, но выбрать такое не предлагает, и в счёт оно не идёт.
+«Значений» — длина того самого списка, который открывается на экране. Словарь названий у поля шире: тюнер умеет назвать и значение, которое поставил чужой пакет, но выбрать такое не предлагает, и в счёт оно не идёт. У точек кривой напряжений видеоядра словаря нет вовсе — значение читается прямо из файла настроек, поэтому там называется любое, кем бы оно ни было записано.
 
 Таблица порождается из **собранного пакета** — из тех же файлов, которые едут на карту памяти. Разойтись с меню она не может.
 
@@ -24,30 +24,30 @@
 | Advanced → CPU → Low MHz Undervolt | `Low MHz Undervolt` | Mariko | 7 | Default — 0, lvl 1 … lvl 6 |
 | Advanced → CPU → High MHz Undervolt | `High MHz Undervolt` | Mariko | 8 | 0 — Base undervolting, lvl 1 … lvl 7 |
 | Advanced → CPU → Speed Shift | `Speed Shift` | обе | 8 | eBAMATIC, Auto … ECO Stage 4 |
-| Advanced → GPU → GPU Voltage Table → 307MHz | `307MHz` | Mariko | 31 | 320 mV, 325 mV … 470 mV |
-| Advanced → GPU → GPU Voltage Table → 345MHz | `345MHz` | Mariko | 31 | 345 mV, 350 mV … 495 mV |
-| Advanced → GPU → GPU Voltage Table → 384MHz | `384MHz` | Mariko | 31 | 370 mV, 375 mV … 520 mV |
-| Advanced → GPU → GPU Voltage Table → 422MHz | `422MHz` | Mariko | 31 | 395 mV, 400 mV … 545 mV |
-| Advanced → GPU → GPU Voltage Table → 460MHz | `460MHz` | Mariko | 31 | 420 mV, 425 mV … 570 mV |
-| Advanced → GPU → GPU Voltage Table → 499MHz | `499MHz` | Mariko | 31 | 445 mV, 450 mV … 595 mV |
-| Advanced → GPU → GPU Voltage Table → 537MHz | `537MHz` | Mariko | 31 | 470 mV, 475 mV … 620 mV |
-| Advanced → GPU → GPU Voltage Table → 576MHz | `576MHz` | Mariko | 31 | 495 mV, 500 mV … 645 mV |
-| Advanced → GPU → GPU Voltage Table → 614MHz | `614MHz` | Mariko | 31 | 520 mV, 525 mV … 670 mV |
-| Advanced → GPU → GPU Voltage Table → 652MHz | `652MHz` | Mariko | 31 | 545 mV, 550 mV … 695 mV |
-| Advanced → GPU → GPU Voltage Table → 691MHz | `691MHz` | Mariko | 31 | 570 mV, 575 mV … 720 mV |
-| Advanced → GPU → GPU Voltage Table → 729MHz | `729MHz` | Mariko | 31 | 595 mV, 600 mV … 745 mV |
-| Advanced → GPU → GPU Voltage Table → 768MHz | `768MHz` | Mariko | 31 | 620 mV, 625 mV … 770 mV |
-| Advanced → GPU → GPU Voltage Table → 806MHz | `806MHz` | Mariko | 31 | 645 mV, 650 mV … 795 mV |
-| Advanced → GPU → GPU Voltage Table → 844MHz | `844MHz` | Mariko | 31 | 675 mV, 680 mV … 825 mV |
-| Advanced → GPU → GPU Voltage Table → 883MHz | `883MHz` | Mariko | 31 | 705 mV, 710 mV … 855 mV |
-| Advanced → GPU → GPU Voltage Table → 921MHz | `921MHz` | Mariko | 31 | 735 mV, 740 mV … 885 mV |
-| Advanced → GPU → GPU Voltage Table → 960MHz | `960MHz` | Mariko | 31 | 765 mV, 770 mV … 915 mV |
-| Advanced → GPU → GPU Voltage Table → 998MHz | `998MHz` | Mariko | 31 | 795 mV, 800 mV … 945 mV |
-| Advanced → GPU → GPU Voltage Table → 1036MHz | `1036MHz` | Mariko | 31 | 825 mV, 830 mV … 975 mV |
-| Advanced → GPU → GPU Voltage Table → 1075MHz | `1075MHz` | Mariko | 31 | 855 mV, 860 mV … 1005 mV |
-| Advanced → GPU → GPU Voltage Table → 1113MHz | `1113MHz` | Mariko | 31 | 885 mV, 890 mV … 1035 mV |
-| Advanced → GPU → GPU Voltage Table → 1152MHz | `1152MHz` | Mariko | 31 | 915 mV, 920 mV … 1065 mV |
-| Advanced → GPU → GPU Voltage Table → 1190MHz | `1190MHz` | Mariko | 31 | 945 mV, 950 mV … 1095 mV |
+| Advanced → GPU → GPU Voltage Table → 307MHz | `307MHz` | Mariko | 42 | 395 mV — Default, 400 mV … 600 mV |
+| Advanced → GPU → GPU Voltage Table → 345MHz | `345MHz` | Mariko | 41 | 400 mV, 405 mV … 600 mV |
+| Advanced → GPU → GPU Voltage Table → 384MHz | `384MHz` | Mariko | 41 | 400 mV, 405 mV … 600 mV |
+| Advanced → GPU → GPU Voltage Table → 422MHz | `422MHz` | Mariko | 41 | 400 mV, 405 mV … 600 mV |
+| Advanced → GPU → GPU Voltage Table → 460MHz | `460MHz` | Mariko | 41 | 400 mV, 405 mV … 600 mV |
+| Advanced → GPU → GPU Voltage Table → 499MHz | `499MHz` | Mariko | 42 | 400 mV, 405 mV … 605 mV |
+| Advanced → GPU → GPU Voltage Table → 537MHz | `537MHz` | Mariko | 45 | 400 mV, 405 mV … 620 mV |
+| Advanced → GPU → GPU Voltage Table → 576MHz | `576MHz` | Mariko | 57 | 420 mV, 425 mV … 700 mV |
+| Advanced → GPU → GPU Voltage Table → 614MHz | `614MHz` | Mariko | 54 | 435 mV, 440 mV … 700 mV |
+| Advanced → GPU → GPU Voltage Table → 652MHz | `652MHz` | Mariko | 51 | 450 mV, 455 mV … 700 mV |
+| Advanced → GPU → GPU Voltage Table → 691MHz | `691MHz` | Mariko | 52 | 465 mV, 470 mV … 720 mV |
+| Advanced → GPU → GPU Voltage Table → 729MHz | `729MHz` | Mariko | 54 | 480 mV, 485 mV … 745 mV |
+| Advanced → GPU → GPU Voltage Table → 768MHz | `768MHz` | Mariko | 56 | 495 mV, 500 mV … 770 mV |
+| Advanced → GPU → GPU Voltage Table → 806MHz | `806MHz` | Mariko | 60 | 500 mV, 505 mV … 795 mV |
+| Advanced → GPU → GPU Voltage Table → 844MHz | `844MHz` | Mariko | 66 | 500 mV, 505 mV … 825 mV |
+| Advanced → GPU → GPU Voltage Table → 883MHz | `883MHz` | Mariko | 72 | 500 mV, 505 mV … 855 mV |
+| Advanced → GPU → GPU Voltage Table → 921MHz | `921MHz` | Mariko | 67 | 540 mV, 545 mV … 885 mV |
+| Advanced → GPU → GPU Voltage Table → 960MHz | `960MHz` | Mariko | 71 | 550 mV, 555 mV … 915 mV |
+| Advanced → GPU → GPU Voltage Table → 998MHz | `998MHz` | Mariko | 77 | 550 mV, 555 mV … 945 mV |
+| Advanced → GPU → GPU Voltage Table → 1036MHz | `1036MHz` | Mariko | 80 | 550 mV, 555 mV … 960 mV |
+| Advanced → GPU → GPU Voltage Table → 1075MHz | `1075MHz` | Mariko | 80 | 550 mV, 555 mV … 960 mV |
+| Advanced → GPU → GPU Voltage Table → 1113MHz | `1113MHz` | Mariko | 80 | 550 mV, 555 mV … 960 mV — Default |
+| Advanced → GPU → GPU Voltage Table → 1152MHz | `1152MHz` | Mariko | 76 | 605 mV, 615 mV … 990 mV — Default |
+| Advanced → GPU → GPU Voltage Table → 1190MHz | `1190MHz` | Mariko | 76 | 645 mV, 650 mV … 1020 mV — Default |
 | Advanced → GPU → GPU Voltage Table → 192MHz | `192MHz` | Erista | 13 | 600mV, 612.5mV … 750mV |
 | Advanced → GPU → GPU Voltage Table → 230.4MHz | `230.4MHz` | Erista | 13 | 612.5mV, 625mV … 762.5mV |
 | Advanced → GPU → GPU Voltage Table → 268.8MHz | `268.8MHz` | Erista | 13 | 625mV, 637.5mV … 775mV |

@@ -6130,66 +6130,6 @@
       "confidence": "high",
       "values": [
         {
-          "name": "320 mV",
-          "hex": "400100"
-        },
-        {
-          "name": "325 mV",
-          "hex": "450100"
-        },
-        {
-          "name": "330 mV",
-          "hex": "4A0100"
-        },
-        {
-          "name": "335 mV",
-          "hex": "4F0100"
-        },
-        {
-          "name": "340 mV",
-          "hex": "540100"
-        },
-        {
-          "name": "345 mV",
-          "hex": "590100"
-        },
-        {
-          "name": "350 mV",
-          "hex": "5E0100"
-        },
-        {
-          "name": "355 mV",
-          "hex": "630100"
-        },
-        {
-          "name": "360 mV",
-          "hex": "680100"
-        },
-        {
-          "name": "365 mV",
-          "hex": "6D0100"
-        },
-        {
-          "name": "370 mV",
-          "hex": "720100"
-        },
-        {
-          "name": "375 mV",
-          "hex": "770100"
-        },
-        {
-          "name": "380 mV",
-          "hex": "7C0100"
-        },
-        {
-          "name": "385 mV",
-          "hex": "810100"
-        },
-        {
-          "name": "390 mV",
-          "hex": "860100"
-        },
-        {
           "name": "395 mV — Default",
           "hex": "8B0100"
         },
@@ -6252,9 +6192,113 @@
         {
           "name": "470 mV",
           "hex": "D60100"
+        },
+        {
+          "name": "475 mV",
+          "hex": "DB0100"
+        },
+        {
+          "name": "480 mV",
+          "hex": "E00100"
+        },
+        {
+          "name": "485 mV",
+          "hex": "E50100"
+        },
+        {
+          "name": "490 mV",
+          "hex": "EA0100"
+        },
+        {
+          "name": "495 mV",
+          "hex": "EF0100"
+        },
+        {
+          "name": "500 mV",
+          "hex": "F40100"
+        },
+        {
+          "name": "505 mV",
+          "hex": "F90100"
+        },
+        {
+          "name": "510 mV",
+          "hex": "FE0100"
+        },
+        {
+          "name": "515 mV",
+          "hex": "030200"
+        },
+        {
+          "name": "520 mV",
+          "hex": "080200"
+        },
+        {
+          "name": "525 mV",
+          "hex": "0D0200"
+        },
+        {
+          "name": "530 mV",
+          "hex": "120200"
+        },
+        {
+          "name": "535 mV",
+          "hex": "170200"
+        },
+        {
+          "name": "540 mV",
+          "hex": "1C0200"
+        },
+        {
+          "name": "545 mV",
+          "hex": "210200"
+        },
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "600 mV",
+          "hex": "580200"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 307MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -6354,7 +6398,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 92,
@@ -6385,50 +6429,6 @@
       ],
       "confidence": "high",
       "values": [
-        {
-          "name": "345 mV",
-          "hex": "590100"
-        },
-        {
-          "name": "350 mV",
-          "hex": "5E0100"
-        },
-        {
-          "name": "355 mV",
-          "hex": "630100"
-        },
-        {
-          "name": "360 mV",
-          "hex": "680100"
-        },
-        {
-          "name": "365 mV",
-          "hex": "6D0100"
-        },
-        {
-          "name": "370 mV",
-          "hex": "720100"
-        },
-        {
-          "name": "375 mV",
-          "hex": "770100"
-        },
-        {
-          "name": "380 mV",
-          "hex": "7C0100"
-        },
-        {
-          "name": "385 mV",
-          "hex": "810100"
-        },
-        {
-          "name": "390 mV",
-          "hex": "860100"
-        },
-        {
-          "name": "395 mV",
-          "hex": "8B0100"
-        },
         {
           "name": "400 mV",
           "hex": "900100"
@@ -6508,9 +6508,93 @@
         {
           "name": "495 mV",
           "hex": "EF0100"
+        },
+        {
+          "name": "500 mV",
+          "hex": "F40100"
+        },
+        {
+          "name": "505 mV",
+          "hex": "F90100"
+        },
+        {
+          "name": "510 mV",
+          "hex": "FE0100"
+        },
+        {
+          "name": "515 mV",
+          "hex": "030200"
+        },
+        {
+          "name": "520 mV",
+          "hex": "080200"
+        },
+        {
+          "name": "525 mV",
+          "hex": "0D0200"
+        },
+        {
+          "name": "530 mV",
+          "hex": "120200"
+        },
+        {
+          "name": "535 mV",
+          "hex": "170200"
+        },
+        {
+          "name": "540 mV",
+          "hex": "1C0200"
+        },
+        {
+          "name": "545 mV",
+          "hex": "210200"
+        },
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "600 mV",
+          "hex": "580200"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 345MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -6586,7 +6670,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 96,
@@ -6618,30 +6702,6 @@
       ],
       "confidence": "high",
       "values": [
-        {
-          "name": "370 mV",
-          "hex": "720100"
-        },
-        {
-          "name": "375 mV",
-          "hex": "770100"
-        },
-        {
-          "name": "380 mV",
-          "hex": "7C0100"
-        },
-        {
-          "name": "385 mV",
-          "hex": "810100"
-        },
-        {
-          "name": "390 mV",
-          "hex": "860100"
-        },
-        {
-          "name": "395 mV",
-          "hex": "8B0100"
-        },
         {
           "name": "400 mV",
           "hex": "900100"
@@ -6741,9 +6801,73 @@
         {
           "name": "520 mV",
           "hex": "080200"
+        },
+        {
+          "name": "525 mV",
+          "hex": "0D0200"
+        },
+        {
+          "name": "530 mV",
+          "hex": "120200"
+        },
+        {
+          "name": "535 mV",
+          "hex": "170200"
+        },
+        {
+          "name": "540 mV",
+          "hex": "1C0200"
+        },
+        {
+          "name": "545 mV",
+          "hex": "210200"
+        },
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "600 mV",
+          "hex": "580200"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 384MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -6843,7 +6967,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 100,
@@ -6874,10 +6998,6 @@
       ],
       "confidence": "high",
       "values": [
-        {
-          "name": "395 mV",
-          "hex": "8B0100"
-        },
         {
           "name": "400 mV",
           "hex": "900100"
@@ -6997,9 +7117,53 @@
         {
           "name": "545 mV",
           "hex": "210200"
+        },
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "600 mV",
+          "hex": "580200"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 422MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -7075,7 +7239,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 104,
@@ -7107,6 +7271,22 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "400 mV",
+          "hex": "900100"
+        },
+        {
+          "name": "405 mV",
+          "hex": "950100"
+        },
+        {
+          "name": "410 mV",
+          "hex": "9A0100"
+        },
+        {
+          "name": "415 mV",
+          "hex": "9F0100"
+        },
         {
           "name": "420 mV",
           "hex": "A40100"
@@ -7230,9 +7410,33 @@
         {
           "name": "570 mV",
           "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "600 mV",
+          "hex": "580200"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 460MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -7332,7 +7536,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 108,
@@ -7363,6 +7567,42 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "400 mV",
+          "hex": "900100"
+        },
+        {
+          "name": "405 mV",
+          "hex": "950100"
+        },
+        {
+          "name": "410 mV",
+          "hex": "9A0100"
+        },
+        {
+          "name": "415 mV",
+          "hex": "9F0100"
+        },
+        {
+          "name": "420 mV",
+          "hex": "A40100"
+        },
+        {
+          "name": "425 mV",
+          "hex": "A90100"
+        },
+        {
+          "name": "430 mV",
+          "hex": "AE0100"
+        },
+        {
+          "name": "435 mV",
+          "hex": "B30100"
+        },
+        {
+          "name": "440 mV",
+          "hex": "B80100"
+        },
         {
           "name": "445 mV",
           "hex": "BD0100"
@@ -7486,9 +7726,17 @@
         {
           "name": "595 mV",
           "hex": "530200"
+        },
+        {
+          "name": "600 mV",
+          "hex": "580200"
+        },
+        {
+          "name": "605 mV",
+          "hex": "5D0200"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 499MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -7564,7 +7812,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 112,
@@ -7596,6 +7844,62 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "400 mV",
+          "hex": "900100"
+        },
+        {
+          "name": "405 mV",
+          "hex": "950100"
+        },
+        {
+          "name": "410 mV",
+          "hex": "9A0100"
+        },
+        {
+          "name": "415 mV",
+          "hex": "9F0100"
+        },
+        {
+          "name": "420 mV",
+          "hex": "A40100"
+        },
+        {
+          "name": "425 mV",
+          "hex": "A90100"
+        },
+        {
+          "name": "430 mV",
+          "hex": "AE0100"
+        },
+        {
+          "name": "435 mV",
+          "hex": "B30100"
+        },
+        {
+          "name": "440 mV",
+          "hex": "B80100"
+        },
+        {
+          "name": "445 mV",
+          "hex": "BD0100"
+        },
+        {
+          "name": "450 mV",
+          "hex": "C20100"
+        },
+        {
+          "name": "455 mV",
+          "hex": "C70100"
+        },
+        {
+          "name": "460 mV",
+          "hex": "CC0100"
+        },
+        {
+          "name": "465 mV",
+          "hex": "D10100"
+        },
         {
           "name": "470 mV",
           "hex": "D60100"
@@ -7721,7 +8025,7 @@
           "hex": "6C0200"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 537MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -7821,7 +8125,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 116,
@@ -7852,6 +8156,66 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "420 mV",
+          "hex": "A40100"
+        },
+        {
+          "name": "425 mV",
+          "hex": "A90100"
+        },
+        {
+          "name": "430 mV",
+          "hex": "AE0100"
+        },
+        {
+          "name": "435 mV",
+          "hex": "B30100"
+        },
+        {
+          "name": "440 mV",
+          "hex": "B80100"
+        },
+        {
+          "name": "445 mV",
+          "hex": "BD0100"
+        },
+        {
+          "name": "450 mV",
+          "hex": "C20100"
+        },
+        {
+          "name": "455 mV",
+          "hex": "C70100"
+        },
+        {
+          "name": "460 mV",
+          "hex": "CC0100"
+        },
+        {
+          "name": "465 mV",
+          "hex": "D10100"
+        },
+        {
+          "name": "470 mV",
+          "hex": "D60100"
+        },
+        {
+          "name": "475 mV",
+          "hex": "DB0100"
+        },
+        {
+          "name": "480 mV",
+          "hex": "E00100"
+        },
+        {
+          "name": "485 mV",
+          "hex": "E50100"
+        },
+        {
+          "name": "490 mV",
+          "hex": "EA0100"
+        },
         {
           "name": "495 mV",
           "hex": "EF0100"
@@ -7975,9 +8339,53 @@
         {
           "name": "645 mV",
           "hex": "850200"
+        },
+        {
+          "name": "650 mV",
+          "hex": "8A0200"
+        },
+        {
+          "name": "655 mV",
+          "hex": "8F0200"
+        },
+        {
+          "name": "660 mV",
+          "hex": "940200"
+        },
+        {
+          "name": "665 mV",
+          "hex": "990200"
+        },
+        {
+          "name": "670 mV",
+          "hex": "9E0200"
+        },
+        {
+          "name": "675 mV",
+          "hex": "A30200"
+        },
+        {
+          "name": "680 mV",
+          "hex": "A80200"
+        },
+        {
+          "name": "685 mV",
+          "hex": "AD0200"
+        },
+        {
+          "name": "690 mV",
+          "hex": "B20200"
+        },
+        {
+          "name": "695 mV",
+          "hex": "B70200"
+        },
+        {
+          "name": "700 mV",
+          "hex": "BC0200"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 576MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -8053,7 +8461,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 120,
@@ -8085,6 +8493,74 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "435 mV",
+          "hex": "B30100"
+        },
+        {
+          "name": "440 mV",
+          "hex": "B80100"
+        },
+        {
+          "name": "445 mV",
+          "hex": "BD0100"
+        },
+        {
+          "name": "450 mV",
+          "hex": "C20100"
+        },
+        {
+          "name": "455 mV",
+          "hex": "C70100"
+        },
+        {
+          "name": "460 mV",
+          "hex": "CC0100"
+        },
+        {
+          "name": "465 mV",
+          "hex": "D10100"
+        },
+        {
+          "name": "470 mV",
+          "hex": "D60100"
+        },
+        {
+          "name": "475 mV",
+          "hex": "DB0100"
+        },
+        {
+          "name": "480 mV",
+          "hex": "E00100"
+        },
+        {
+          "name": "485 mV",
+          "hex": "E50100"
+        },
+        {
+          "name": "490 mV",
+          "hex": "EA0100"
+        },
+        {
+          "name": "495 mV",
+          "hex": "EF0100"
+        },
+        {
+          "name": "500 mV",
+          "hex": "F40100"
+        },
+        {
+          "name": "505 mV",
+          "hex": "F90100"
+        },
+        {
+          "name": "510 mV",
+          "hex": "FE0100"
+        },
+        {
+          "name": "515 mV",
+          "hex": "030200"
+        },
         {
           "name": "520 mV",
           "hex": "080200"
@@ -8208,9 +8684,33 @@
         {
           "name": "670 mV",
           "hex": "9E0200"
+        },
+        {
+          "name": "675 mV",
+          "hex": "A30200"
+        },
+        {
+          "name": "680 mV",
+          "hex": "A80200"
+        },
+        {
+          "name": "685 mV",
+          "hex": "AD0200"
+        },
+        {
+          "name": "690 mV",
+          "hex": "B20200"
+        },
+        {
+          "name": "695 mV",
+          "hex": "B70200"
+        },
+        {
+          "name": "700 mV",
+          "hex": "BC0200"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 614MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -8310,7 +8810,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 124,
@@ -8342,6 +8842,82 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "450 mV",
+          "hex": "C20100"
+        },
+        {
+          "name": "455 mV",
+          "hex": "C70100"
+        },
+        {
+          "name": "460 mV",
+          "hex": "CC0100"
+        },
+        {
+          "name": "465 mV",
+          "hex": "D10100"
+        },
+        {
+          "name": "470 mV",
+          "hex": "D60100"
+        },
+        {
+          "name": "475 mV",
+          "hex": "DB0100"
+        },
+        {
+          "name": "480 mV",
+          "hex": "E00100"
+        },
+        {
+          "name": "485 mV",
+          "hex": "E50100"
+        },
+        {
+          "name": "490 mV",
+          "hex": "EA0100"
+        },
+        {
+          "name": "495 mV",
+          "hex": "EF0100"
+        },
+        {
+          "name": "500 mV",
+          "hex": "F40100"
+        },
+        {
+          "name": "505 mV",
+          "hex": "F90100"
+        },
+        {
+          "name": "510 mV",
+          "hex": "FE0100"
+        },
+        {
+          "name": "515 mV",
+          "hex": "030200"
+        },
+        {
+          "name": "520 mV",
+          "hex": "080200"
+        },
+        {
+          "name": "525 mV",
+          "hex": "0D0200"
+        },
+        {
+          "name": "530 mV",
+          "hex": "120200"
+        },
+        {
+          "name": "535 mV",
+          "hex": "170200"
+        },
+        {
+          "name": "540 mV",
+          "hex": "1C0200"
+        },
         {
           "name": "545 mV",
           "hex": "210200"
@@ -8465,9 +9041,13 @@
         {
           "name": "695 mV",
           "hex": "B70200"
+        },
+        {
+          "name": "700 mV",
+          "hex": "BC0200"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 652MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -8567,7 +9147,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 128,
@@ -8599,6 +9179,90 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "465 mV",
+          "hex": "D10100"
+        },
+        {
+          "name": "470 mV",
+          "hex": "D60100"
+        },
+        {
+          "name": "475 mV",
+          "hex": "DB0100"
+        },
+        {
+          "name": "480 mV",
+          "hex": "E00100"
+        },
+        {
+          "name": "485 mV",
+          "hex": "E50100"
+        },
+        {
+          "name": "490 mV",
+          "hex": "EA0100"
+        },
+        {
+          "name": "495 mV",
+          "hex": "EF0100"
+        },
+        {
+          "name": "500 mV",
+          "hex": "F40100"
+        },
+        {
+          "name": "505 mV",
+          "hex": "F90100"
+        },
+        {
+          "name": "510 mV",
+          "hex": "FE0100"
+        },
+        {
+          "name": "515 mV",
+          "hex": "030200"
+        },
+        {
+          "name": "520 mV",
+          "hex": "080200"
+        },
+        {
+          "name": "525 mV",
+          "hex": "0D0200"
+        },
+        {
+          "name": "530 mV",
+          "hex": "120200"
+        },
+        {
+          "name": "535 mV",
+          "hex": "170200"
+        },
+        {
+          "name": "540 mV",
+          "hex": "1C0200"
+        },
+        {
+          "name": "545 mV",
+          "hex": "210200"
+        },
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
         {
           "name": "570 mV",
           "hex": "3A0200"
@@ -8724,7 +9388,7 @@
           "hex": "D00200"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 691MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -8824,7 +9488,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 132,
@@ -8856,6 +9520,98 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "480 mV",
+          "hex": "E00100"
+        },
+        {
+          "name": "485 mV",
+          "hex": "E50100"
+        },
+        {
+          "name": "490 mV",
+          "hex": "EA0100"
+        },
+        {
+          "name": "495 mV",
+          "hex": "EF0100"
+        },
+        {
+          "name": "500 mV",
+          "hex": "F40100"
+        },
+        {
+          "name": "505 mV",
+          "hex": "F90100"
+        },
+        {
+          "name": "510 mV",
+          "hex": "FE0100"
+        },
+        {
+          "name": "515 mV",
+          "hex": "030200"
+        },
+        {
+          "name": "520 mV",
+          "hex": "080200"
+        },
+        {
+          "name": "525 mV",
+          "hex": "0D0200"
+        },
+        {
+          "name": "530 mV",
+          "hex": "120200"
+        },
+        {
+          "name": "535 mV",
+          "hex": "170200"
+        },
+        {
+          "name": "540 mV",
+          "hex": "1C0200"
+        },
+        {
+          "name": "545 mV",
+          "hex": "210200"
+        },
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
         {
           "name": "595 mV",
           "hex": "530200"
@@ -8981,7 +9737,7 @@
           "hex": "E90200"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 729MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -9081,7 +9837,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 136,
@@ -9113,6 +9869,106 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "495 mV",
+          "hex": "EF0100"
+        },
+        {
+          "name": "500 mV",
+          "hex": "F40100"
+        },
+        {
+          "name": "505 mV",
+          "hex": "F90100"
+        },
+        {
+          "name": "510 mV",
+          "hex": "FE0100"
+        },
+        {
+          "name": "515 mV",
+          "hex": "030200"
+        },
+        {
+          "name": "520 mV",
+          "hex": "080200"
+        },
+        {
+          "name": "525 mV",
+          "hex": "0D0200"
+        },
+        {
+          "name": "530 mV",
+          "hex": "120200"
+        },
+        {
+          "name": "535 mV",
+          "hex": "170200"
+        },
+        {
+          "name": "540 mV",
+          "hex": "1C0200"
+        },
+        {
+          "name": "545 mV",
+          "hex": "210200"
+        },
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "600 mV",
+          "hex": "580200"
+        },
+        {
+          "name": "605 mV",
+          "hex": "5D0200"
+        },
+        {
+          "name": "610 mV",
+          "hex": "620200"
+        },
+        {
+          "name": "615 mV",
+          "hex": "670200"
+        },
         {
           "name": "620 mV",
           "hex": "6C0200"
@@ -9238,7 +10094,7 @@
           "hex": "020300"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 768MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -9338,7 +10194,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 140,
@@ -9370,6 +10226,122 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "500 mV",
+          "hex": "F40100"
+        },
+        {
+          "name": "505 mV",
+          "hex": "F90100"
+        },
+        {
+          "name": "510 mV",
+          "hex": "FE0100"
+        },
+        {
+          "name": "515 mV",
+          "hex": "030200"
+        },
+        {
+          "name": "520 mV",
+          "hex": "080200"
+        },
+        {
+          "name": "525 mV",
+          "hex": "0D0200"
+        },
+        {
+          "name": "530 mV",
+          "hex": "120200"
+        },
+        {
+          "name": "535 mV",
+          "hex": "170200"
+        },
+        {
+          "name": "540 mV",
+          "hex": "1C0200"
+        },
+        {
+          "name": "545 mV",
+          "hex": "210200"
+        },
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "600 mV",
+          "hex": "580200"
+        },
+        {
+          "name": "605 mV",
+          "hex": "5D0200"
+        },
+        {
+          "name": "610 mV",
+          "hex": "620200"
+        },
+        {
+          "name": "615 mV",
+          "hex": "670200"
+        },
+        {
+          "name": "620 mV",
+          "hex": "6C0200"
+        },
+        {
+          "name": "625 mV",
+          "hex": "710200"
+        },
+        {
+          "name": "630 mV",
+          "hex": "760200"
+        },
+        {
+          "name": "635 mV",
+          "hex": "7B0200"
+        },
+        {
+          "name": "640 mV",
+          "hex": "800200"
+        },
         {
           "name": "645 mV",
           "hex": "850200"
@@ -9495,7 +10467,7 @@
           "hex": "1B0300"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 806MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -9595,7 +10567,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 144,
@@ -9627,6 +10599,146 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "500 mV",
+          "hex": "F40100"
+        },
+        {
+          "name": "505 mV",
+          "hex": "F90100"
+        },
+        {
+          "name": "510 mV",
+          "hex": "FE0100"
+        },
+        {
+          "name": "515 mV",
+          "hex": "030200"
+        },
+        {
+          "name": "520 mV",
+          "hex": "080200"
+        },
+        {
+          "name": "525 mV",
+          "hex": "0D0200"
+        },
+        {
+          "name": "530 mV",
+          "hex": "120200"
+        },
+        {
+          "name": "535 mV",
+          "hex": "170200"
+        },
+        {
+          "name": "540 mV",
+          "hex": "1C0200"
+        },
+        {
+          "name": "545 mV",
+          "hex": "210200"
+        },
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "600 mV",
+          "hex": "580200"
+        },
+        {
+          "name": "605 mV",
+          "hex": "5D0200"
+        },
+        {
+          "name": "610 mV",
+          "hex": "620200"
+        },
+        {
+          "name": "615 mV",
+          "hex": "670200"
+        },
+        {
+          "name": "620 mV",
+          "hex": "6C0200"
+        },
+        {
+          "name": "625 mV",
+          "hex": "710200"
+        },
+        {
+          "name": "630 mV",
+          "hex": "760200"
+        },
+        {
+          "name": "635 mV",
+          "hex": "7B0200"
+        },
+        {
+          "name": "640 mV",
+          "hex": "800200"
+        },
+        {
+          "name": "645 mV",
+          "hex": "850200"
+        },
+        {
+          "name": "650 mV",
+          "hex": "8A0200"
+        },
+        {
+          "name": "655 mV",
+          "hex": "8F0200"
+        },
+        {
+          "name": "660 mV",
+          "hex": "940200"
+        },
+        {
+          "name": "665 mV",
+          "hex": "990200"
+        },
+        {
+          "name": "670 mV",
+          "hex": "9E0200"
+        },
         {
           "name": "675 mV",
           "hex": "A30200"
@@ -9752,7 +10864,7 @@
           "hex": "390300"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 844MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -9852,7 +10964,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 148,
@@ -9884,6 +10996,170 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "500 mV",
+          "hex": "F40100"
+        },
+        {
+          "name": "505 mV",
+          "hex": "F90100"
+        },
+        {
+          "name": "510 mV",
+          "hex": "FE0100"
+        },
+        {
+          "name": "515 mV",
+          "hex": "030200"
+        },
+        {
+          "name": "520 mV",
+          "hex": "080200"
+        },
+        {
+          "name": "525 mV",
+          "hex": "0D0200"
+        },
+        {
+          "name": "530 mV",
+          "hex": "120200"
+        },
+        {
+          "name": "535 mV",
+          "hex": "170200"
+        },
+        {
+          "name": "540 mV",
+          "hex": "1C0200"
+        },
+        {
+          "name": "545 mV",
+          "hex": "210200"
+        },
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "600 mV",
+          "hex": "580200"
+        },
+        {
+          "name": "605 mV",
+          "hex": "5D0200"
+        },
+        {
+          "name": "610 mV",
+          "hex": "620200"
+        },
+        {
+          "name": "615 mV",
+          "hex": "670200"
+        },
+        {
+          "name": "620 mV",
+          "hex": "6C0200"
+        },
+        {
+          "name": "625 mV",
+          "hex": "710200"
+        },
+        {
+          "name": "630 mV",
+          "hex": "760200"
+        },
+        {
+          "name": "635 mV",
+          "hex": "7B0200"
+        },
+        {
+          "name": "640 mV",
+          "hex": "800200"
+        },
+        {
+          "name": "645 mV",
+          "hex": "850200"
+        },
+        {
+          "name": "650 mV",
+          "hex": "8A0200"
+        },
+        {
+          "name": "655 mV",
+          "hex": "8F0200"
+        },
+        {
+          "name": "660 mV",
+          "hex": "940200"
+        },
+        {
+          "name": "665 mV",
+          "hex": "990200"
+        },
+        {
+          "name": "670 mV",
+          "hex": "9E0200"
+        },
+        {
+          "name": "675 mV",
+          "hex": "A30200"
+        },
+        {
+          "name": "680 mV",
+          "hex": "A80200"
+        },
+        {
+          "name": "685 mV",
+          "hex": "AD0200"
+        },
+        {
+          "name": "690 mV",
+          "hex": "B20200"
+        },
+        {
+          "name": "695 mV",
+          "hex": "B70200"
+        },
+        {
+          "name": "700 mV",
+          "hex": "BC0200"
+        },
         {
           "name": "705 mV",
           "hex": "C10200"
@@ -10009,7 +11285,7 @@
           "hex": "570300"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 883MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -10109,7 +11385,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 152,
@@ -10141,6 +11417,150 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "540 mV",
+          "hex": "1C0200"
+        },
+        {
+          "name": "545 mV",
+          "hex": "210200"
+        },
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "605 mV",
+          "hex": "5D0200"
+        },
+        {
+          "name": "615 mV",
+          "hex": "670200"
+        },
+        {
+          "name": "620 mV",
+          "hex": "6C0200"
+        },
+        {
+          "name": "630 mV",
+          "hex": "760200"
+        },
+        {
+          "name": "635 mV",
+          "hex": "7B0200"
+        },
+        {
+          "name": "640 mV",
+          "hex": "800200"
+        },
+        {
+          "name": "645 mV",
+          "hex": "850200"
+        },
+        {
+          "name": "650 mV",
+          "hex": "8A0200"
+        },
+        {
+          "name": "655 mV",
+          "hex": "8F0200"
+        },
+        {
+          "name": "660 mV",
+          "hex": "940200"
+        },
+        {
+          "name": "665 mV",
+          "hex": "990200"
+        },
+        {
+          "name": "670 mV",
+          "hex": "9E0200"
+        },
+        {
+          "name": "675 mV",
+          "hex": "A30200"
+        },
+        {
+          "name": "680 mV",
+          "hex": "A80200"
+        },
+        {
+          "name": "685 mV",
+          "hex": "AD0200"
+        },
+        {
+          "name": "690 mV",
+          "hex": "B20200"
+        },
+        {
+          "name": "695 mV",
+          "hex": "B70200"
+        },
+        {
+          "name": "700 mV",
+          "hex": "BC0200"
+        },
+        {
+          "name": "705 mV",
+          "hex": "C10200"
+        },
+        {
+          "name": "710 mV",
+          "hex": "C60200"
+        },
+        {
+          "name": "715 mV",
+          "hex": "CB0200"
+        },
+        {
+          "name": "720 mV",
+          "hex": "D00200"
+        },
+        {
+          "name": "725 mV",
+          "hex": "D50200"
+        },
+        {
+          "name": "730 mV",
+          "hex": "DA0200"
+        },
         {
           "name": "735 mV",
           "hex": "DF0200"
@@ -10266,7 +11686,7 @@
           "hex": "750300"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 921MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -10366,7 +11786,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 156,
@@ -10398,6 +11818,166 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "605 mV",
+          "hex": "5D0200"
+        },
+        {
+          "name": "615 mV",
+          "hex": "670200"
+        },
+        {
+          "name": "620 mV",
+          "hex": "6C0200"
+        },
+        {
+          "name": "630 mV",
+          "hex": "760200"
+        },
+        {
+          "name": "635 mV",
+          "hex": "7B0200"
+        },
+        {
+          "name": "640 mV",
+          "hex": "800200"
+        },
+        {
+          "name": "645 mV",
+          "hex": "850200"
+        },
+        {
+          "name": "650 mV",
+          "hex": "8A0200"
+        },
+        {
+          "name": "655 mV",
+          "hex": "8F0200"
+        },
+        {
+          "name": "660 mV",
+          "hex": "940200"
+        },
+        {
+          "name": "665 mV",
+          "hex": "990200"
+        },
+        {
+          "name": "670 mV",
+          "hex": "9E0200"
+        },
+        {
+          "name": "675 mV",
+          "hex": "A30200"
+        },
+        {
+          "name": "680 mV",
+          "hex": "A80200"
+        },
+        {
+          "name": "685 mV",
+          "hex": "AD0200"
+        },
+        {
+          "name": "690 mV",
+          "hex": "B20200"
+        },
+        {
+          "name": "695 mV",
+          "hex": "B70200"
+        },
+        {
+          "name": "700 mV",
+          "hex": "BC0200"
+        },
+        {
+          "name": "705 mV",
+          "hex": "C10200"
+        },
+        {
+          "name": "710 mV",
+          "hex": "C60200"
+        },
+        {
+          "name": "715 mV",
+          "hex": "CB0200"
+        },
+        {
+          "name": "720 mV",
+          "hex": "D00200"
+        },
+        {
+          "name": "725 mV",
+          "hex": "D50200"
+        },
+        {
+          "name": "730 mV",
+          "hex": "DA0200"
+        },
+        {
+          "name": "735 mV",
+          "hex": "DF0200"
+        },
+        {
+          "name": "740 mV",
+          "hex": "E40200"
+        },
+        {
+          "name": "745 mV",
+          "hex": "E90200"
+        },
+        {
+          "name": "750 mV",
+          "hex": "EE0200"
+        },
+        {
+          "name": "755 mV",
+          "hex": "F30200"
+        },
+        {
+          "name": "760 mV",
+          "hex": "F80200"
+        },
         {
           "name": "765 mV",
           "hex": "FD0200"
@@ -10523,7 +12103,7 @@
           "hex": "930300"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 960MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -10623,7 +12203,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 160,
@@ -10655,6 +12235,190 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "605 mV",
+          "hex": "5D0200"
+        },
+        {
+          "name": "615 mV",
+          "hex": "670200"
+        },
+        {
+          "name": "620 mV",
+          "hex": "6C0200"
+        },
+        {
+          "name": "630 mV",
+          "hex": "760200"
+        },
+        {
+          "name": "635 mV",
+          "hex": "7B0200"
+        },
+        {
+          "name": "640 mV",
+          "hex": "800200"
+        },
+        {
+          "name": "645 mV",
+          "hex": "850200"
+        },
+        {
+          "name": "650 mV",
+          "hex": "8A0200"
+        },
+        {
+          "name": "655 mV",
+          "hex": "8F0200"
+        },
+        {
+          "name": "660 mV",
+          "hex": "940200"
+        },
+        {
+          "name": "665 mV",
+          "hex": "990200"
+        },
+        {
+          "name": "670 mV",
+          "hex": "9E0200"
+        },
+        {
+          "name": "675 mV",
+          "hex": "A30200"
+        },
+        {
+          "name": "680 mV",
+          "hex": "A80200"
+        },
+        {
+          "name": "685 mV",
+          "hex": "AD0200"
+        },
+        {
+          "name": "690 mV",
+          "hex": "B20200"
+        },
+        {
+          "name": "695 mV",
+          "hex": "B70200"
+        },
+        {
+          "name": "700 mV",
+          "hex": "BC0200"
+        },
+        {
+          "name": "705 mV",
+          "hex": "C10200"
+        },
+        {
+          "name": "710 mV",
+          "hex": "C60200"
+        },
+        {
+          "name": "715 mV",
+          "hex": "CB0200"
+        },
+        {
+          "name": "720 mV",
+          "hex": "D00200"
+        },
+        {
+          "name": "725 mV",
+          "hex": "D50200"
+        },
+        {
+          "name": "730 mV",
+          "hex": "DA0200"
+        },
+        {
+          "name": "735 mV",
+          "hex": "DF0200"
+        },
+        {
+          "name": "740 mV",
+          "hex": "E40200"
+        },
+        {
+          "name": "745 mV",
+          "hex": "E90200"
+        },
+        {
+          "name": "750 mV",
+          "hex": "EE0200"
+        },
+        {
+          "name": "755 mV",
+          "hex": "F30200"
+        },
+        {
+          "name": "760 mV",
+          "hex": "F80200"
+        },
+        {
+          "name": "765 mV",
+          "hex": "FD0200"
+        },
+        {
+          "name": "770 mV",
+          "hex": "020300"
+        },
+        {
+          "name": "775 mV",
+          "hex": "070300"
+        },
+        {
+          "name": "780 mV",
+          "hex": "0C0300"
+        },
+        {
+          "name": "785 mV",
+          "hex": "110300"
+        },
+        {
+          "name": "790 mV",
+          "hex": "160300"
+        },
         {
           "name": "795 mV",
           "hex": "1B0300"
@@ -10780,7 +12544,7 @@
           "hex": "B10300"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 998MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -10880,7 +12644,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 164,
@@ -10912,6 +12676,214 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "605 mV",
+          "hex": "5D0200"
+        },
+        {
+          "name": "615 mV",
+          "hex": "670200"
+        },
+        {
+          "name": "620 mV",
+          "hex": "6C0200"
+        },
+        {
+          "name": "630 mV",
+          "hex": "760200"
+        },
+        {
+          "name": "635 mV",
+          "hex": "7B0200"
+        },
+        {
+          "name": "640 mV",
+          "hex": "800200"
+        },
+        {
+          "name": "645 mV",
+          "hex": "850200"
+        },
+        {
+          "name": "650 mV",
+          "hex": "8A0200"
+        },
+        {
+          "name": "655 mV",
+          "hex": "8F0200"
+        },
+        {
+          "name": "660 mV",
+          "hex": "940200"
+        },
+        {
+          "name": "665 mV",
+          "hex": "990200"
+        },
+        {
+          "name": "670 mV",
+          "hex": "9E0200"
+        },
+        {
+          "name": "675 mV",
+          "hex": "A30200"
+        },
+        {
+          "name": "680 mV",
+          "hex": "A80200"
+        },
+        {
+          "name": "685 mV",
+          "hex": "AD0200"
+        },
+        {
+          "name": "690 mV",
+          "hex": "B20200"
+        },
+        {
+          "name": "695 mV",
+          "hex": "B70200"
+        },
+        {
+          "name": "700 mV",
+          "hex": "BC0200"
+        },
+        {
+          "name": "705 mV",
+          "hex": "C10200"
+        },
+        {
+          "name": "710 mV",
+          "hex": "C60200"
+        },
+        {
+          "name": "715 mV",
+          "hex": "CB0200"
+        },
+        {
+          "name": "720 mV",
+          "hex": "D00200"
+        },
+        {
+          "name": "725 mV",
+          "hex": "D50200"
+        },
+        {
+          "name": "730 mV",
+          "hex": "DA0200"
+        },
+        {
+          "name": "735 mV",
+          "hex": "DF0200"
+        },
+        {
+          "name": "740 mV",
+          "hex": "E40200"
+        },
+        {
+          "name": "745 mV",
+          "hex": "E90200"
+        },
+        {
+          "name": "750 mV",
+          "hex": "EE0200"
+        },
+        {
+          "name": "755 mV",
+          "hex": "F30200"
+        },
+        {
+          "name": "760 mV",
+          "hex": "F80200"
+        },
+        {
+          "name": "765 mV",
+          "hex": "FD0200"
+        },
+        {
+          "name": "770 mV",
+          "hex": "020300"
+        },
+        {
+          "name": "775 mV",
+          "hex": "070300"
+        },
+        {
+          "name": "780 mV",
+          "hex": "0C0300"
+        },
+        {
+          "name": "785 mV",
+          "hex": "110300"
+        },
+        {
+          "name": "790 mV",
+          "hex": "160300"
+        },
+        {
+          "name": "795 mV",
+          "hex": "1B0300"
+        },
+        {
+          "name": "800 mV",
+          "hex": "200300"
+        },
+        {
+          "name": "805 mV",
+          "hex": "250300"
+        },
+        {
+          "name": "810 mV",
+          "hex": "2A0300"
+        },
+        {
+          "name": "815 mV",
+          "hex": "2F0300"
+        },
+        {
+          "name": "820 mV",
+          "hex": "340300"
+        },
         {
           "name": "825 mV",
           "hex": "390300"
@@ -11023,21 +12995,9 @@
         {
           "name": "960 mV",
           "hex": "C00300"
-        },
-        {
-          "name": "965 mV",
-          "hex": "C50300"
-        },
-        {
-          "name": "970 mV",
-          "hex": "CA0300"
-        },
-        {
-          "name": "975 mV",
-          "hex": "CF0300"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 1036MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -11137,7 +13097,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 168,
@@ -11169,6 +13129,238 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "605 mV",
+          "hex": "5D0200"
+        },
+        {
+          "name": "615 mV",
+          "hex": "670200"
+        },
+        {
+          "name": "620 mV",
+          "hex": "6C0200"
+        },
+        {
+          "name": "630 mV",
+          "hex": "760200"
+        },
+        {
+          "name": "635 mV",
+          "hex": "7B0200"
+        },
+        {
+          "name": "640 mV",
+          "hex": "800200"
+        },
+        {
+          "name": "645 mV",
+          "hex": "850200"
+        },
+        {
+          "name": "650 mV",
+          "hex": "8A0200"
+        },
+        {
+          "name": "655 mV",
+          "hex": "8F0200"
+        },
+        {
+          "name": "660 mV",
+          "hex": "940200"
+        },
+        {
+          "name": "665 mV",
+          "hex": "990200"
+        },
+        {
+          "name": "670 mV",
+          "hex": "9E0200"
+        },
+        {
+          "name": "675 mV",
+          "hex": "A30200"
+        },
+        {
+          "name": "680 mV",
+          "hex": "A80200"
+        },
+        {
+          "name": "685 mV",
+          "hex": "AD0200"
+        },
+        {
+          "name": "690 mV",
+          "hex": "B20200"
+        },
+        {
+          "name": "695 mV",
+          "hex": "B70200"
+        },
+        {
+          "name": "700 mV",
+          "hex": "BC0200"
+        },
+        {
+          "name": "705 mV",
+          "hex": "C10200"
+        },
+        {
+          "name": "710 mV",
+          "hex": "C60200"
+        },
+        {
+          "name": "715 mV",
+          "hex": "CB0200"
+        },
+        {
+          "name": "720 mV",
+          "hex": "D00200"
+        },
+        {
+          "name": "725 mV",
+          "hex": "D50200"
+        },
+        {
+          "name": "730 mV",
+          "hex": "DA0200"
+        },
+        {
+          "name": "735 mV",
+          "hex": "DF0200"
+        },
+        {
+          "name": "740 mV",
+          "hex": "E40200"
+        },
+        {
+          "name": "745 mV",
+          "hex": "E90200"
+        },
+        {
+          "name": "750 mV",
+          "hex": "EE0200"
+        },
+        {
+          "name": "755 mV",
+          "hex": "F30200"
+        },
+        {
+          "name": "760 mV",
+          "hex": "F80200"
+        },
+        {
+          "name": "765 mV",
+          "hex": "FD0200"
+        },
+        {
+          "name": "770 mV",
+          "hex": "020300"
+        },
+        {
+          "name": "775 mV",
+          "hex": "070300"
+        },
+        {
+          "name": "780 mV",
+          "hex": "0C0300"
+        },
+        {
+          "name": "785 mV",
+          "hex": "110300"
+        },
+        {
+          "name": "790 mV",
+          "hex": "160300"
+        },
+        {
+          "name": "795 mV",
+          "hex": "1B0300"
+        },
+        {
+          "name": "800 mV",
+          "hex": "200300"
+        },
+        {
+          "name": "805 mV",
+          "hex": "250300"
+        },
+        {
+          "name": "810 mV",
+          "hex": "2A0300"
+        },
+        {
+          "name": "815 mV",
+          "hex": "2F0300"
+        },
+        {
+          "name": "820 mV",
+          "hex": "340300"
+        },
+        {
+          "name": "825 mV",
+          "hex": "390300"
+        },
+        {
+          "name": "830 mV",
+          "hex": "3E0300"
+        },
+        {
+          "name": "835 mV",
+          "hex": "430300"
+        },
+        {
+          "name": "840 mV",
+          "hex": "480300"
+        },
+        {
+          "name": "845 mV",
+          "hex": "4D0300"
+        },
+        {
+          "name": "850 mV",
+          "hex": "520300"
+        },
         {
           "name": "855 mV",
           "hex": "570300"
@@ -11256,45 +13448,9 @@
         {
           "name": "960 mV",
           "hex": "C00300"
-        },
-        {
-          "name": "965 mV",
-          "hex": "C50300"
-        },
-        {
-          "name": "970 mV",
-          "hex": "CA0300"
-        },
-        {
-          "name": "975 mV",
-          "hex": "CF0300"
-        },
-        {
-          "name": "980 mV",
-          "hex": "D40300"
-        },
-        {
-          "name": "985 mV",
-          "hex": "D90300"
-        },
-        {
-          "name": "990 mV",
-          "hex": "DE0300"
-        },
-        {
-          "name": "995 mV",
-          "hex": "E30300"
-        },
-        {
-          "name": "1000 mV",
-          "hex": "E80300"
-        },
-        {
-          "name": "1005 mV",
-          "hex": "ED0300"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 1075MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -11394,7 +13550,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 170,
@@ -11483,6 +13639,262 @@
       "confidence": "high",
       "values": [
         {
+          "name": "550 mV",
+          "hex": "260200"
+        },
+        {
+          "name": "555 mV",
+          "hex": "2B0200"
+        },
+        {
+          "name": "560 mV",
+          "hex": "300200"
+        },
+        {
+          "name": "565 mV",
+          "hex": "350200"
+        },
+        {
+          "name": "570 mV",
+          "hex": "3A0200"
+        },
+        {
+          "name": "575 mV",
+          "hex": "3F0200"
+        },
+        {
+          "name": "580 mV",
+          "hex": "440200"
+        },
+        {
+          "name": "585 mV",
+          "hex": "490200"
+        },
+        {
+          "name": "590 mV",
+          "hex": "4E0200"
+        },
+        {
+          "name": "595 mV",
+          "hex": "530200"
+        },
+        {
+          "name": "605 mV",
+          "hex": "5D0200"
+        },
+        {
+          "name": "615 mV",
+          "hex": "670200"
+        },
+        {
+          "name": "620 mV",
+          "hex": "6C0200"
+        },
+        {
+          "name": "630 mV",
+          "hex": "760200"
+        },
+        {
+          "name": "635 mV",
+          "hex": "7B0200"
+        },
+        {
+          "name": "640 mV",
+          "hex": "800200"
+        },
+        {
+          "name": "645 mV",
+          "hex": "850200"
+        },
+        {
+          "name": "650 mV",
+          "hex": "8A0200"
+        },
+        {
+          "name": "655 mV",
+          "hex": "8F0200"
+        },
+        {
+          "name": "660 mV",
+          "hex": "940200"
+        },
+        {
+          "name": "665 mV",
+          "hex": "990200"
+        },
+        {
+          "name": "670 mV",
+          "hex": "9E0200"
+        },
+        {
+          "name": "675 mV",
+          "hex": "A30200"
+        },
+        {
+          "name": "680 mV",
+          "hex": "A80200"
+        },
+        {
+          "name": "685 mV",
+          "hex": "AD0200"
+        },
+        {
+          "name": "690 mV",
+          "hex": "B20200"
+        },
+        {
+          "name": "695 mV",
+          "hex": "B70200"
+        },
+        {
+          "name": "700 mV",
+          "hex": "BC0200"
+        },
+        {
+          "name": "705 mV",
+          "hex": "C10200"
+        },
+        {
+          "name": "710 mV",
+          "hex": "C60200"
+        },
+        {
+          "name": "715 mV",
+          "hex": "CB0200"
+        },
+        {
+          "name": "720 mV",
+          "hex": "D00200"
+        },
+        {
+          "name": "725 mV",
+          "hex": "D50200"
+        },
+        {
+          "name": "730 mV",
+          "hex": "DA0200"
+        },
+        {
+          "name": "735 mV",
+          "hex": "DF0200"
+        },
+        {
+          "name": "740 mV",
+          "hex": "E40200"
+        },
+        {
+          "name": "745 mV",
+          "hex": "E90200"
+        },
+        {
+          "name": "750 mV",
+          "hex": "EE0200"
+        },
+        {
+          "name": "755 mV",
+          "hex": "F30200"
+        },
+        {
+          "name": "760 mV",
+          "hex": "F80200"
+        },
+        {
+          "name": "765 mV",
+          "hex": "FD0200"
+        },
+        {
+          "name": "770 mV",
+          "hex": "020300"
+        },
+        {
+          "name": "775 mV",
+          "hex": "070300"
+        },
+        {
+          "name": "780 mV",
+          "hex": "0C0300"
+        },
+        {
+          "name": "785 mV",
+          "hex": "110300"
+        },
+        {
+          "name": "790 mV",
+          "hex": "160300"
+        },
+        {
+          "name": "795 mV",
+          "hex": "1B0300"
+        },
+        {
+          "name": "800 mV",
+          "hex": "200300"
+        },
+        {
+          "name": "805 mV",
+          "hex": "250300"
+        },
+        {
+          "name": "810 mV",
+          "hex": "2A0300"
+        },
+        {
+          "name": "815 mV",
+          "hex": "2F0300"
+        },
+        {
+          "name": "820 mV",
+          "hex": "340300"
+        },
+        {
+          "name": "825 mV",
+          "hex": "390300"
+        },
+        {
+          "name": "830 mV",
+          "hex": "3E0300"
+        },
+        {
+          "name": "835 mV",
+          "hex": "430300"
+        },
+        {
+          "name": "840 mV",
+          "hex": "480300"
+        },
+        {
+          "name": "845 mV",
+          "hex": "4D0300"
+        },
+        {
+          "name": "850 mV",
+          "hex": "520300"
+        },
+        {
+          "name": "855 mV",
+          "hex": "570300"
+        },
+        {
+          "name": "860 mV",
+          "hex": "5C0300"
+        },
+        {
+          "name": "865 mV",
+          "hex": "610300"
+        },
+        {
+          "name": "870 mV",
+          "hex": "660300"
+        },
+        {
+          "name": "875 mV",
+          "hex": "6B0300"
+        },
+        {
+          "name": "880 mV",
+          "hex": "700300"
+        },
+        {
           "name": "885 mV",
           "hex": "750300"
         },
@@ -11545,69 +13957,9 @@
         {
           "name": "960 mV — Default",
           "hex": "C00300"
-        },
-        {
-          "name": "965 mV",
-          "hex": "C50300"
-        },
-        {
-          "name": "970 mV",
-          "hex": "CA0300"
-        },
-        {
-          "name": "975 mV",
-          "hex": "CF0300"
-        },
-        {
-          "name": "980 mV",
-          "hex": "D40300"
-        },
-        {
-          "name": "985 mV",
-          "hex": "D90300"
-        },
-        {
-          "name": "990 mV",
-          "hex": "DE0300"
-        },
-        {
-          "name": "995 mV",
-          "hex": "E30300"
-        },
-        {
-          "name": "1000 mV",
-          "hex": "E80300"
-        },
-        {
-          "name": "1005 mV",
-          "hex": "ED0300"
-        },
-        {
-          "name": "1010 mV",
-          "hex": "F20300"
-        },
-        {
-          "name": "1015 mV",
-          "hex": "F70300"
-        },
-        {
-          "name": "1020 mV",
-          "hex": "FC0300"
-        },
-        {
-          "name": "1025 mV",
-          "hex": "010400"
-        },
-        {
-          "name": "1030 mV",
-          "hex": "060400"
-        },
-        {
-          "name": "1035 mV",
-          "hex": "0B0400"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 1113MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -11691,7 +14043,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 176,
@@ -11723,6 +14075,246 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "605 mV",
+          "hex": "5D0200"
+        },
+        {
+          "name": "615 mV",
+          "hex": "670200"
+        },
+        {
+          "name": "620 mV",
+          "hex": "6C0200"
+        },
+        {
+          "name": "630 mV",
+          "hex": "760200"
+        },
+        {
+          "name": "635 mV",
+          "hex": "7B0200"
+        },
+        {
+          "name": "640 mV",
+          "hex": "800200"
+        },
+        {
+          "name": "645 mV",
+          "hex": "850200"
+        },
+        {
+          "name": "650 mV",
+          "hex": "8A0200"
+        },
+        {
+          "name": "655 mV",
+          "hex": "8F0200"
+        },
+        {
+          "name": "660 mV",
+          "hex": "940200"
+        },
+        {
+          "name": "665 mV",
+          "hex": "990200"
+        },
+        {
+          "name": "670 mV",
+          "hex": "9E0200"
+        },
+        {
+          "name": "675 mV",
+          "hex": "A30200"
+        },
+        {
+          "name": "680 mV",
+          "hex": "A80200"
+        },
+        {
+          "name": "685 mV",
+          "hex": "AD0200"
+        },
+        {
+          "name": "690 mV",
+          "hex": "B20200"
+        },
+        {
+          "name": "695 mV",
+          "hex": "B70200"
+        },
+        {
+          "name": "700 mV",
+          "hex": "BC0200"
+        },
+        {
+          "name": "705 mV",
+          "hex": "C10200"
+        },
+        {
+          "name": "710 mV",
+          "hex": "C60200"
+        },
+        {
+          "name": "715 mV",
+          "hex": "CB0200"
+        },
+        {
+          "name": "720 mV",
+          "hex": "D00200"
+        },
+        {
+          "name": "725 mV",
+          "hex": "D50200"
+        },
+        {
+          "name": "730 mV",
+          "hex": "DA0200"
+        },
+        {
+          "name": "735 mV",
+          "hex": "DF0200"
+        },
+        {
+          "name": "740 mV",
+          "hex": "E40200"
+        },
+        {
+          "name": "745 mV",
+          "hex": "E90200"
+        },
+        {
+          "name": "750 mV",
+          "hex": "EE0200"
+        },
+        {
+          "name": "755 mV",
+          "hex": "F30200"
+        },
+        {
+          "name": "760 mV",
+          "hex": "F80200"
+        },
+        {
+          "name": "765 mV",
+          "hex": "FD0200"
+        },
+        {
+          "name": "770 mV",
+          "hex": "020300"
+        },
+        {
+          "name": "775 mV",
+          "hex": "070300"
+        },
+        {
+          "name": "780 mV",
+          "hex": "0C0300"
+        },
+        {
+          "name": "785 mV",
+          "hex": "110300"
+        },
+        {
+          "name": "790 mV",
+          "hex": "160300"
+        },
+        {
+          "name": "795 mV",
+          "hex": "1B0300"
+        },
+        {
+          "name": "800 mV",
+          "hex": "200300"
+        },
+        {
+          "name": "805 mV",
+          "hex": "250300"
+        },
+        {
+          "name": "810 mV",
+          "hex": "2A0300"
+        },
+        {
+          "name": "815 mV",
+          "hex": "2F0300"
+        },
+        {
+          "name": "820 mV",
+          "hex": "340300"
+        },
+        {
+          "name": "825 mV",
+          "hex": "390300"
+        },
+        {
+          "name": "830 mV",
+          "hex": "3E0300"
+        },
+        {
+          "name": "835 mV",
+          "hex": "430300"
+        },
+        {
+          "name": "840 mV",
+          "hex": "480300"
+        },
+        {
+          "name": "845 mV",
+          "hex": "4D0300"
+        },
+        {
+          "name": "850 mV",
+          "hex": "520300"
+        },
+        {
+          "name": "855 mV",
+          "hex": "570300"
+        },
+        {
+          "name": "860 mV",
+          "hex": "5C0300"
+        },
+        {
+          "name": "865 mV",
+          "hex": "610300"
+        },
+        {
+          "name": "870 mV",
+          "hex": "660300"
+        },
+        {
+          "name": "875 mV",
+          "hex": "6B0300"
+        },
+        {
+          "name": "880 mV",
+          "hex": "700300"
+        },
+        {
+          "name": "885 mV",
+          "hex": "750300"
+        },
+        {
+          "name": "890 mV",
+          "hex": "7A0300"
+        },
+        {
+          "name": "895 mV",
+          "hex": "7F0300"
+        },
+        {
+          "name": "900 mV",
+          "hex": "840300"
+        },
+        {
+          "name": "905 mV",
+          "hex": "890300"
+        },
+        {
+          "name": "910 mV",
+          "hex": "8E0300"
+        },
         {
           "name": "915 mV",
           "hex": "930300"
@@ -11786,69 +14378,9 @@
         {
           "name": "990 mV — Default",
           "hex": "DE0300"
-        },
-        {
-          "name": "995 mV",
-          "hex": "E30300"
-        },
-        {
-          "name": "1000 mV",
-          "hex": "E80300"
-        },
-        {
-          "name": "1005 mV",
-          "hex": "ED0300"
-        },
-        {
-          "name": "1010 mV",
-          "hex": "F20300"
-        },
-        {
-          "name": "1015 mV",
-          "hex": "F70300"
-        },
-        {
-          "name": "1020 mV",
-          "hex": "FC0300"
-        },
-        {
-          "name": "1025 mV",
-          "hex": "010400"
-        },
-        {
-          "name": "1030 mV",
-          "hex": "060400"
-        },
-        {
-          "name": "1035 mV",
-          "hex": "0B0400"
-        },
-        {
-          "name": "1040 mV",
-          "hex": "100400"
-        },
-        {
-          "name": "1045 mV",
-          "hex": "150400"
-        },
-        {
-          "name": "1050 mV",
-          "hex": "1A0400"
-        },
-        {
-          "name": "1055 mV",
-          "hex": "1F0400"
-        },
-        {
-          "name": "1060 mV",
-          "hex": "240400"
-        },
-        {
-          "name": "1065 mV",
-          "hex": "290400"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 1152MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -11928,7 +14460,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 180,
@@ -11960,6 +14492,246 @@
       ],
       "confidence": "high",
       "values": [
+        {
+          "name": "645 mV",
+          "hex": "850200"
+        },
+        {
+          "name": "650 mV",
+          "hex": "8A0200"
+        },
+        {
+          "name": "655 mV",
+          "hex": "8F0200"
+        },
+        {
+          "name": "660 mV",
+          "hex": "940200"
+        },
+        {
+          "name": "665 mV",
+          "hex": "990200"
+        },
+        {
+          "name": "670 mV",
+          "hex": "9E0200"
+        },
+        {
+          "name": "675 mV",
+          "hex": "A30200"
+        },
+        {
+          "name": "680 mV",
+          "hex": "A80200"
+        },
+        {
+          "name": "685 mV",
+          "hex": "AD0200"
+        },
+        {
+          "name": "690 mV",
+          "hex": "B20200"
+        },
+        {
+          "name": "695 mV",
+          "hex": "B70200"
+        },
+        {
+          "name": "700 mV",
+          "hex": "BC0200"
+        },
+        {
+          "name": "705 mV",
+          "hex": "C10200"
+        },
+        {
+          "name": "710 mV",
+          "hex": "C60200"
+        },
+        {
+          "name": "715 mV",
+          "hex": "CB0200"
+        },
+        {
+          "name": "720 mV",
+          "hex": "D00200"
+        },
+        {
+          "name": "725 mV",
+          "hex": "D50200"
+        },
+        {
+          "name": "730 mV",
+          "hex": "DA0200"
+        },
+        {
+          "name": "735 mV",
+          "hex": "DF0200"
+        },
+        {
+          "name": "740 mV",
+          "hex": "E40200"
+        },
+        {
+          "name": "745 mV",
+          "hex": "E90200"
+        },
+        {
+          "name": "750 mV",
+          "hex": "EE0200"
+        },
+        {
+          "name": "755 mV",
+          "hex": "F30200"
+        },
+        {
+          "name": "760 mV",
+          "hex": "F80200"
+        },
+        {
+          "name": "765 mV",
+          "hex": "FD0200"
+        },
+        {
+          "name": "770 mV",
+          "hex": "020300"
+        },
+        {
+          "name": "775 mV",
+          "hex": "070300"
+        },
+        {
+          "name": "780 mV",
+          "hex": "0C0300"
+        },
+        {
+          "name": "785 mV",
+          "hex": "110300"
+        },
+        {
+          "name": "790 mV",
+          "hex": "160300"
+        },
+        {
+          "name": "795 mV",
+          "hex": "1B0300"
+        },
+        {
+          "name": "800 mV",
+          "hex": "200300"
+        },
+        {
+          "name": "805 mV",
+          "hex": "250300"
+        },
+        {
+          "name": "810 mV",
+          "hex": "2A0300"
+        },
+        {
+          "name": "815 mV",
+          "hex": "2F0300"
+        },
+        {
+          "name": "820 mV",
+          "hex": "340300"
+        },
+        {
+          "name": "825 mV",
+          "hex": "390300"
+        },
+        {
+          "name": "830 mV",
+          "hex": "3E0300"
+        },
+        {
+          "name": "835 mV",
+          "hex": "430300"
+        },
+        {
+          "name": "840 mV",
+          "hex": "480300"
+        },
+        {
+          "name": "845 mV",
+          "hex": "4D0300"
+        },
+        {
+          "name": "850 mV",
+          "hex": "520300"
+        },
+        {
+          "name": "855 mV",
+          "hex": "570300"
+        },
+        {
+          "name": "860 mV",
+          "hex": "5C0300"
+        },
+        {
+          "name": "865 mV",
+          "hex": "610300"
+        },
+        {
+          "name": "870 mV",
+          "hex": "660300"
+        },
+        {
+          "name": "875 mV",
+          "hex": "6B0300"
+        },
+        {
+          "name": "880 mV",
+          "hex": "700300"
+        },
+        {
+          "name": "885 mV",
+          "hex": "750300"
+        },
+        {
+          "name": "890 mV",
+          "hex": "7A0300"
+        },
+        {
+          "name": "895 mV",
+          "hex": "7F0300"
+        },
+        {
+          "name": "900 mV",
+          "hex": "840300"
+        },
+        {
+          "name": "905 mV",
+          "hex": "890300"
+        },
+        {
+          "name": "910 mV",
+          "hex": "8E0300"
+        },
+        {
+          "name": "915 mV",
+          "hex": "930300"
+        },
+        {
+          "name": "920 mV",
+          "hex": "980300"
+        },
+        {
+          "name": "925 mV",
+          "hex": "9D0300"
+        },
+        {
+          "name": "930 mV",
+          "hex": "A20300"
+        },
+        {
+          "name": "935 mV",
+          "hex": "A70300"
+        },
+        {
+          "name": "940 mV",
+          "hex": "AC0300"
+        },
         {
           "name": "945 mV",
           "hex": "B10300"
@@ -12023,69 +14795,9 @@
         {
           "name": "1020 mV — Default",
           "hex": "FC0300"
-        },
-        {
-          "name": "1025 mV",
-          "hex": "010400"
-        },
-        {
-          "name": "1030 mV",
-          "hex": "060400"
-        },
-        {
-          "name": "1035 mV",
-          "hex": "0B0400"
-        },
-        {
-          "name": "1040 mV",
-          "hex": "100400"
-        },
-        {
-          "name": "1045 mV",
-          "hex": "150400"
-        },
-        {
-          "name": "1050 mV",
-          "hex": "1A0400"
-        },
-        {
-          "name": "1055 mV",
-          "hex": "1F0400"
-        },
-        {
-          "name": "1060 mV",
-          "hex": "240400"
-        },
-        {
-          "name": "1065 mV",
-          "hex": "290400"
-        },
-        {
-          "name": "1070 mV",
-          "hex": "2E0400"
-        },
-        {
-          "name": "1075 mV",
-          "hex": "330400"
-        },
-        {
-          "name": "1080 mV",
-          "hex": "380400"
-        },
-        {
-          "name": "1085 mV",
-          "hex": "3D0400"
-        },
-        {
-          "name": "1090 mV",
-          "hex": "420400"
-        },
-        {
-          "name": "1095 mV",
-          "hex": "470400"
         }
       ],
-      "help_text": "Voltage for this GPU frequency point on Mariko. The firmware allows a band of ±75 mV around the value it ships with, in 5 mV steps. Default is that shipped value.",
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 1190MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -12165,7 +14877,7 @@
         ]
       },
       "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
-      "help_source": "marikoGpuVoltArray, read from the console kip"
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
       "offset": 184,

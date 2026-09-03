@@ -573,29 +573,91 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   else ok.push('backup and restore carry exactly the same fields')
 }
 
-// ----------------------------------- 16. точки кривых напряжений построены вокруг заводского
+// ----------------------------------- 16. точки кривых: сетка, штатные ступени, объяснимые дыры
 //
-// Обе кривые задаются прошивкой как полоса вокруг значения, которое она сама отгружает.
-// Донорские словари этого не знали: у Erista была не та сетка (15 мВ вместо 12,5), у Mariko —
-// плоские границы 400…900 на все точки. Итог в обоих случаях один: у части точек ЗАВОДСКОЕ
-// НАПРЯЖЕНИЕ ОТСУТСТВОВАЛО В СПИСКЕ, и человек, сдвинувший точку, не мог вернуться.
+// ЧТО ПРОВЕРЯЛОСЬ РАНЬШЕ И ПОЧЕМУ БОЛЬШЕ НЕ ГОДИТСЯ. Прежняя редакция требовала, чтобы пункт
+// Default стоял РОВНО В СЕРЕДИНЕ списка. Список строился полосой ±75 мВ вокруг заводского
+// значения, и середина была единственным опознавательным знаком, доступным без живого kip.
+// 03.09.2026 список Mariko расширен до донорских границ, и обе крайние позиции стали
+// законными: на 307MHz заводское 395 мВ лежит НИЖЕ пола 400 и досылается отдельным пунктом,
+// на 1190MHz заводское 1020 мВ и есть потолок строки. Симметрия перестала быть признаком
+// правильности, и сторож, оставленный как был, запретил бы ровно ту правку, ради которой
+// всё делалось.
 //
-// Живого kip здесь нет, поэтому проверяем инвариант, который от него не зависит: у каждой
-// точки ровно один пункт помечен Default и стоит РОВНО В СЕРЕДИНЕ — так строится полоса.
-// Сместится центр или пропадёт метка — значит словарь снова собран не вокруг заводского.
+// Проверяем теперь то, ради чего сторож заводился, — что человек не останется без нужного
+// пункта. Три инварианта:
+//   * ровно один Default, значения строго возрастают и не повторяются;
+//   * сетка выдержана: каждый пропуск кратен шагу, и пропущенное объяснимо — это
+//     запрещённая константа сканера на видимой строке, а не случайная прореха;
+//   * все штатные ступени этой строки есть в списке. Ступени приезжают из самой карты
+//     (`writes` у пункта со `scan_guard`), живой kip для этого не нужен.
+// Последний инвариант и заменил «середину»: список, собранный мимо реальных кривых
+// прошивки, провалит его — а именно этим и болели донорские словари.
 {
   const bad = []
   const points = fields.filter(f => String(f.series ?? '').startsWith('gpu_curve'))
+
+  // Ступени и граница видимости сканера — из карты меню, тем же путём, что у проверки №27.
+  let sg = null
+  const stageRows = new Map()
+  {
+    const walk = n => {
+      if (Array.isArray(n)) return n.forEach(walk)
+      if (!n || typeof n !== 'object') return
+      if (!sg && n.scan_guard && (n.values ?? []).length) {
+        sg = n.scan_guard
+        for (const v of n.values) {
+          for (const [key, hex] of Object.entries(v.writes ?? {})) {
+            const off = Number(key)
+            if ((off - sg.base) % sg.step !== 0) continue
+            const uv = parseInt(String(hex).match(/../g).reverse().join(''), 16)
+            if (uv % 1000) continue        // половинчатые ступени на сетку милливольт не ложатся
+            const row = (off - sg.base) / sg.step
+            if (!stageRows.has(row)) stageRows.set(row, new Set())
+            stageRows.get(row).add(uv / 1000)
+          }
+        }
+      }
+      Object.values(n).forEach(walk)
+    }
+    walk(menu.sections ?? [])
+  }
+  const bannedMv = new Set((sg?.consts ?? []).filter(c => c % 1000 === 0).map(c => c / 1000))
+
   for (const f of points) {
-    const vals = f.values ?? []
-    const at = vals.map((v, i) => [v, i]).filter(([v]) => /default/i.test(v.name)).map(([, i]) => i)
-    if (at.length !== 1) { bad.push(`${f.offset} ${f.name}: пунктов Default ${at.length}, нужен ровно один`); continue }
-    const mid = (vals.length - 1) / 2
-    if (at[0] !== mid) bad.push(`${f.offset} ${f.name}: Default на позиции ${at[0]} из ${vals.length}, середина ${mid}`)
+    const mariko = f.series === 'gpu_curve_mariko'
+    const step = mariko ? 5 : 12500          // Mariko хранит милливольты, Erista микровольты
+    const vals = (f.values ?? []).map(v => ({
+      name: String(v.name),
+      n: parseInt(String(v.hex).match(/../g).reverse().join(''), 16),
+    }))
+    if (vals.length < 2) { bad.push(`${f.offset} ${f.name}: в списке ${vals.length} пунктов`); continue }
+
+    const marks = vals.filter(v => /default/i.test(v.name)).length
+    if (marks !== 1) bad.push(`${f.offset} ${f.name}: пунктов Default ${marks}, нужен ровно один`)
+
+    const row = mariko ? (f.offset - 88) / 4 : null
+    const visible = mariko && sg != null && row >= sg.from_row
+    for (let i = 1; i < vals.length; i++) {
+      const gap = vals[i].n - vals[i - 1].n
+      if (gap <= 0) { bad.push(`${f.offset} ${f.name}: ${vals[i].n} не больше предыдущего ${vals[i - 1].n}`); break }
+      if (gap % step) { bad.push(`${f.offset} ${f.name}: разрыв ${gap} между ${vals[i - 1].n} и ${vals[i].n} не кратен шагу ${step}`); break }
+      if (gap === step) continue
+      const skipped = []
+      for (let x = vals[i - 1].n + step; x < vals[i].n; x += step) skipped.push(x)
+      const unexplained = skipped.filter(x => !(visible && bannedMv.has(x)))
+      if (unexplained.length) { bad.push(`${f.offset} ${f.name}: необъяснимая дыра, пропущены ${unexplained.join(', ')}`); break }
+    }
+
+    if (mariko && stageRows.has(row)) {
+      const have = new Set(vals.map(v => v.n))
+      const lost = [...stageRows.get(row)].filter(v => !have.has(v)).sort((a, b) => a - b)
+      if (lost.length) bad.push(`${f.offset} ${f.name}: штатной ступени нет в списке — ${lost.join(', ')} мВ`)
+    }
   }
   if (!points.length) problems.push({ sev: 'IMPORTANT', what: 'в карте не нашлось ни одной точки кривых напряжений' })
-  else if (bad.length) problems.push({ sev: 'CRITICAL', what: `точки кривых собраны не вокруг заводского значения:\n     ${bad.slice(0, 5).join('\n     ')}` })
-  else ok.push(`voltage curve points are centred on the shipped value (${points.length} points)`)
+  else if (bad.length) problems.push({ sev: 'CRITICAL', what: `списки точек кривой собраны неверно:\n     ${bad.slice(0, 6).join('\n     ')}` })
+  else ok.push(`curve lists keep their grid, every gap explained and every stage voltage on offer (${points.length} points)`)
 }
 
 // ------------------------------------------------- 17. числа в README равны карте
@@ -1095,8 +1157,29 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
         }
       }
     }
-    if (bad.length) problems.push({ sev: 'CRITICAL', what: `ступень совпала с константой поиска прошивки — консоль не загрузится:\n     ${bad.slice(0, 6).join('\n     ')}` })
-    else ok.push(`no stage voltage collides with a firmware search constant (${rows} rows in the scanned range checked)`)
+    // ТОЧКИ КРИВОЙ ХОДЯТ ПОД ТЕМ ЖЕ ПРАВИЛОМ, А ПРОВЕРКА ИХ НЕ ВИДЕЛА. Она обходила только
+    // узлы со `scan_guard` — то есть сами ступени. Но `Custom Table` берёт за основу ST1
+    // и перекрывает её напряжения из массива `marikoGpuVoltArray`, домножая на 1000
+    // (`mul w1,w1,w2` в патчере): для сканера это ровно такая же строка таблицы, и точка
+    // 921MHz со значением 625 мВ роняет консоль так же, как ступень со значением 625000.
+    // Список выбора точки собирается отдельным скриптом, и без этой половины сторож
+    // сторожил только ту сторону, которую я в тот день правил.
+    if (guards[0]) {
+      const g = guards[0].scan_guard
+      const consts = new Set(g.consts)
+      for (const f of fields.filter(x => x.series === 'gpu_curve_mariko')) {
+        const row = (f.offset - 88) / 4
+        if (!Number.isInteger(row) || row < g.from_row) continue
+        for (const v of f.values ?? []) {
+          const mv = parseInt(String(v.hex).match(/../g).reverse().join(''), 16)
+          rows++
+          if (consts.has(mv * 1000))
+            bad.push(`точка ${f.name} (строка ${row}) предлагает ${mv} мВ — это искомая константа прошивки`)
+        }
+      }
+    }
+    if (bad.length) problems.push({ sev: 'CRITICAL', what: `значение совпало с константой поиска прошивки — консоль не загрузится:\n     ${bad.slice(0, 6).join('\n     ')}` })
+    else ok.push(`no stage voltage and no curve choice collides with a firmware search constant (${rows} values in the scanned range checked)`)
   }
 }
 
