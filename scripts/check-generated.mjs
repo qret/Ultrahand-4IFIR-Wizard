@@ -305,8 +305,14 @@ if (badPaths.length) {
         problems.push({ sev: 'CRITICAL', what: `сброс ${rev} без ;system= — он выполнится и на другой ревизии` })
       }
       const mine = Object.keys(factory).map(Number).filter(o => {
-        const p = fields.find(f => f.offset === o)?.platform ?? 'both'
-        return p === 'both' || p === rev
+        const f = fields.find(x => x.offset === o)
+        const p = f?.platform ?? 'both'
+        // ИСКЛЮЧЕНИЕ, ОБЪЯВЛЕННОЕ ВСЛУХ: поле может выдаваться на одной ревизии,
+        // а сбрасываться на обеих. Так у семи верхних точек кривой GPU (184…208):
+        // на Mariko это точки, на Erista — первая строка её таблицы CPU, испортить
+        // которую может чужой конфигуратор. Вернуть её к заводскому больше нечем.
+        // Ключ `factory_reset_both` обязателен: молчаливого исключения тут нет.
+        return p === 'both' || p === rev || Boolean(f?.factory_reset_both)
       })
       const missing = mine.filter(o => !written.has(o))
       const extra = [...written].filter(o => !mine.includes(o))
@@ -1546,6 +1552,11 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       for (const must of ['Check for updates', 'Update']) {
         if (!warnSec.includes(must)) problems.push({ sev: 'CRITICAL', what: `экран "Kip version mismatch" не называет пункт "${must}" — человек не поймёт, что средство стоит на том же экране` })
       }
+      // Третье обязательное — ПУТЬ НАРУЖУ. Обновления может ещё не быть: тогда экран
+      // остаётся единственным, что человек видит, и он обязан сказать, куда идти.
+      // Ссылка на группу 4IFIR добавлена 04.09.2026; без сторожа её однажды сотрут
+      // при правке текста, и никто не заметит — ровно так уже уходили другие строки.
+      if (!warnSec.includes('t.me/kf4fr')) problems.push({ sev: 'CRITICAL', what: `экран "Kip version mismatch" не называет путь наружу — ссылку на группу 4IFIR` })
       if (cond.startsWith('!') && warnSec.includes('Check for updates') && warnSec.includes('Update'))
         ok.push('kip mismatch screen shows the way out by name')
     }
@@ -1760,24 +1771,14 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 
 // ---------------------------------------------------------------- output
 
-// ---------------- 35. у каждого экрана есть человеческое имя
+// ---------------- 35. every screen names itself
 //
-// СНИМОК С КОНСОЛИ ПОКАЗАЛ ЭКРАН, ПОДПИСАННЫЙ СЛОВОМ `Commands`. Это внутреннее слово
-// движка, и человеку его видеть не должны. Аудит нашёл его на ОДИННАДЦАТИ наших экранах,
-// а ещё на ста тридцати семи вместо имени стояла версия пакета. Подписан по-человечески
-// был ровно один экран, и то случайно.
-//
-// ПОЧЕМУ ТАК ВЫШЛО. Движок берёт подзаголовок экрана из ПОСЛЕДНЕЙ врезки-заголовка
-// в списке РОДИТЕЛЯ, а собственного ключа у экрана не было. Если первая секция файла
-// несёт команды и её имя не начинается с `@`, движок вставляет свою врезку со словом
-// `Commands`. Два наших приёма от этого не спасали: `;title=` на вложенном уровне
-// затирается, а `[@Имя]` подписывает только кнопку листания внизу — я записал обратное
-// в трёх документах, и это было неверно.
-//
-// Лечение — ключ `;subtitle=`, заведённый в нашем форке (`patches/0003-package-subtitle.patch`).
-// Сторож следит, чтобы генератор не забыл его ни на одном экране: проверяются ВСЕ файлы,
-// достижимые из корня по `package_source`, кроме самого корня — у него своя подпись
-// из версии пакета.
+// The engine takes a screen subtitle from the last header in the PARENT list. With no
+// header there it prints the internal word "Commands" or the package version - eleven of
+// our screens showed the former, a hundred and thirty-seven the latter. `;title=` is
+// overwritten on nested levels and `[@Name]` only labels the paging button, so neither
+// helps. The fix is the `;subtitle=` key in our fork; this checks the generator never
+// forgets it. Details: NOTES 231.
 {
   const bad = []
   const seen = new Set()
@@ -1814,6 +1815,95 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   if (!screens) problems.push({ sev: 'IMPORTANT', what: 'ни одного дочернего экрана не найдено — обход package_source сломан' })
   else if (bad.length) problems.push({ sev: 'CRITICAL', what: `экраны без имени:\n     ${bad.slice(0, 8).join('\n     ')}` })
   else ok.push(`every screen names itself (${screens} screens reachable from the root)`)
+}
+
+// ---------------- 36. the seven top curve offsets stay where they belong
+//
+// CUST+184..208 are two things at once: the top seven points of the Mariko GPU voltage
+// curve, and row 0 of the Erista CPU table. Writing them is allowed only where the file
+// is Mariko-only, plus the factory reset - which must run on BOTH revisions, because it
+// is the only way to repair a corrupted row 0. Details: NOTES 232.
+{
+  const bad = []
+  const TOP = [184, 188, 192, 196, 200, 204, 208]
+  let writes = 0
+
+  for (const file of iniFiles) {
+    const rel = relative(DIST, file).split('\\').join('/')
+    const body = readFileSync(file, 'utf8')
+    // режем на секции: заголовок + его строки до следующего заголовка
+    const chunks = body.split(/^(?=\[)/m)
+    for (const c of chunks) {
+      const head = (c.match(/^\[[^\]]*\]/) ?? [''])[0]
+      const mariko = /^;system=mariko$/m.test(c)
+      for (const m of c.matchAll(/hex-by-custom-offset\s+\S+\s+CUST\s+(\d+)/g)) {
+        const off = Number(m[1])
+        if (!TOP.includes(off)) continue
+        writes++
+        // Законны три места, и только они:
+        //   * сброс — он возвращает ЗАВОДСКИЕ байты и обязан работать на обеих ревизиях,
+        //     иначе испорченную строку 0 таблицы CPU Erista нечем вылечить;
+        //   * файлы, достижимые только на Mariko: их выбирает форвардер с `;system=mariko`,
+        //     сама секция внутри пометки не несёт и нести не обязана;
+        //   * секция, помеченная ревизией напрямую.
+        if (rel === 'service/reset.ini') continue
+        if (rel === 'service/restore-mariko.ini') continue
+        if (rel.startsWith('advanced/gpu/gpu-curve-mariko/')) continue
+        if (mariko) continue
+        bad.push(`${rel} ${head}: пишет ${off} вне мариковского пути и вне сброса`)
+      }
+    }
+    // чтение и перенос: в эристовском восстановлении этих смещений быть не должно вовсе
+    if (rel === 'service/restore-erista.ini') {
+      for (const m of body.matchAll(/(?:hex_file\(CUST,(\d+),|Fields (\d+))/g)) {
+        const off = Number(m[1] ?? m[2])
+        if (TOP.includes(off)) bad.push(`${rel}: смещение ${off} попало в эристовскую копию`)
+      }
+    }
+  }
+
+  if (bad.length) problems.push({ sev: 'CRITICAL', what: `верхние точки кривой ушли не туда:\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else ok.push(`the seven top curve offsets stay on Mariko and in the factory reset (${writes} writes checked)`)
+}
+
+// ---------------- 37. the ST1 seeding stays behind the MANUAL gate
+//
+// Seeding writes 31 cells of loader.kip, seven of them shared with row 0 of the Erista
+// CPU table. It may only run for someone who actually turned the manual table on, so the
+// guard list has to open with CUST 44 = 03. Without it a visit to the screen writes the
+// kip of a user who never asked. Details: NOTES 234.
+{
+  const bad = []
+  let blocks = 0
+
+  for (const file of iniFiles) {
+    const rel = relative(DIST, file).split('\\').join('/')
+    const lines = readFileSync(file, 'utf8').split(/\r?\n/)
+    let i = 0
+    while (i < lines.length) {
+      if (lines[i] !== 'try:') { i++; continue }
+      let j = i + 1
+      while (j < lines.length && lines[j] !== 'try:' && !/^\[/.test(lines[j])) j++
+      const body = lines.slice(i + 1, j)
+      const offs = l => [...l.matchAll(/CUST\s+(\d+)/g)].map(m => Number(m[1]))
+      const writes = body.filter(l => /^hex-by-custom-offset\s/.test(l))
+      const guards = body.filter(l => /^matching_hex_val_custom\s/.test(l))
+      // посев узнаётся по тому, что блок проверяет и пишет ОДНИ И ТЕ ЖЕ ячейки;
+      // восстановление копии тоже пишет пачками, но своих записей не сторожит
+      const guarded = new Set(guards.flatMap(offs))
+      const seeding = writes.length > 1 && writes.flatMap(offs).some(o => guarded.has(o))
+      if (seeding) {
+        blocks++
+        const mode = /\sCUST 44 03$/.test(guards[0] ?? '')
+        if (!mode) bad.push(`${rel}: блок try: пишет ${writes.length} ячеек, но не начинается с проверки режима CUST 44 03`)
+        else if (guards.length <= writes.length) bad.push(`${rel}: условий ${guards.length} на ${writes.length} записей — сторож слабее, чем то, что он охраняет`)
+      }
+      i = j
+    }
+  }
+
+  if (bad.length) problems.push({ sev: 'CRITICAL', what: `посев без сторожа режима:\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else ok.push(`bulk kip writes stay behind the MANUAL gate (${blocks} seeding blocks checked)`)
 }
 
 const crit = problems.filter(p => p.sev === 'CRITICAL')

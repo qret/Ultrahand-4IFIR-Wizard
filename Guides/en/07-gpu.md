@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=05c5a012a965 self=8f36cb3d5267 -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=e8844d09cf06 self=5c08a7eeaa4e -->
 # GPU and stages
 
 <!-- nav:begin -->
@@ -147,14 +147,16 @@ both memory clock modes at once, while a stage works out the floor for each sepa
 
 ## What to leave alone
 
-**Custom Table** — the manual table mode. In it the firmware reads from an array of
-twenty-four points but addresses it as a table of thirty-one rows.
+**Custom Table** — the manual table mode: you set the voltage of every frequency point
+by hand, all the way up to 1459.2 MHz. Changes apply after a reboot.
 
-Above 1190 MHz it reads past the end of the array. Checked against a live settings file:
-of the seven points involved, **five read zero**, and two pick up numbers from an
-entirely different table. That is not "random values", that is zero volts on the GPU rail.
-
-Unless you specifically need to edit every point by hand, do not use it.
+This used to carry a warning that anything above 1190 MHz was off limits. **That was
+wrong, and it was removed on 2026-09-04.** Reading the firmware showed it walks all
+thirty-one rows of the table, not twenty-four: 1190.4 MHz is where the internal voltage
+array ends, not where the frequency ceiling is. Until that day the tuner simply did not
+offer the top seven points, so they kept whatever another table had left there — which is
+exactly the "zero volts" the old warning described. They are now filled like any other
+point.
 
 ## On Erista it all works differently
 

@@ -3,9 +3,9 @@
     "title": "Эталон сброса к заводским значениям",
     "source": "atmosphere/kips/kip-json/Default.json из поставки 4IFIR",
     "generated_by": "scripts/make-factory-defaults.mjs",
-    "fields": 67,
+    "fields": 74,
     "why": "Заводское значение задаётся здесь, а не меткой «Default» в словаре меню: что предлагать пользователю и что считать заводским — разные вопросы.",
-    "not_covered": "Кривые напряжений GPU (Mariko 88…180, Erista 5424…6992) в снимке отсутствуют, поэтому сбросом не затрагиваются.",
+    "not_covered": "Кривые напряжений GPU (Mariko 88…180, Erista 5424…6992) в снимке отсутствуют, поэтому сбросом не затрагиваются. Исключение — 184…208: это верхние семь точек кривой Mariko и одновременно строка 0 таблицы CPU Erista, их сброс возвращает к заводскому на обеих ревизиях.",
     "overrides": [
       {
         "offset": 12460,
@@ -25,6 +25,48 @@
         "offset": 24,
         "value": "000000",
         "why": "eristaEmcMaxClock — частота памяти на Erista; в снимке строки нет",
+        "source": "живой loader.kip"
+      },
+      {
+        "offset": 184,
+        "value": "C03906",
+        "why": "eristaCpuDvfsTable[0] freq lo — она же 1228,8 МГц кривой GPU Mariko",
+        "source": "живой loader.kip"
+      },
+      {
+        "offset": 188,
+        "value": "000000",
+        "why": "eristaCpuDvfsTable[0] freq hi — она же 1267,2 МГц",
+        "source": "живой loader.kip"
+      },
+      {
+        "offset": 192,
+        "value": "2A020C",
+        "why": "eristaCpuDvfsTable[0] dfll c0 — она же 1305,6 МГц",
+        "source": "живой loader.kip"
+      },
+      {
+        "offset": 196,
+        "value": "000000",
+        "why": "eristaCpuDvfsTable[0] dfll c1 — она же 1344,0 МГц",
+        "source": "живой loader.kip"
+      },
+      {
+        "offset": 200,
+        "value": "000000",
+        "why": "eristaCpuDvfsTable[0] dfll c2 — она же 1382,4 МГц",
+        "source": "живой loader.kip"
+      },
+      {
+        "offset": 204,
+        "value": "000000",
+        "why": "eristaCpuDvfsTable[0] dfll c3 — она же 1420,8 МГц",
+        "source": "живой loader.kip"
+      },
+      {
+        "offset": 208,
+        "value": "000000",
+        "why": "eristaCpuDvfsTable[0] dfll c4 — она же 1459,2 МГц",
         "source": "живой loader.kip"
       },
       {
@@ -61,6 +103,13 @@
     "76": "010000",
     "80": "010000",
     "84": "010000",
+    "184": "C03906",
+    "188": "000000",
+    "192": "2A020C",
+    "196": "000000",
+    "200": "000000",
+    "204": "000000",
+    "208": "000000",
     "12336": "000000",
     "12340": "000000",
     "12344": "000000",

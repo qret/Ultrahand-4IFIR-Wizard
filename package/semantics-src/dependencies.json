@@ -302,71 +302,6 @@
     "_why": "Offsets that both packages (and our package/dist/boot_package.ini) expose as fields but which are not fields. The generator MUST discard them.",
     "items": [
       {
-        "offset": 184,
-        "claimed_as": "gpu_curve_mariko / 1228MHz",
-        "actually": "eristaCpuDvfsTable[0].freq",
-        "kip_value": 408000,
-        "danger": "critical",
-        "why": "FACT: marikoGpuVoltArray has exactly 24 elements and ends at offset 180. A write here changes the frequency of the first step of the Erista CPU DVFS. On Mariko it is harmless (the table is not read), on Erista it is a potential brick.",
-        "confidence": "fact",
-        "evidence": "customize.cpp:95 (24 elements) + loader.kip CUST+184 = 408000 = customize.cpp:98 + Ebal kipBackup/default.ini:25 (1228MGPV3=C03906 = 408000)"
-      },
-      {
-        "offset": 188,
-        "claimed_as": "gpu_curve_mariko / 1267MHz",
-        "actually": "eristaCpuDvfsTable[0], a field inside the cvb structure",
-        "kip_value": 0,
-        "danger": "critical",
-        "confidence": "fact",
-        "evidence": "customize.cpp:95 + loader.kip"
-      },
-      {
-        "offset": 192,
-        "claimed_as": "gpu_curve_mariko / 1305MHz",
-        "actually": "eristaCpuDvfsTable[0].cvb_dfll_param.c0",
-        "kip_value": 786986,
-        "danger": "critical",
-        "why": "FACT: Ebal kipBackup/default.ini:27 saved 1305MGPV3=2A020C = 786986 — this is exactly customize.cpp:98 { 408000, { 786986 }, {} }. A third independent confirmation.",
-        "confidence": "fact",
-        "evidence": "customize.cpp:95,98 + loader.kip CUST+192 = 786986 + Ebal kipBackup/default.ini:27"
-      },
-      {
-        "offset": 196,
-        "claimed_as": "gpu_curve_mariko / 1344MHz",
-        "actually": "eristaCpuDvfsTable[0]",
-        "kip_value": 0,
-        "danger": "critical",
-        "confidence": "fact",
-        "evidence": "customize.cpp:95 + loader.kip"
-      },
-      {
-        "offset": 200,
-        "claimed_as": "gpu_curve_mariko / 1382MHz",
-        "actually": "eristaCpuDvfsTable[0]",
-        "kip_value": 0,
-        "danger": "critical",
-        "confidence": "fact",
-        "evidence": "customize.cpp:95 + loader.kip"
-      },
-      {
-        "offset": 204,
-        "claimed_as": "gpu_curve_mariko / 1420MHz",
-        "actually": "eristaCpuDvfsTable[0]",
-        "kip_value": 0,
-        "danger": "critical",
-        "confidence": "fact",
-        "evidence": "customize.cpp:95 + loader.kip"
-      },
-      {
-        "offset": 208,
-        "claimed_as": "gpu_curve_mariko / MAX MHz",
-        "actually": "eristaCpuDvfsTable[0]",
-        "kip_value": 0,
-        "danger": "critical",
-        "confidence": "fact",
-        "evidence": "customize.cpp:95 + loader.kip"
-      },
-      {
         "offset": 170,
         "claimed_as": "Backup/1113E (Ebal only)",
         "actually": "the middle of the element marikoGpuVoltArray[20] (offset 168) — not aligned",
@@ -381,7 +316,8 @@
       "fields_json": "FIXED: 184…208 have been renamed to eristaCpuDvfsTable[0..6] and excluded from the gpu_curve_mariko series — the series has exactly 24 points, 88…180. Offset 170 is marked with the backup/restore roles and is not exposed in the menu.",
       "dist": "CLEAN: package/dist/ contains no reference to 170 or to 184…208 (verified with grep over both write forms — hex_file(CUST,N,..) and hex-by-custom-offset CUST N).",
       "remaining_risk": "184…204 have kept the backup/menu/preset/restore roles in fields.json, and 208 has menu. If the generator ever starts expanding the menu/preset roles automatically, the bug will come back. Keep invalid_offsets as a hard blacklist at the generator input rather than relying on the absence of a series."
-    }
+    },
+    "note": "ВАЖНО, 04.09.2026: смещения 184…208 ИСКЛЮЧЕНЫ из этого списка. Прежде они значились запрещёнными с пометкой «доноры пишут сюда по ошибке» — вывод оказался неверным. Разбор кода прошивки (цикл vaddr 0x14F68) показал, что в режиме Custom Table прошивка читает их как верхние семь точек кривой GPU: цикл идёт по 31 строке таблицы, а массив напряжений объявлен на 24. На Mariko это законные точки, на Erista — первая строка таблицы CPU. Поэтому теперь они помечены platform=mariko, а не запрещены, и их стережёт проверка №36."
   },
   "switches": [
     {

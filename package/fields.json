@@ -14884,9 +14884,9 @@
       "length": 3,
       "write_kind": "hex",
       "units": "mV",
-      "name": "eristaCpuDvfsTable[0]",
-      "platform": "both",
-      "series": null,
+      "name": "1228MHz",
+      "platform": "mariko",
+      "series": "gpu_curve_mariko",
       "side_write": false,
       "roles": [
         "backup",
@@ -14910,171 +14910,195 @@
       "confidence": "high",
       "values": [
         {
-          "hex": "BC0200",
-          "name": "700mV"
+          "name": "670 mV",
+          "hex": "9E0200"
         },
         {
-          "hex": "C10200",
-          "name": "705mV"
+          "name": "675 mV",
+          "hex": "A30200"
         },
         {
-          "hex": "C60200",
-          "name": "710mV"
+          "name": "680 mV",
+          "hex": "A80200"
         },
         {
-          "hex": "CB0200",
-          "name": "715mV"
+          "name": "685 mV",
+          "hex": "AD0200"
         },
         {
-          "hex": "D00200",
-          "name": "720mV"
+          "name": "690 mV",
+          "hex": "B20200"
         },
         {
-          "hex": "D50200",
-          "name": "725mV"
+          "name": "695 mV",
+          "hex": "B70200"
         },
         {
-          "hex": "DA0200",
-          "name": "730mV"
+          "name": "700 mV",
+          "hex": "BC0200"
         },
         {
-          "hex": "DF0200",
-          "name": "735mV"
+          "name": "705 mV",
+          "hex": "C10200"
         },
         {
-          "hex": "E40200",
-          "name": "740mV"
+          "name": "710 mV",
+          "hex": "C60200"
         },
         {
-          "hex": "E90200",
-          "name": "745mV"
+          "name": "715 mV",
+          "hex": "CB0200"
         },
         {
-          "hex": "EE0200",
-          "name": "750mV"
+          "name": "720 mV",
+          "hex": "D00200"
         },
         {
-          "hex": "F30200",
-          "name": "755mV"
+          "name": "725 mV",
+          "hex": "D50200"
         },
         {
-          "hex": "F80200",
-          "name": "760mV"
+          "name": "730 mV",
+          "hex": "DA0200"
         },
         {
-          "hex": "FD0200",
-          "name": "765mV"
+          "name": "735 mV",
+          "hex": "DF0200"
         },
         {
-          "hex": "020300",
-          "name": "770mV"
+          "name": "740 mV",
+          "hex": "E40200"
         },
         {
-          "hex": "070300",
-          "name": "775mV"
+          "name": "745 mV",
+          "hex": "E90200"
         },
         {
-          "hex": "0C0300",
-          "name": "780mV"
+          "name": "750 mV",
+          "hex": "EE0200"
         },
         {
-          "hex": "110300",
-          "name": "785mV"
+          "name": "755 mV",
+          "hex": "F30200"
         },
         {
-          "hex": "160300",
-          "name": "790mV"
+          "name": "760 mV",
+          "hex": "F80200"
         },
         {
-          "hex": "1B0300",
-          "name": "795mV"
+          "name": "765 mV",
+          "hex": "FD0200"
         },
         {
-          "hex": "200300",
-          "name": "800mV"
+          "name": "770 mV",
+          "hex": "020300"
         },
         {
-          "hex": "250300",
-          "name": "805mV"
+          "name": "775 mV",
+          "hex": "070300"
         },
         {
-          "hex": "2A0300",
-          "name": "810mV"
+          "name": "780 mV",
+          "hex": "0C0300"
         },
         {
-          "hex": "2F0300",
-          "name": "815mV"
+          "name": "785 mV — Default",
+          "hex": "110300"
         },
         {
-          "hex": "340300",
-          "name": "820mV"
+          "name": "790 mV",
+          "hex": "160300"
         },
         {
-          "hex": "390300",
-          "name": "825mV"
+          "name": "795 mV",
+          "hex": "1B0300"
         },
         {
-          "hex": "3E0300",
-          "name": "830mV"
+          "name": "800 mV",
+          "hex": "200300"
         },
         {
-          "hex": "430300",
-          "name": "835mV"
+          "name": "805 mV",
+          "hex": "250300"
         },
         {
-          "hex": "480300",
-          "name": "840mV"
+          "name": "810 mV",
+          "hex": "2A0300"
         },
         {
-          "hex": "4D0300",
-          "name": "845mV"
+          "name": "815 mV",
+          "hex": "2F0300"
         },
         {
-          "hex": "520300",
-          "name": "850mV"
+          "name": "820 mV",
+          "hex": "340300"
         },
         {
-          "hex": "570300",
-          "name": "855mV"
+          "name": "825 mV",
+          "hex": "390300"
         },
         {
-          "hex": "5C0300",
-          "name": "860mV"
+          "name": "830 mV",
+          "hex": "3E0300"
         },
         {
-          "hex": "610300",
-          "name": "865mV"
+          "name": "835 mV",
+          "hex": "430300"
         },
         {
-          "hex": "660300",
-          "name": "870mV"
+          "name": "840 mV",
+          "hex": "480300"
         },
         {
-          "hex": "6B0300",
-          "name": "875mV"
+          "name": "845 mV",
+          "hex": "4D0300"
         },
         {
-          "hex": "700300",
-          "name": "880mV"
+          "name": "850 mV",
+          "hex": "520300"
         },
         {
-          "hex": "750300",
-          "name": "885mV"
+          "name": "855 mV",
+          "hex": "570300"
         },
         {
-          "hex": "7A0300",
-          "name": "890mV"
+          "name": "860 mV",
+          "hex": "5C0300"
         },
         {
-          "hex": "7F0300",
-          "name": "895mV"
+          "name": "865 mV",
+          "hex": "610300"
         },
         {
-          "hex": "840300",
-          "name": "900mV"
+          "name": "870 mV",
+          "hex": "660300"
+        },
+        {
+          "name": "875 mV",
+          "hex": "6B0300"
+        },
+        {
+          "name": "880 mV",
+          "hex": "700300"
+        },
+        {
+          "name": "885 mV",
+          "hex": "750300"
+        },
+        {
+          "name": "890 mV",
+          "hex": "7A0300"
+        },
+        {
+          "name": "895 mV",
+          "hex": "7F0300"
+        },
+        {
+          "name": "900 mV",
+          "hex": "840300"
         }
       ],
-      "help_text": null,
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 1228MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -15153,18 +15177,21 @@
           }
         ]
       },
-      "danger": "NOT the GPU curve: this is the Erista CPU frequency table. Both original packages write here by mistake",
-      "exclude_from_menu": true,
-      "source_of_truth": "customize.cpp"
+      "danger": "ДВОЙНОЕ ДНО: на Mariko это строка 24 кривой напряжений GPU (1228MHz), на Erista — часть строки 0 таблицы CPU. Выдавать ТОЛЬКО на Mariko.",
+      "source_of_truth": "customize.cpp + разбор кода прошивки 04.09.2026",
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip",
+      "default_label_note": "Заводской байт здесь — НЕ напряжение. Это часть строки 0 таблицы CPU Erista: 408000, 786986 и нули. На Mariko прошивка подала бы их на видеоядро как 408 В, 787 В и четыре нуля — то есть заводское состояние этой строки неисправно. Поэтому «Default» помечает напряжение самой ST1, то, что стоит в строке, пока её не перекрыли массивом. Сброс к заводским возвращает именно БАЙТ, а не эту метку: его задача — вылечить Erista, а не выставить разумное на Mariko.",
+      "factory_not_a_value": "Заводское содержимое этой ячейки — не напряжение, а часть первой строки таблицы CPU Erista (408000 / 786986 / нули). Назвать его милливольтами нельзя. На Mariko прошивка читает эти байты как точку кривой, поэтому поле выдаётся, но заводское состояние тут неисправно, а не «непрописано».",
+      "factory_reset_both": "Выдаётся только на Mariko, но сбрасывается на обеих ревизиях: на Erista эти байты — первая строка таблицы CPU, и вернуть их к заводскому больше нечем."
     },
     {
       "offset": 188,
       "length": 3,
       "write_kind": "hex",
       "units": "mV",
-      "name": "eristaCpuDvfsTable[1]",
-      "platform": "both",
-      "series": null,
+      "name": "1267MHz",
+      "platform": "mariko",
+      "series": "gpu_curve_mariko",
       "side_write": false,
       "roles": [
         "backup",
@@ -15188,171 +15215,183 @@
       "confidence": "high",
       "values": [
         {
-          "hex": "BC0200",
-          "name": "700mV"
+          "name": "685 mV",
+          "hex": "AD0200"
         },
         {
-          "hex": "C10200",
-          "name": "705mV"
+          "name": "690 mV",
+          "hex": "B20200"
         },
         {
-          "hex": "C60200",
-          "name": "710mV"
+          "name": "695 mV",
+          "hex": "B70200"
         },
         {
-          "hex": "CB0200",
-          "name": "715mV"
+          "name": "700 mV",
+          "hex": "BC0200"
         },
         {
-          "hex": "D00200",
-          "name": "720mV"
+          "name": "705 mV",
+          "hex": "C10200"
         },
         {
-          "hex": "D50200",
-          "name": "725mV"
+          "name": "710 mV",
+          "hex": "C60200"
         },
         {
-          "hex": "DA0200",
-          "name": "730mV"
+          "name": "715 mV",
+          "hex": "CB0200"
         },
         {
-          "hex": "DF0200",
-          "name": "735mV"
+          "name": "720 mV",
+          "hex": "D00200"
         },
         {
-          "hex": "E40200",
-          "name": "740mV"
+          "name": "725 mV",
+          "hex": "D50200"
         },
         {
-          "hex": "E90200",
-          "name": "745mV"
+          "name": "730 mV",
+          "hex": "DA0200"
         },
         {
-          "hex": "EE0200",
-          "name": "750mV"
+          "name": "735 mV",
+          "hex": "DF0200"
         },
         {
-          "hex": "F30200",
-          "name": "755mV"
+          "name": "740 mV",
+          "hex": "E40200"
         },
         {
-          "hex": "F80200",
-          "name": "760mV"
+          "name": "745 mV",
+          "hex": "E90200"
         },
         {
-          "hex": "FD0200",
-          "name": "765mV"
+          "name": "750 mV",
+          "hex": "EE0200"
         },
         {
-          "hex": "020300",
-          "name": "770mV"
+          "name": "755 mV",
+          "hex": "F30200"
         },
         {
-          "hex": "070300",
-          "name": "775mV"
+          "name": "760 mV",
+          "hex": "F80200"
         },
         {
-          "hex": "0C0300",
-          "name": "780mV"
+          "name": "765 mV",
+          "hex": "FD0200"
         },
         {
-          "hex": "110300",
-          "name": "785mV"
+          "name": "770 mV",
+          "hex": "020300"
         },
         {
-          "hex": "160300",
-          "name": "790mV"
+          "name": "775 mV",
+          "hex": "070300"
         },
         {
-          "hex": "1B0300",
-          "name": "795mV"
+          "name": "780 mV",
+          "hex": "0C0300"
         },
         {
-          "hex": "200300",
-          "name": "800mV"
+          "name": "785 mV",
+          "hex": "110300"
         },
         {
-          "hex": "250300",
-          "name": "805mV"
+          "name": "790 mV",
+          "hex": "160300"
         },
         {
-          "hex": "2A0300",
-          "name": "810mV"
+          "name": "795 mV",
+          "hex": "1B0300"
         },
         {
-          "hex": "2F0300",
-          "name": "815mV"
+          "name": "800 mV",
+          "hex": "200300"
         },
         {
-          "hex": "340300",
-          "name": "820mV"
+          "name": "805 mV",
+          "hex": "250300"
         },
         {
-          "hex": "390300",
-          "name": "825mV"
+          "name": "810 mV",
+          "hex": "2A0300"
         },
         {
-          "hex": "3E0300",
-          "name": "830mV"
+          "name": "815 mV — Default",
+          "hex": "2F0300"
         },
         {
-          "hex": "430300",
-          "name": "835mV"
+          "name": "820 mV",
+          "hex": "340300"
         },
         {
-          "hex": "480300",
-          "name": "840mV"
+          "name": "825 mV",
+          "hex": "390300"
         },
         {
-          "hex": "4D0300",
-          "name": "845mV"
+          "name": "830 mV",
+          "hex": "3E0300"
         },
         {
-          "hex": "520300",
-          "name": "850mV"
+          "name": "835 mV",
+          "hex": "430300"
         },
         {
-          "hex": "570300",
-          "name": "855mV"
+          "name": "840 mV",
+          "hex": "480300"
         },
         {
-          "hex": "5C0300",
-          "name": "860mV"
+          "name": "845 mV",
+          "hex": "4D0300"
         },
         {
-          "hex": "610300",
-          "name": "865mV"
+          "name": "850 mV",
+          "hex": "520300"
         },
         {
-          "hex": "660300",
-          "name": "870mV"
+          "name": "855 mV",
+          "hex": "570300"
         },
         {
-          "hex": "6B0300",
-          "name": "875mV"
+          "name": "860 mV",
+          "hex": "5C0300"
         },
         {
-          "hex": "700300",
-          "name": "880mV"
+          "name": "865 mV",
+          "hex": "610300"
         },
         {
-          "hex": "750300",
-          "name": "885mV"
+          "name": "870 mV",
+          "hex": "660300"
         },
         {
-          "hex": "7A0300",
-          "name": "890mV"
+          "name": "875 mV",
+          "hex": "6B0300"
         },
         {
-          "hex": "7F0300",
-          "name": "895mV"
+          "name": "880 mV",
+          "hex": "700300"
         },
         {
-          "hex": "840300",
-          "name": "900mV"
+          "name": "885 mV",
+          "hex": "750300"
+        },
+        {
+          "name": "890 mV",
+          "hex": "7A0300"
+        },
+        {
+          "name": "895 mV",
+          "hex": "7F0300"
+        },
+        {
+          "name": "900 mV",
+          "hex": "840300"
         }
       ],
-      "help_text": null,
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 1267MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -15431,18 +15470,21 @@
           }
         ]
       },
-      "danger": "NOT the GPU curve",
-      "exclude_from_menu": true,
-      "source_of_truth": "customize.cpp"
+      "danger": "ДВОЙНОЕ ДНО: на Mariko это строка 25 кривой напряжений GPU (1267MHz), на Erista — часть строки 0 таблицы CPU. Выдавать ТОЛЬКО на Mariko.",
+      "source_of_truth": "customize.cpp + разбор кода прошивки 04.09.2026",
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip",
+      "default_label_note": "Заводской байт здесь — НЕ напряжение. Это часть строки 0 таблицы CPU Erista: 408000, 786986 и нули. На Mariko прошивка подала бы их на видеоядро как 408 В, 787 В и четыре нуля — то есть заводское состояние этой строки неисправно. Поэтому «Default» помечает напряжение самой ST1, то, что стоит в строке, пока её не перекрыли массивом. Сброс к заводским возвращает именно БАЙТ, а не эту метку: его задача — вылечить Erista, а не выставить разумное на Mariko.",
+      "factory_not_a_value": "Заводское содержимое этой ячейки — не напряжение, а часть первой строки таблицы CPU Erista (408000 / 786986 / нули). Назвать его милливольтами нельзя. На Mariko прошивка читает эти байты как точку кривой, поэтому поле выдаётся, но заводское состояние тут неисправно, а не «непрописано».",
+      "factory_reset_both": "Выдаётся только на Mariko, но сбрасывается на обеих ревизиях: на Erista эти байты — первая строка таблицы CPU, и вернуть их к заводскому больше нечем."
     },
     {
       "offset": 192,
       "length": 3,
       "write_kind": "hex",
       "units": "mV",
-      "name": "eristaCpuDvfsTable[2]",
-      "platform": "both",
-      "series": null,
+      "name": "1305MHz",
+      "platform": "mariko",
+      "series": "gpu_curve_mariko",
       "side_write": false,
       "roles": [
         "backup",
@@ -15466,171 +15508,187 @@
       "confidence": "high",
       "values": [
         {
-          "hex": "BC0200",
-          "name": "700mV"
+          "name": "700 mV",
+          "hex": "BC0200"
         },
         {
-          "hex": "C10200",
-          "name": "705mV"
+          "name": "705 mV",
+          "hex": "C10200"
         },
         {
-          "hex": "C60200",
-          "name": "710mV"
+          "name": "710 mV",
+          "hex": "C60200"
         },
         {
-          "hex": "CB0200",
-          "name": "715mV"
+          "name": "715 mV",
+          "hex": "CB0200"
         },
         {
-          "hex": "D00200",
-          "name": "720mV"
+          "name": "720 mV",
+          "hex": "D00200"
         },
         {
-          "hex": "D50200",
-          "name": "725mV"
+          "name": "725 mV",
+          "hex": "D50200"
         },
         {
-          "hex": "DA0200",
-          "name": "730mV"
+          "name": "730 mV",
+          "hex": "DA0200"
         },
         {
-          "hex": "DF0200",
-          "name": "735mV"
+          "name": "735 mV",
+          "hex": "DF0200"
         },
         {
-          "hex": "E40200",
-          "name": "740mV"
+          "name": "740 mV",
+          "hex": "E40200"
         },
         {
-          "hex": "E90200",
-          "name": "745mV"
+          "name": "745 mV",
+          "hex": "E90200"
         },
         {
-          "hex": "EE0200",
-          "name": "750mV"
+          "name": "750 mV",
+          "hex": "EE0200"
         },
         {
-          "hex": "F30200",
-          "name": "755mV"
+          "name": "755 mV",
+          "hex": "F30200"
         },
         {
-          "hex": "F80200",
-          "name": "760mV"
+          "name": "760 mV",
+          "hex": "F80200"
         },
         {
-          "hex": "FD0200",
-          "name": "765mV"
+          "name": "765 mV",
+          "hex": "FD0200"
         },
         {
-          "hex": "020300",
-          "name": "770mV"
+          "name": "770 mV",
+          "hex": "020300"
         },
         {
-          "hex": "070300",
-          "name": "775mV"
+          "name": "775 mV",
+          "hex": "070300"
         },
         {
-          "hex": "0C0300",
-          "name": "780mV"
+          "name": "780 mV",
+          "hex": "0C0300"
         },
         {
-          "hex": "110300",
-          "name": "785mV"
+          "name": "785 mV",
+          "hex": "110300"
         },
         {
-          "hex": "160300",
-          "name": "790mV"
+          "name": "790 mV",
+          "hex": "160300"
         },
         {
-          "hex": "1B0300",
-          "name": "795mV"
+          "name": "795 mV",
+          "hex": "1B0300"
         },
         {
-          "hex": "200300",
-          "name": "800mV"
+          "name": "800 mV",
+          "hex": "200300"
         },
         {
-          "hex": "250300",
-          "name": "805mV"
+          "name": "805 mV",
+          "hex": "250300"
         },
         {
-          "hex": "2A0300",
-          "name": "810mV"
+          "name": "810 mV",
+          "hex": "2A0300"
         },
         {
-          "hex": "2F0300",
-          "name": "815mV"
+          "name": "815 mV",
+          "hex": "2F0300"
         },
         {
-          "hex": "340300",
-          "name": "820mV"
+          "name": "820 mV",
+          "hex": "340300"
         },
         {
-          "hex": "390300",
-          "name": "825mV"
+          "name": "825 mV",
+          "hex": "390300"
         },
         {
-          "hex": "3E0300",
-          "name": "830mV"
+          "name": "830 mV",
+          "hex": "3E0300"
         },
         {
-          "hex": "430300",
-          "name": "835mV"
+          "name": "835 mV",
+          "hex": "430300"
         },
         {
-          "hex": "480300",
-          "name": "840mV"
+          "name": "840 mV",
+          "hex": "480300"
         },
         {
-          "hex": "4D0300",
-          "name": "845mV"
+          "name": "845 mV — Default",
+          "hex": "4D0300"
         },
         {
-          "hex": "520300",
-          "name": "850mV"
+          "name": "850 mV",
+          "hex": "520300"
         },
         {
-          "hex": "570300",
-          "name": "855mV"
+          "name": "855 mV",
+          "hex": "570300"
         },
         {
-          "hex": "5C0300",
-          "name": "860mV"
+          "name": "860 mV",
+          "hex": "5C0300"
         },
         {
-          "hex": "610300",
-          "name": "865mV"
+          "name": "865 mV",
+          "hex": "610300"
         },
         {
-          "hex": "660300",
-          "name": "870mV"
+          "name": "870 mV",
+          "hex": "660300"
         },
         {
-          "hex": "6B0300",
-          "name": "875mV"
+          "name": "875 mV",
+          "hex": "6B0300"
         },
         {
-          "hex": "700300",
-          "name": "880mV"
+          "name": "880 mV",
+          "hex": "700300"
         },
         {
-          "hex": "750300",
-          "name": "885mV"
+          "name": "885 mV",
+          "hex": "750300"
         },
         {
-          "hex": "7A0300",
-          "name": "890mV"
+          "name": "890 mV",
+          "hex": "7A0300"
         },
         {
-          "hex": "7F0300",
-          "name": "895mV"
+          "name": "895 mV",
+          "hex": "7F0300"
         },
         {
-          "hex": "840300",
-          "name": "900mV"
+          "name": "900 mV",
+          "hex": "840300"
+        },
+        {
+          "name": "905 mV",
+          "hex": "890300"
+        },
+        {
+          "name": "910 mV",
+          "hex": "8E0300"
+        },
+        {
+          "name": "915 mV",
+          "hex": "930300"
+        },
+        {
+          "name": "920 mV",
+          "hex": "980300"
         }
       ],
-      "help_text": null,
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 1305MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -15709,18 +15767,21 @@
           }
         ]
       },
-      "danger": "NOT the GPU curve",
-      "exclude_from_menu": true,
-      "source_of_truth": "customize.cpp"
+      "danger": "ДВОЙНОЕ ДНО: на Mariko это строка 26 кривой напряжений GPU (1305MHz), на Erista — часть строки 0 таблицы CPU. Выдавать ТОЛЬКО на Mariko.",
+      "source_of_truth": "customize.cpp + разбор кода прошивки 04.09.2026",
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip",
+      "default_label_note": "Заводской байт здесь — НЕ напряжение. Это часть строки 0 таблицы CPU Erista: 408000, 786986 и нули. На Mariko прошивка подала бы их на видеоядро как 408 В, 787 В и четыре нуля — то есть заводское состояние этой строки неисправно. Поэтому «Default» помечает напряжение самой ST1, то, что стоит в строке, пока её не перекрыли массивом. Сброс к заводским возвращает именно БАЙТ, а не эту метку: его задача — вылечить Erista, а не выставить разумное на Mariko.",
+      "factory_not_a_value": "Заводское содержимое этой ячейки — не напряжение, а часть первой строки таблицы CPU Erista (408000 / 786986 / нули). Назвать его милливольтами нельзя. На Mariko прошивка читает эти байты как точку кривой, поэтому поле выдаётся, но заводское состояние тут неисправно, а не «непрописано».",
+      "factory_reset_both": "Выдаётся только на Mariko, но сбрасывается на обеих ревизиях: на Erista эти байты — первая строка таблицы CPU, и вернуть их к заводскому больше нечем."
     },
     {
       "offset": 196,
       "length": 3,
       "write_kind": "hex",
       "units": "mV",
-      "name": "eristaCpuDvfsTable[3]",
-      "platform": "both",
-      "series": null,
+      "name": "1344MHz",
+      "platform": "mariko",
+      "series": "gpu_curve_mariko",
       "side_write": false,
       "roles": [
         "backup",
@@ -15744,195 +15805,231 @@
       "confidence": "high",
       "values": [
         {
-          "hex": "200300",
-          "name": "800mV"
+          "name": "725 mV",
+          "hex": "D50200"
         },
         {
-          "hex": "250300",
-          "name": "805mV"
+          "name": "730 mV",
+          "hex": "DA0200"
         },
         {
-          "hex": "2A0300",
-          "name": "810mV"
+          "name": "735 mV",
+          "hex": "DF0200"
         },
         {
-          "hex": "2F0300",
-          "name": "815mV"
+          "name": "740 mV",
+          "hex": "E40200"
         },
         {
-          "hex": "340300",
-          "name": "820mV"
+          "name": "745 mV",
+          "hex": "E90200"
         },
         {
-          "hex": "390300",
-          "name": "825mV"
+          "name": "750 mV",
+          "hex": "EE0200"
         },
         {
-          "hex": "3E0300",
-          "name": "830mV"
+          "name": "755 mV",
+          "hex": "F30200"
         },
         {
-          "hex": "430300",
-          "name": "835mV"
+          "name": "760 mV",
+          "hex": "F80200"
         },
         {
-          "hex": "480300",
-          "name": "840mV"
+          "name": "765 mV",
+          "hex": "FD0200"
         },
         {
-          "hex": "4D0300",
-          "name": "845mV"
+          "name": "770 mV",
+          "hex": "020300"
         },
         {
-          "hex": "520300",
-          "name": "850mV"
+          "name": "775 mV",
+          "hex": "070300"
         },
         {
-          "hex": "570300",
-          "name": "855mV"
+          "name": "780 mV",
+          "hex": "0C0300"
         },
         {
-          "hex": "5C0300",
-          "name": "860mV"
+          "name": "785 mV",
+          "hex": "110300"
         },
         {
-          "hex": "610300",
-          "name": "865mV"
+          "name": "790 mV",
+          "hex": "160300"
         },
         {
-          "hex": "660300",
-          "name": "870mV"
+          "name": "795 mV",
+          "hex": "1B0300"
         },
         {
-          "hex": "6B0300",
-          "name": "875mV"
+          "name": "800 mV",
+          "hex": "200300"
         },
         {
-          "hex": "700300",
-          "name": "880mV"
+          "name": "805 mV",
+          "hex": "250300"
         },
         {
-          "hex": "750300",
-          "name": "885mV"
+          "name": "810 mV",
+          "hex": "2A0300"
         },
         {
-          "hex": "7A0300",
-          "name": "890mV"
+          "name": "815 mV",
+          "hex": "2F0300"
         },
         {
-          "hex": "7F0300",
-          "name": "895mV"
+          "name": "820 mV",
+          "hex": "340300"
         },
         {
-          "hex": "840300",
-          "name": "900mV"
+          "name": "825 mV",
+          "hex": "390300"
         },
         {
-          "hex": "890300",
-          "name": "905mV"
+          "name": "830 mV",
+          "hex": "3E0300"
         },
         {
-          "hex": "8E0300",
-          "name": "910mV"
+          "name": "835 mV",
+          "hex": "430300"
         },
         {
-          "hex": "930300",
-          "name": "915mV"
+          "name": "840 mV",
+          "hex": "480300"
         },
         {
-          "hex": "980300",
-          "name": "920mV"
+          "name": "845 mV",
+          "hex": "4D0300"
         },
         {
-          "hex": "9D0300",
-          "name": "925mV"
+          "name": "850 mV",
+          "hex": "520300"
         },
         {
-          "hex": "A20300",
-          "name": "930mV"
+          "name": "855 mV",
+          "hex": "570300"
         },
         {
-          "hex": "A70300",
-          "name": "935mV"
+          "name": "860 mV",
+          "hex": "5C0300"
         },
         {
-          "hex": "AC0300",
-          "name": "940mV"
+          "name": "865 mV",
+          "hex": "610300"
         },
         {
-          "hex": "B10300",
-          "name": "945mV"
+          "name": "870 mV",
+          "hex": "660300"
         },
         {
-          "hex": "B60300",
-          "name": "950mV"
+          "name": "875 mV — Default",
+          "hex": "6B0300"
         },
         {
-          "hex": "BB0300",
-          "name": "955mV"
+          "name": "880 mV",
+          "hex": "700300"
         },
         {
-          "hex": "C00300",
-          "name": "960mV"
+          "name": "885 mV",
+          "hex": "750300"
         },
         {
-          "hex": "C50300",
-          "name": "965mV"
+          "name": "890 mV",
+          "hex": "7A0300"
         },
         {
-          "hex": "CA0300",
-          "name": "970mV"
+          "name": "895 mV",
+          "hex": "7F0300"
         },
         {
-          "hex": "CF0300",
-          "name": "975mV"
+          "name": "900 mV",
+          "hex": "840300"
         },
         {
-          "hex": "D40300",
-          "name": "980mV"
+          "name": "905 mV",
+          "hex": "890300"
         },
         {
-          "hex": "D90300",
-          "name": "985mV"
+          "name": "910 mV",
+          "hex": "8E0300"
         },
         {
-          "hex": "DE0300",
-          "name": "990mV"
+          "name": "915 mV",
+          "hex": "930300"
         },
         {
-          "hex": "E30300",
-          "name": "995mV"
+          "name": "920 mV",
+          "hex": "980300"
         },
         {
-          "hex": "E80300",
-          "name": "1000mV"
+          "name": "925 mV",
+          "hex": "9D0300"
         },
         {
-          "hex": "020300",
-          "name": "770mV"
+          "name": "930 mV",
+          "hex": "A20300"
         },
         {
-          "hex": "070300",
-          "name": "775mV"
+          "name": "935 mV",
+          "hex": "A70300"
         },
         {
-          "hex": "0C0300",
-          "name": "780mV"
+          "name": "940 mV",
+          "hex": "AC0300"
         },
         {
-          "hex": "110300",
-          "name": "785mV"
+          "name": "945 mV",
+          "hex": "B10300"
         },
         {
-          "hex": "160300",
-          "name": "790mV"
+          "name": "950 mV",
+          "hex": "B60300"
         },
         {
-          "hex": "1B0300",
-          "name": "795mV"
+          "name": "955 mV",
+          "hex": "BB0300"
+        },
+        {
+          "name": "960 mV",
+          "hex": "C00300"
+        },
+        {
+          "name": "965 mV",
+          "hex": "C50300"
+        },
+        {
+          "name": "970 mV",
+          "hex": "CA0300"
+        },
+        {
+          "name": "975 mV",
+          "hex": "CF0300"
+        },
+        {
+          "name": "980 mV",
+          "hex": "D40300"
+        },
+        {
+          "name": "985 mV",
+          "hex": "D90300"
+        },
+        {
+          "name": "990 mV",
+          "hex": "DE0300"
+        },
+        {
+          "name": "995 mV",
+          "hex": "E30300"
+        },
+        {
+          "name": "1000 mV",
+          "hex": "E80300"
         }
       ],
-      "help_text": null,
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 1344MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -16011,18 +16108,21 @@
           }
         ]
       },
-      "danger": "NOT the GPU curve",
-      "exclude_from_menu": true,
-      "source_of_truth": "customize.cpp"
+      "danger": "ДВОЙНОЕ ДНО: на Mariko это строка 27 кривой напряжений GPU (1344MHz), на Erista — часть строки 0 таблицы CPU. Выдавать ТОЛЬКО на Mariko.",
+      "source_of_truth": "customize.cpp + разбор кода прошивки 04.09.2026",
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip",
+      "default_label_note": "Заводской байт здесь — НЕ напряжение. Это часть строки 0 таблицы CPU Erista: 408000, 786986 и нули. На Mariko прошивка подала бы их на видеоядро как 408 В, 787 В и четыре нуля — то есть заводское состояние этой строки неисправно. Поэтому «Default» помечает напряжение самой ST1, то, что стоит в строке, пока её не перекрыли массивом. Сброс к заводским возвращает именно БАЙТ, а не эту метку: его задача — вылечить Erista, а не выставить разумное на Mariko.",
+      "factory_not_a_value": "Заводское содержимое этой ячейки — не напряжение, а часть первой строки таблицы CPU Erista (408000 / 786986 / нули). Назвать его милливольтами нельзя. На Mariko прошивка читает эти байты как точку кривой, поэтому поле выдаётся, но заводское состояние тут неисправно, а не «непрописано».",
+      "factory_reset_both": "Выдаётся только на Mariko, но сбрасывается на обеих ревизиях: на Erista эти байты — первая строка таблицы CPU, и вернуть их к заводскому больше нечем."
     },
     {
       "offset": 200,
       "length": 3,
       "write_kind": "hex",
       "units": "mV",
-      "name": "eristaCpuDvfsTable[4]",
-      "platform": "both",
-      "series": null,
+      "name": "1382MHz",
+      "platform": "mariko",
+      "series": "gpu_curve_mariko",
       "side_write": false,
       "roles": [
         "backup",
@@ -16046,195 +16146,211 @@
       "confidence": "high",
       "values": [
         {
-          "hex": "200300",
-          "name": "800mV"
+          "name": "750 mV",
+          "hex": "EE0200"
         },
         {
-          "hex": "250300",
-          "name": "805mV"
+          "name": "755 mV",
+          "hex": "F30200"
         },
         {
-          "hex": "2A0300",
-          "name": "810mV"
+          "name": "760 mV",
+          "hex": "F80200"
         },
         {
-          "hex": "2F0300",
-          "name": "815mV"
+          "name": "765 mV",
+          "hex": "FD0200"
         },
         {
-          "hex": "340300",
-          "name": "820mV"
+          "name": "770 mV",
+          "hex": "020300"
         },
         {
-          "hex": "390300",
-          "name": "825mV"
+          "name": "775 mV",
+          "hex": "070300"
         },
         {
-          "hex": "3E0300",
-          "name": "830mV"
+          "name": "780 mV",
+          "hex": "0C0300"
         },
         {
-          "hex": "430300",
-          "name": "835mV"
+          "name": "785 mV",
+          "hex": "110300"
         },
         {
-          "hex": "480300",
-          "name": "840mV"
+          "name": "790 mV",
+          "hex": "160300"
         },
         {
-          "hex": "4D0300",
-          "name": "845mV"
+          "name": "795 mV",
+          "hex": "1B0300"
         },
         {
-          "hex": "520300",
-          "name": "850mV"
+          "name": "800 mV",
+          "hex": "200300"
         },
         {
-          "hex": "570300",
-          "name": "855mV"
+          "name": "805 mV",
+          "hex": "250300"
         },
         {
-          "hex": "5C0300",
-          "name": "860mV"
+          "name": "810 mV",
+          "hex": "2A0300"
         },
         {
-          "hex": "610300",
-          "name": "865mV"
+          "name": "815 mV",
+          "hex": "2F0300"
         },
         {
-          "hex": "660300",
-          "name": "870mV"
+          "name": "820 mV",
+          "hex": "340300"
         },
         {
-          "hex": "6B0300",
-          "name": "875mV"
+          "name": "825 mV",
+          "hex": "390300"
         },
         {
-          "hex": "700300",
-          "name": "880mV"
+          "name": "830 mV",
+          "hex": "3E0300"
         },
         {
-          "hex": "750300",
-          "name": "885mV"
+          "name": "835 mV",
+          "hex": "430300"
         },
         {
-          "hex": "7A0300",
-          "name": "890mV"
+          "name": "840 mV",
+          "hex": "480300"
         },
         {
-          "hex": "7F0300",
-          "name": "895mV"
+          "name": "845 mV",
+          "hex": "4D0300"
         },
         {
-          "hex": "840300",
-          "name": "900mV"
+          "name": "850 mV",
+          "hex": "520300"
         },
         {
-          "hex": "890300",
-          "name": "905mV"
+          "name": "855 mV",
+          "hex": "570300"
         },
         {
-          "hex": "8E0300",
-          "name": "910mV"
+          "name": "860 mV",
+          "hex": "5C0300"
         },
         {
-          "hex": "930300",
-          "name": "915mV"
+          "name": "865 mV",
+          "hex": "610300"
         },
         {
-          "hex": "980300",
-          "name": "920mV"
+          "name": "870 mV",
+          "hex": "660300"
         },
         {
-          "hex": "9D0300",
-          "name": "925mV"
+          "name": "875 mV",
+          "hex": "6B0300"
         },
         {
-          "hex": "A20300",
-          "name": "930mV"
+          "name": "880 mV",
+          "hex": "700300"
         },
         {
-          "hex": "A70300",
-          "name": "935mV"
+          "name": "885 mV",
+          "hex": "750300"
         },
         {
-          "hex": "AC0300",
-          "name": "940mV"
+          "name": "890 mV",
+          "hex": "7A0300"
         },
         {
-          "hex": "B10300",
-          "name": "945mV"
+          "name": "895 mV",
+          "hex": "7F0300"
         },
         {
-          "hex": "B60300",
-          "name": "950mV"
+          "name": "900 mV",
+          "hex": "840300"
         },
         {
-          "hex": "BB0300",
-          "name": "955mV"
+          "name": "905 mV — Default",
+          "hex": "890300"
         },
         {
-          "hex": "C00300",
-          "name": "960mV"
+          "name": "910 mV",
+          "hex": "8E0300"
         },
         {
-          "hex": "C50300",
-          "name": "965mV"
+          "name": "915 mV",
+          "hex": "930300"
         },
         {
-          "hex": "CA0300",
-          "name": "970mV"
+          "name": "920 mV",
+          "hex": "980300"
         },
         {
-          "hex": "CF0300",
-          "name": "975mV"
+          "name": "925 mV",
+          "hex": "9D0300"
         },
         {
-          "hex": "D40300",
-          "name": "980mV"
+          "name": "930 mV",
+          "hex": "A20300"
         },
         {
-          "hex": "D90300",
-          "name": "985mV"
+          "name": "935 mV",
+          "hex": "A70300"
         },
         {
-          "hex": "DE0300",
-          "name": "990mV"
+          "name": "940 mV",
+          "hex": "AC0300"
         },
         {
-          "hex": "E30300",
-          "name": "995mV"
+          "name": "945 mV",
+          "hex": "B10300"
         },
         {
-          "hex": "E80300",
-          "name": "1000mV"
+          "name": "950 mV",
+          "hex": "B60300"
         },
         {
-          "hex": "020300",
-          "name": "770mV"
+          "name": "955 mV",
+          "hex": "BB0300"
         },
         {
-          "hex": "070300",
-          "name": "775mV"
+          "name": "960 mV",
+          "hex": "C00300"
         },
         {
-          "hex": "0C0300",
-          "name": "780mV"
+          "name": "965 mV",
+          "hex": "C50300"
         },
         {
-          "hex": "110300",
-          "name": "785mV"
+          "name": "970 mV",
+          "hex": "CA0300"
         },
         {
-          "hex": "160300",
-          "name": "790mV"
+          "name": "975 mV",
+          "hex": "CF0300"
         },
         {
-          "hex": "1B0300",
-          "name": "795mV"
+          "name": "980 mV",
+          "hex": "D40300"
+        },
+        {
+          "name": "985 mV",
+          "hex": "D90300"
+        },
+        {
+          "name": "990 mV",
+          "hex": "DE0300"
+        },
+        {
+          "name": "995 mV",
+          "hex": "E30300"
+        },
+        {
+          "name": "1000 mV",
+          "hex": "E80300"
         }
       ],
-      "help_text": null,
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 1382MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -16313,18 +16429,21 @@
           }
         ]
       },
-      "danger": "NOT the GPU curve",
-      "exclude_from_menu": true,
-      "source_of_truth": "customize.cpp"
+      "danger": "ДВОЙНОЕ ДНО: на Mariko это строка 28 кривой напряжений GPU (1382MHz), на Erista — часть строки 0 таблицы CPU. Выдавать ТОЛЬКО на Mariko.",
+      "source_of_truth": "customize.cpp + разбор кода прошивки 04.09.2026",
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip",
+      "default_label_note": "Заводской байт здесь — НЕ напряжение. Это часть строки 0 таблицы CPU Erista: 408000, 786986 и нули. На Mariko прошивка подала бы их на видеоядро как 408 В, 787 В и четыре нуля — то есть заводское состояние этой строки неисправно. Поэтому «Default» помечает напряжение самой ST1, то, что стоит в строке, пока её не перекрыли массивом. Сброс к заводским возвращает именно БАЙТ, а не эту метку: его задача — вылечить Erista, а не выставить разумное на Mariko.",
+      "factory_not_a_value": "Заводское содержимое этой ячейки — не напряжение, а часть первой строки таблицы CPU Erista (408000 / 786986 / нули). Назвать его милливольтами нельзя. На Mariko прошивка читает эти байты как точку кривой, поэтому поле выдаётся, но заводское состояние тут неисправно, а не «непрописано».",
+      "factory_reset_both": "Выдаётся только на Mariko, но сбрасывается на обеих ревизиях: на Erista эти байты — первая строка таблицы CPU, и вернуть их к заводскому больше нечем."
     },
     {
       "offset": 204,
       "length": 3,
       "write_kind": "hex",
       "units": "mV",
-      "name": "eristaCpuDvfsTable[5]",
-      "platform": "both",
-      "series": null,
+      "name": "1420MHz",
+      "platform": "mariko",
+      "series": "gpu_curve_mariko",
       "side_write": false,
       "roles": [
         "backup",
@@ -16348,195 +16467,191 @@
       "confidence": "high",
       "values": [
         {
-          "hex": "200300",
-          "name": "800mV"
+          "name": "775 mV",
+          "hex": "070300"
         },
         {
-          "hex": "250300",
-          "name": "805mV"
+          "name": "780 mV",
+          "hex": "0C0300"
         },
         {
-          "hex": "2A0300",
-          "name": "810mV"
+          "name": "785 mV",
+          "hex": "110300"
         },
         {
-          "hex": "2F0300",
-          "name": "815mV"
+          "name": "790 mV",
+          "hex": "160300"
         },
         {
-          "hex": "340300",
-          "name": "820mV"
+          "name": "795 mV",
+          "hex": "1B0300"
         },
         {
-          "hex": "390300",
-          "name": "825mV"
+          "name": "800 mV",
+          "hex": "200300"
         },
         {
-          "hex": "3E0300",
-          "name": "830mV"
+          "name": "805 mV",
+          "hex": "250300"
         },
         {
-          "hex": "430300",
-          "name": "835mV"
+          "name": "810 mV",
+          "hex": "2A0300"
         },
         {
-          "hex": "480300",
-          "name": "840mV"
+          "name": "815 mV",
+          "hex": "2F0300"
         },
         {
-          "hex": "4D0300",
-          "name": "845mV"
+          "name": "820 mV",
+          "hex": "340300"
         },
         {
-          "hex": "520300",
-          "name": "850mV"
+          "name": "825 mV",
+          "hex": "390300"
         },
         {
-          "hex": "570300",
-          "name": "855mV"
+          "name": "830 mV",
+          "hex": "3E0300"
         },
         {
-          "hex": "5C0300",
-          "name": "860mV"
+          "name": "835 mV",
+          "hex": "430300"
         },
         {
-          "hex": "610300",
-          "name": "865mV"
+          "name": "840 mV",
+          "hex": "480300"
         },
         {
-          "hex": "660300",
-          "name": "870mV"
+          "name": "845 mV",
+          "hex": "4D0300"
         },
         {
-          "hex": "6B0300",
-          "name": "875mV"
+          "name": "850 mV",
+          "hex": "520300"
         },
         {
-          "hex": "700300",
-          "name": "880mV"
+          "name": "855 mV",
+          "hex": "570300"
         },
         {
-          "hex": "750300",
-          "name": "885mV"
+          "name": "860 mV",
+          "hex": "5C0300"
         },
         {
-          "hex": "7A0300",
-          "name": "890mV"
+          "name": "865 mV",
+          "hex": "610300"
         },
         {
-          "hex": "7F0300",
-          "name": "895mV"
+          "name": "870 mV",
+          "hex": "660300"
         },
         {
-          "hex": "840300",
-          "name": "900mV"
+          "name": "875 mV",
+          "hex": "6B0300"
         },
         {
-          "hex": "890300",
-          "name": "905mV"
+          "name": "880 mV",
+          "hex": "700300"
         },
         {
-          "hex": "8E0300",
-          "name": "910mV"
+          "name": "885 mV",
+          "hex": "750300"
         },
         {
-          "hex": "930300",
-          "name": "915mV"
+          "name": "890 mV",
+          "hex": "7A0300"
         },
         {
-          "hex": "980300",
-          "name": "920mV"
+          "name": "895 mV",
+          "hex": "7F0300"
         },
         {
-          "hex": "9D0300",
-          "name": "925mV"
+          "name": "900 mV",
+          "hex": "840300"
         },
         {
-          "hex": "A20300",
-          "name": "930mV"
+          "name": "905 mV",
+          "hex": "890300"
         },
         {
-          "hex": "A70300",
-          "name": "935mV"
+          "name": "910 mV",
+          "hex": "8E0300"
         },
         {
-          "hex": "AC0300",
-          "name": "940mV"
+          "name": "915 mV",
+          "hex": "930300"
         },
         {
-          "hex": "B10300",
-          "name": "945mV"
+          "name": "920 mV",
+          "hex": "980300"
         },
         {
-          "hex": "B60300",
-          "name": "950mV"
+          "name": "925 mV",
+          "hex": "9D0300"
         },
         {
-          "hex": "BB0300",
-          "name": "955mV"
+          "name": "930 mV",
+          "hex": "A20300"
         },
         {
-          "hex": "C00300",
-          "name": "960mV"
+          "name": "935 mV — Default",
+          "hex": "A70300"
         },
         {
-          "hex": "C50300",
-          "name": "965mV"
+          "name": "940 mV",
+          "hex": "AC0300"
         },
         {
-          "hex": "CA0300",
-          "name": "970mV"
+          "name": "945 mV",
+          "hex": "B10300"
         },
         {
-          "hex": "CF0300",
-          "name": "975mV"
+          "name": "950 mV",
+          "hex": "B60300"
         },
         {
-          "hex": "D40300",
-          "name": "980mV"
+          "name": "955 mV",
+          "hex": "BB0300"
         },
         {
-          "hex": "D90300",
-          "name": "985mV"
+          "name": "960 mV",
+          "hex": "C00300"
         },
         {
-          "hex": "DE0300",
-          "name": "990mV"
+          "name": "965 mV",
+          "hex": "C50300"
         },
         {
-          "hex": "E30300",
-          "name": "995mV"
+          "name": "970 mV",
+          "hex": "CA0300"
         },
         {
-          "hex": "E80300",
-          "name": "1000mV"
+          "name": "975 mV",
+          "hex": "CF0300"
         },
         {
-          "hex": "020300",
-          "name": "770mV"
+          "name": "980 mV",
+          "hex": "D40300"
         },
         {
-          "hex": "070300",
-          "name": "775mV"
+          "name": "985 mV",
+          "hex": "D90300"
         },
         {
-          "hex": "0C0300",
-          "name": "780mV"
+          "name": "990 mV",
+          "hex": "DE0300"
         },
         {
-          "hex": "110300",
-          "name": "785mV"
+          "name": "995 mV",
+          "hex": "E30300"
         },
         {
-          "hex": "160300",
-          "name": "790mV"
-        },
-        {
-          "hex": "1B0300",
-          "name": "795mV"
+          "name": "1000 mV",
+          "hex": "E80300"
         }
       ],
-      "help_text": null,
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > 1420MHz",
         "ebal": "Ebal > Tuning > Presets (exec-секции) > [backup]"
@@ -16615,18 +16730,21 @@
           }
         ]
       },
-      "danger": "NOT the GPU curve",
-      "exclude_from_menu": true,
-      "source_of_truth": "customize.cpp"
+      "danger": "ДВОЙНОЕ ДНО: на Mariko это строка 29 кривой напряжений GPU (1420MHz), на Erista — часть строки 0 таблицы CPU. Выдавать ТОЛЬКО на Mariko.",
+      "source_of_truth": "customize.cpp + разбор кода прошивки 04.09.2026",
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip",
+      "default_label_note": "Заводской байт здесь — НЕ напряжение. Это часть строки 0 таблицы CPU Erista: 408000, 786986 и нули. На Mariko прошивка подала бы их на видеоядро как 408 В, 787 В и четыре нуля — то есть заводское состояние этой строки неисправно. Поэтому «Default» помечает напряжение самой ST1, то, что стоит в строке, пока её не перекрыли массивом. Сброс к заводским возвращает именно БАЙТ, а не эту метку: его задача — вылечить Erista, а не выставить разумное на Mariko.",
+      "factory_not_a_value": "Заводское содержимое этой ячейки — не напряжение, а часть первой строки таблицы CPU Erista (408000 / 786986 / нули). Назвать его милливольтами нельзя. На Mariko прошивка читает эти байты как точку кривой, поэтому поле выдаётся, но заводское состояние тут неисправно, а не «непрописано».",
+      "factory_reset_both": "Выдаётся только на Mariko, но сбрасывается на обеих ревизиях: на Erista эти байты — первая строка таблицы CPU, и вернуть их к заводскому больше нечем."
     },
     {
       "offset": 208,
       "length": 3,
       "write_kind": "hex",
       "units": "mV",
-      "name": "eristaCpuDvfsTable[6]",
+      "name": "Max Clock",
       "platform": "mariko",
-      "series": null,
+      "series": "gpu_curve_mariko",
       "side_write": false,
       "roles": [
         "menu"
@@ -16643,171 +16761,171 @@
       "confidence": "single-source",
       "values": [
         {
-          "hex": "200300",
-          "name": "800mV"
+          "name": "800 mV",
+          "hex": "200300"
         },
         {
-          "hex": "250300",
-          "name": "805mV"
+          "name": "805 mV",
+          "hex": "250300"
         },
         {
-          "hex": "2A0300",
-          "name": "810mV"
+          "name": "810 mV",
+          "hex": "2A0300"
         },
         {
-          "hex": "2F0300",
-          "name": "815mV"
+          "name": "815 mV",
+          "hex": "2F0300"
         },
         {
-          "hex": "340300",
-          "name": "820mV"
+          "name": "820 mV",
+          "hex": "340300"
         },
         {
-          "hex": "390300",
-          "name": "825mV"
+          "name": "825 mV",
+          "hex": "390300"
         },
         {
-          "hex": "3E0300",
-          "name": "830mV"
+          "name": "830 mV",
+          "hex": "3E0300"
         },
         {
-          "hex": "430300",
-          "name": "835mV"
+          "name": "835 mV",
+          "hex": "430300"
         },
         {
-          "hex": "480300",
-          "name": "840mV"
+          "name": "840 mV",
+          "hex": "480300"
         },
         {
-          "hex": "4D0300",
-          "name": "845mV"
+          "name": "845 mV",
+          "hex": "4D0300"
         },
         {
-          "hex": "520300",
-          "name": "850mV"
+          "name": "850 mV",
+          "hex": "520300"
         },
         {
-          "hex": "570300",
-          "name": "855mV"
+          "name": "855 mV",
+          "hex": "570300"
         },
         {
-          "hex": "5C0300",
-          "name": "860mV"
+          "name": "860 mV",
+          "hex": "5C0300"
         },
         {
-          "hex": "610300",
-          "name": "865mV"
+          "name": "865 mV",
+          "hex": "610300"
         },
         {
-          "hex": "660300",
-          "name": "870mV"
+          "name": "870 mV",
+          "hex": "660300"
         },
         {
-          "hex": "6B0300",
-          "name": "875mV"
+          "name": "875 mV",
+          "hex": "6B0300"
         },
         {
-          "hex": "700300",
-          "name": "880mV"
+          "name": "880 mV",
+          "hex": "700300"
         },
         {
-          "hex": "750300",
-          "name": "885mV"
+          "name": "885 mV",
+          "hex": "750300"
         },
         {
-          "hex": "7A0300",
-          "name": "890mV"
+          "name": "890 mV",
+          "hex": "7A0300"
         },
         {
-          "hex": "7F0300",
-          "name": "895mV"
+          "name": "895 mV",
+          "hex": "7F0300"
         },
         {
-          "hex": "840300",
-          "name": "900mV"
+          "name": "900 mV",
+          "hex": "840300"
         },
         {
-          "hex": "890300",
-          "name": "905mV"
+          "name": "905 mV",
+          "hex": "890300"
         },
         {
-          "hex": "8E0300",
-          "name": "910mV"
+          "name": "910 mV",
+          "hex": "8E0300"
         },
         {
-          "hex": "930300",
-          "name": "915mV"
+          "name": "915 mV",
+          "hex": "930300"
         },
         {
-          "hex": "980300",
-          "name": "920mV"
+          "name": "920 mV",
+          "hex": "980300"
         },
         {
-          "hex": "9D0300",
-          "name": "925mV"
+          "name": "925 mV",
+          "hex": "9D0300"
         },
         {
-          "hex": "A20300",
-          "name": "930mV"
+          "name": "930 mV",
+          "hex": "A20300"
         },
         {
-          "hex": "A70300",
-          "name": "935mV"
+          "name": "935 mV",
+          "hex": "A70300"
         },
         {
-          "hex": "AC0300",
-          "name": "940mV"
+          "name": "940 mV",
+          "hex": "AC0300"
         },
         {
-          "hex": "B10300",
-          "name": "945mV"
+          "name": "945 mV",
+          "hex": "B10300"
         },
         {
-          "hex": "B60300",
-          "name": "950mV"
+          "name": "950 mV",
+          "hex": "B60300"
         },
         {
-          "hex": "BB0300",
-          "name": "955mV"
+          "name": "955 mV",
+          "hex": "BB0300"
         },
         {
-          "hex": "C00300",
-          "name": "960mV"
+          "name": "960 mV — Default",
+          "hex": "C00300"
         },
         {
-          "hex": "C50300",
-          "name": "965mV"
+          "name": "965 mV",
+          "hex": "C50300"
         },
         {
-          "hex": "CA0300",
-          "name": "970mV"
+          "name": "970 mV",
+          "hex": "CA0300"
         },
         {
-          "hex": "CF0300",
-          "name": "975mV"
+          "name": "975 mV",
+          "hex": "CF0300"
         },
         {
-          "hex": "D40300",
-          "name": "980mV"
+          "name": "980 mV",
+          "hex": "D40300"
         },
         {
-          "hex": "D90300",
-          "name": "985mV"
+          "name": "985 mV",
+          "hex": "D90300"
         },
         {
-          "hex": "DE0300",
-          "name": "990mV"
+          "name": "990 mV",
+          "hex": "DE0300"
         },
         {
-          "hex": "E30300",
-          "name": "995mV"
+          "name": "995 mV",
+          "hex": "E30300"
         },
         {
-          "hex": "E80300",
-          "name": "1000mV"
+          "name": "1000 mV",
+          "hex": "E80300"
         }
       ],
-      "help_text": null,
+      "help_text": "Voltage for this GPU frequency point on Mariko, used when Undervolt Mode is Custom Table. The range follows the frequency, in 5 mV steps, and always includes the value the console ships with (marked Default) as well as the Eco ST1, ST2 and ST3 voltages for this point.",
       "menu_path": {
         "wizard": "4Advanced > GPU > GPU custom table > MAX MHz",
         "ebal": null
@@ -16821,9 +16939,13 @@
         ],
         "ebal": []
       },
-      "danger": "NOT the GPU curve",
-      "exclude_from_menu": true,
-      "source_of_truth": "customize.cpp"
+      "danger": "ДВОЙНОЕ ДНО: на Mariko это строка 30 кривой напряжений GPU (1459MHz), на Erista — часть строки 0 таблицы CPU. Выдавать ТОЛЬКО на Mariko.",
+      "source_of_truth": "customize.cpp + разбор кода прошивки 04.09.2026",
+      "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip",
+      "default_label_note": "Заводской байт здесь — НЕ напряжение. Это часть строки 0 таблицы CPU Erista: 408000, 786986 и нули. На Mariko прошивка подала бы их на видеоядро как 408 В, 787 В и четыре нуля — то есть заводское состояние этой строки неисправно. Поэтому «Default» помечает напряжение самой ST1, то, что стоит в строке, пока её не перекрыли массивом. Сброс к заводским возвращает именно БАЙТ, а не эту метку: его задача — вылечить Erista, а не выставить разумное на Mariko.",
+      "note": "Подпись общая со ступенями, а не «1459MHz»: в сводке ту же строку таблицы подписывают «Max Clock», потому что у каждой ступени своя верхняя частота (1459,2 / 1536,0 / 1612,8). В режиме Custom Table база всегда ST1, то есть 1459,2 — но подпись должна совпадать со ступенями, иначе на экране сводки два взаимоисключающих блока разойдутся. Донор зовёт её «MAX MHz».",
+      "factory_not_a_value": "Заводское содержимое этой ячейки — не напряжение, а часть первой строки таблицы CPU Erista (408000 / 786986 / нули). Назвать его милливольтами нельзя. На Mariko прошивка читает эти байты как точку кривой, поэтому поле выдаётся, но заводское состояние тут неисправно, а не «непрописано».",
+      "factory_reset_both": "Выдаётся только на Mariko, но сбрасывается на обеих ревизиях: на Erista эти байты — первая строка таблицы CPU, и вернуть их к заводскому больше нечем."
     },
     {
       "offset": 5424,

@@ -1678,16 +1678,8 @@ function emitAction(item, lines) {
   lines.push('')
 
   /**
-   * СПРАВКА У ПУНКТА-ДЕЙСТВИЯ ТЕРЯЛАСЬ МОЛЧА.
-   *
-   * Строки страницы пояснений собирал только `emitItem` — ветка полей-настроек
-   * со смещением в kip. Пункт, у которого есть команды, но нет смещения, свою
-   * `help` не отдавал никуда: она лежала в карте и никуда не печаталась.
-   * Заодно от этого зависел заголовок страницы `[@Имя]`. ⚠ ОГОВОРКА: он подписывает
-   * только кнопку листания внизу, а НЕ экран — подпись экрана даёт `;subtitle=`,
-   * см. пояснение в конце `emitPackage`. Он ставится вместе
-   * со страницей пояснений, а без неё движок подписывал экран внутренним
-   * словом «Commands».
+   * Help rows were collected only from settings items with a kip offset, so an action item
+   * lost its `help` silently - and with it the page title, which rides along.
    */
   if (item.help) infoRows.push({ title: item.title ?? item.id, warns: [], help: item.help, platform: item.platform })
   stats.actions++
@@ -1854,6 +1846,24 @@ function emitPackage(node, dirPath, depth = 0) {
        * CURRENT package (`packagePath` on the same line), not of the sub-package.
        */
       /**
+       * Seed the sub-package config before entering it. Trackbars read their position only
+       * from that file, and an empty one makes `{ini_file}` return null. A forwarder runs
+       * its commands before the switch, so this lands in time. Idempotent via `{if_null}`.
+       */
+      if (k.pre_commands?.length) links.push(...k.pre_commands)
+
+      /**
+       * One-time seeding, guarded. `try:` ends the section as soon as a block succeeds, so
+       * the footers below have to appear in both branches - the alternative is writing 31
+       * cells of loader.kip on every visit just to put the same values back. `package_source`
+       * is a declaration read while the item is built, not a command, so `try:` cannot lose it.
+       */
+      if (k.seed_when?.length && k.seed_write?.length) {
+        const foot = kidBoot.length ? [`hex_file '${KIP}'`, ...kidBoot.map(l => l.split(here ? `./${here}/` : './').join('./'))] : []
+        links.push('try:', ...k.seed_when, ...k.seed_write, ...foot, 'try:')
+      }
+
+      /**
        * Paths are relative to THIS PACKAGE'S DIRECTORY, not to the root.
        *
        * Forwarder commands run with the `packagePath` of the file the forwarder lives in
@@ -1870,20 +1880,6 @@ function emitPackage(node, dirPath, depth = 0) {
         links.push(`hex_file '${KIP}'`, ...kidBoot.map(l => l.split(prefix).join('./')))
       }
 
-      /**
-       * ПОСЕВ ПЕРЕД ВХОДОМ В ПОДПАКЕТ.
-       *
-       * Ползунки берут своё начальное положение ТОЛЬКО из `config.ini` подпакета
-       * (`tesla.hpp:11838`) — из целевого файла движок не читает ничего. Пока секций
-       * там нет, `{ini_file(...)}` отдаёт `null`, и первое же движение уехало бы
-       * в системный файл строкой с `null` внутри.
-       *
-       * Форвардер исполняет свои команды ДО перехода в подпакет (`main.cpp:5799`
-       * стоит выше `main.cpp:5825`), то есть раньше, чем конструкторы ползунков
-       * прочитают файл. Здесь и сеем — идемпотентно, через `{if_null(A,умолчание,A)}`:
-       * повторный вход чужого значения не затирает.
-       */
-      if (k.pre_commands?.length) links.push(...k.pre_commands)
 
       links.push(`package_source './${kn}/package.ini'`, '')
       stats.lazySections = (stats.lazySections ?? 0) + 1
@@ -1927,22 +1923,9 @@ function emitPackage(node, dirPath, depth = 0) {
   emitInfoPage(infoRows, body, node.title ?? node.id)
 
   /**
-   * ПОДПИСЬ ЭКРАНА. Без неё подпакет не может назвать себя вообще.
-   *
-   * Движок берёт подзаголовок из ПОСЛЕДНЕЙ врезки-заголовка в списке РОДИТЕЛЯ
-   * (`main.cpp:5825` передаёт `lastPackageHeader` в конструктор `PackageMenu`),
-   * а собственного ключа у экрана не было. Если первая секция файла-родителя несёт
-   * команды и её имя не начинается с `@`, движок вставляет свою врезку и пишет туда
-   * внутреннее слово `Commands` (`main.cpp:5115`) — его и видел человек на одиннадцати
-   * наших экранах. Ещё на ста тридцати семи вместо имени стояла версия пакета.
-   *
-   * `;title=` тут не помогает: на вложенном уровне он затирается `packageRootLayerTitle`
-   * (`main.cpp:6303`), то есть ключ примут, ошибки не будет, эффекта тоже.
-   * `[@Имя]` подписывает только кнопку листания внизу, а не экран — я записал обратное
-   * в трёх документах, и это было неверно.
-   *
-   * Поэтому в форк заведён ключ `;subtitle=` (`patches/0003-package-subtitle.patch`),
-   * и каждый порождаемый подпакет подписывает себя сам.
+   * A sub-package cannot name its own screen: the engine takes the subtitle from the last
+   * header in the PARENT list, and prints "Commands" or the version when there is none.
+   * `;subtitle=` is our fork's key for it (patches/0003). Details: NOTES 231.
    */
   body.unshift(`;subtitle='${safeName(node.title ?? node.id)}'`, '')
   write(`${here}/package.ini`, body.join('\n'))
@@ -2455,31 +2438,20 @@ if (kipRows.length) {
     const pl = [`;subtitle='${safeName(title)}'`, '', `[@${safeName(title)}]`, '']
 
     /**
-     * СОЗДАНИЕ КОПИИ — ПЕРВЫМ ПУНКТОМ СТРАНИЦЫ, ДО ВЫБОРА.
+     * Choose first, create second.
      *
-     * Почему вообще здесь: раньше пункт стоял в Service, а рядом с ним — вход в этот
-     * менеджер. Получалось, что половина работы с копиями в разделе обслуживания,
-     * половина на отдельной странице, и человек обязан помнить, где что. Теперь всё
-     * про копии на одном экране: создать, выбрать, посмотреть, применить, удалить.
+     * Create used to sit on top and was mis-clicked: reaching for a backup you already
+     * have, you make another one instead. Choosing is what people come here for; making
+     * a new copy is the rare case, and it is the only irreversible-looking one on this
+     * page. Operator's call, 04.09.2026.
      *
-     * Почему ПЕРВЫМ, а не после выбора. Всё, что ниже, — одна цепочка вокруг ВЫБРАННОЙ
-     * копии: выбор, её имя, паспорт, содержимое, применить, удалить. Создание в эту
-     * цепочку не входит вовсе — оно ничего не выбирает и от выбора не зависит. Встань
-     * оно в середине, между выбором и его последствиями появился бы посторонний пункт,
-     * и читать страницу пришлось бы через него.
-     *
-     * Есть и порядок во времени: сначала копия появляется, потом её выбирают. Первый
-     * пункт отвечает первому вопросу пришедшего сюда впервые — копий ещё нет, и выбирать
-     * не из чего.
-     *
-     * Отступа между ним и `Choose backup` нет намеренно. Зазоры на этой странице
-     * отводятся там, где пункт соседствует с ТАБЛИЦЕЙ: подсветка выделенной строки
-     * рисуется выше её самой и налезает на чужую рамку. Два пункта подряд рисуются
-     * общим списком, и разделять их нечем и незачем.
+     * No gap between the two. Gaps on this page separate an item from a TABLE, where the
+     * highlight of a selected row overlaps the table frame. Two plain items in a row need
+     * nothing between them.
      */
-    if (create) pl.push(...create)
+    if (chooser) pl.push(...chooser)
 
-    if (chooser) pl.push(...chooser, '')
+    if (create) pl.push(...create, '')
 
     // Паспорт копии — ДВЕ СТРОКИ, и это результат разбора, а не экономии места.
     //
@@ -2542,6 +2514,27 @@ if (kipRows.length) {
     pl.push('[Info]', ';mode=table', ...poll, ';spacing=0', ';gap=0', ...source)
     if (chooser) pl.push(`'Memory' = '{ini_file(Meta,ram)}'`)
     pl.push(`'Kip layout' = '{ini_file(Meta,kipver)}'`, '')
+
+    /**
+     * Warning when the chosen backup comes from the other console model. The passport
+     * itself is frozen at two rows and never shows the revision - this appears only on a
+     * mismatch. A separate table section because colour is per-section; literal FF0000
+     * because a bundled theme redefines the name "warning" to cyan; `{if_==}` with an
+     * empty branch because `;visibility_condition=` expands no `{ini_file}` and the page
+     * is never rebuilt after the choice. Compare against the OTHER revision, not "not
+     * ours" - an unselected backup reads empty and would light it up for everyone.
+     * No commas or brackets in the text: `{if_==}` splits on the last comma.
+     */
+    if (chooser) {
+      const other = rev === 'mariko' ? 'erista' : 'mariko'
+      const said  = rev === 'mariko' ? 'Erista backup on a Mariko console'
+                                     : 'Mariko backup on an Erista console'
+      pl.push('[Warning]', ';mode=table', ';background=false', ';alignment=left',
+              ';offset=10', ';spacing=0', ';gap=0', ';polling=true', ';info_text_color=FF0000',
+              ...source,
+              `''='{if_==({ini_file(Meta,revision)},${other},${said},)}'`,
+              `''='{if_==({ini_file(Meta,revision)},${other},It will not be applied.,)}'`, '')
+    }
 
     // Ключевые настройки — то, по чему человек и опознаёт свою копию.
     //
@@ -2652,6 +2645,14 @@ if (kipRows.length) {
             - ({ both: 0, erista: 1, mariko: 2 }[b.platform] ?? 0))
         if (!rows.length) continue
 
+        // A group whose rows are all one revision must carry `;system=` on its heading too,
+        // or the other console shows a caption over an empty frame: the engine filters rows,
+        // it cannot see headings. Same guard as in emitPage; it did not travel here when the
+        // grouping was rebuilt. Mixed groups keep `sys` empty and are byte-for-byte as before.
+        const rowPlats = new Set(rows.map(r => (r.platform === 'mariko' || r.platform === 'erista') ? r.platform : 'both'))
+        const onePlat = rowPlats.size === 1 ? [...rowPlats][0] : null
+        const sys = (!rev && onePlat && onePlat !== 'both') ? [`;system=${onePlat}`] : []
+
         // Врезка ПЕРЕД блоком — тем же приёмом, что в сводке: там таблицы ступеней
         // печатаются внутри цикла групп, до собственных строк «GPU Voltage Table»
         // (`emitPage`, блок `mrows`). Порядок на экране задаётся положением в массиве,
@@ -2661,10 +2662,10 @@ if (kipRows.length) {
         // Отступ ПЕРЕД заголовком, а не только между таблицами. Без него подпись группы
         // печатается вплотную к рамке предыдущей таблицы и наезжает на неё. Ровно это
         // уже чинили в emitPage — и я повторил ошибку, собирая группировку заново.
-        out.push('[Gap]', ';mode=table', ';background=false', `;gap=${HEAD_GAP}`, '')
-        out.push('[Header]', ';mode=table', ';header_indent=true', ';background=false',
+        out.push('[Gap]', ';mode=table', ';background=false', ...sys, `;gap=${HEAD_GAP}`, '')
+        out.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ...sys,
                 `'${g.name}' = ''`, '')
-        out.push('[Info]', ';mode=table', ...poll, ';spacing=0', ';gap=0', ...source)
+        out.push('[Info]', ';mode=table', ...poll, ';spacing=0', ';gap=0', ...sys, ...source)
         // ОБЪЯВЛЕНИЕ СЛОВАРЯ — ОДНО НА ТАБЛИЦУ, А НЕ НА СТРОКУ, и это не косметика.
         // В нашем форке движка разобранный json кэшируется на время сборки ОДНОЙ таблицы
         // (`JsonScope`, `utils.hpp`, коммит 215270d5). Повторное `json_file` внутри той же
@@ -2915,6 +2916,13 @@ if (kipRows.length) {
         // девяносто команд внутри блока цепочку не порвут.
         src[0],
         'try:',
+        /**
+         * Must come BEFORE `ini_file '{ini_file(Restore,Path)}'`: that rebinds reads to
+         * the backup file, where section `Restore` does not exist, and the predicate would
+         * fail always. Negative form on purpose - backups made before 2026-09-01 carry no
+         * revision key, and a positive test would reject them. Details: NOTES 232.
+         */
+        `!matching_ini_val {ini_file(Restore,Path)} Meta revision ${rev === 'mariko' ? 'erista' : 'mariko'}`,
         `matching_ini_val {ini_file(Restore,Path)} Meta kipver ${KIPVER}`,
         src[1],
         // Список пишущих команд строится из ТОГО ЖЕ набора, что и копия, а не из kipRows:
@@ -2933,6 +2941,7 @@ if (kipRows.length) {
         // Предупреждение про неизвестную версию осталось, но в примечании под сводкой:
         // его читают до нажатия, а не выбирают между кнопками вслепую.
         'try:',
+        `!matching_ini_val {ini_file(Restore,Path)} Meta revision ${rev === 'mariko' ? 'erista' : 'mariko'}`,
         `matching_ini_val {ini_file(Restore,Path)} Meta kipver imported`,
         src[1],
         ...backupSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
@@ -3003,10 +3012,27 @@ if (kipRows.length) {
     // Erista, в нём наконец есть. Числа здесь намеренно не называются — они живут
     // в `docs/FACTS.md` и в `_meta` самого эталона, а комментарий, повторяющий число,
     // устаревает молча.
+    const bothOnReset = new Set(fieldsDoc.fields.filter(f => f.factory_reset_both).map(f => f.offset))
     const applyFor = rev => [
       `[Apply factory defaults ${HOLD_A}?${rev}]`, ';hold=true', `;system=${rev}`,
       ...src,
-      ...factoryOffsets.filter(o => platOf(o) === 'both' || platOf(o) === rev)
+      /**
+       * СБРОС ФИЛЬТРУЕТСЯ ПО РЕВИЗИИ — И У ЭТОГО ЕСТЬ ОДНО ИСКЛЮЧЕНИЕ.
+       *
+       * Семь смещений 184…208 помечены `mariko`, потому что ВЫДАЮТСЯ только там:
+       * на Mariko это верхние точки кривой GPU. Но физически те же байты на Erista —
+       * первая строка её таблицы CPU, и испортить её может кто угодно: донорский
+       * конфигуратор пишет туда без фильтра ревизии вовсе.
+       *
+       * Значит сброс обязан возвращать их заводское значение НА ОБЕИХ ревизиях —
+       * это единственный путь вылечить порчу. Поле объявляет это ключом
+       * `factory_reset_both`, и без ключа исключения нет: молчаливых тут быть не может.
+       *
+       * Найдено проверкой готового кода 04.09.2026: правка была написана ради починки
+       * Erista и именно на Erista не работала — фильтр по платформе выбрасывал эти
+       * строки из эристовского блока.
+       */
+      ...factoryOffsets.filter(o => platOf(o) === 'both' || platOf(o) === rev || bothOnReset.has(o))
         .map(o => `hex-by-custom-offset ${KIP} CUST ${o} {ini_file(Fields,${o})}`),
       `set-footer 'restored'`,
     ]
@@ -3182,8 +3208,13 @@ if (menu.root_help?.blocks?.length) {
     `''='Both work while the tuner is off - that is on'`,
     `''='purpose, so you are never locked out.'`,
     `''=''`,
+    // Последняя строка — путь наружу, когда обновления ещё нет. «Подождите релиза»
+    // ничего не советует; группа 4IFIR — живые люди, которые знают про смену
+    // раскладки раньше нас. Ссылку набирают руками: в таблице движок кликабельных
+    // ссылок не рисует, поэтому короткая форма без номера сообщения.
     `''='No newer build yet? Put back the loader.kip this'`,
-    `''='package was made for, or wait for a release.'`,
+    `''='package was made for, or ask in the 4IFIR group:'`,
+    `''='t.me/kf4fr'`,
     '',
   ]
   if (firstItem >= 0) gate.splice(firstItem, 0, ...warn)

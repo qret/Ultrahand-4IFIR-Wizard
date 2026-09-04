@@ -48,6 +48,13 @@
 | Advanced → GPU → GPU Voltage Table → 1113MHz | `1113MHz` | Mariko | 80 | 550 mV, 555 mV … 960 mV — Default |
 | Advanced → GPU → GPU Voltage Table → 1152MHz | `1152MHz` | Mariko | 76 | 605 mV, 615 mV … 990 mV — Default |
 | Advanced → GPU → GPU Voltage Table → 1190MHz | `1190MHz` | Mariko | 76 | 645 mV, 650 mV … 1020 mV — Default |
+| Advanced → GPU → GPU Voltage Table → 1228MHz | `1228MHz` | Mariko | 47 | 670 mV, 675 mV … 900 mV |
+| Advanced → GPU → GPU Voltage Table → 1267MHz | `1267MHz` | Mariko | 44 | 685 mV, 690 mV … 900 mV |
+| Advanced → GPU → GPU Voltage Table → 1305MHz | `1305MHz` | Mariko | 45 | 700 mV, 705 mV … 920 mV |
+| Advanced → GPU → GPU Voltage Table → 1344MHz | `1344MHz` | Mariko | 56 | 725 mV, 730 mV … 1000 mV |
+| Advanced → GPU → GPU Voltage Table → 1382MHz | `1382MHz` | Mariko | 51 | 750 mV, 755 mV … 1000 mV |
+| Advanced → GPU → GPU Voltage Table → 1420MHz | `1420MHz` | Mariko | 46 | 775 mV, 780 mV … 1000 mV |
+| Advanced → GPU → GPU Voltage Table → Max Clock | `Max Clock` | Mariko | 41 | 800 mV, 805 mV … 1000 mV |
 | Advanced → GPU → GPU Voltage Table → 192MHz | `192MHz` | Erista | 13 | 600mV, 612.5mV … 750mV |
 | Advanced → GPU → GPU Voltage Table → 230.4MHz | `230.4MHz` | Erista | 13 | 612.5mV, 625mV … 762.5mV |
 | Advanced → GPU → GPU Voltage Table → 268.8MHz | `268.8MHz` | Erista | 13 | 625mV, 637.5mV … 775mV |
