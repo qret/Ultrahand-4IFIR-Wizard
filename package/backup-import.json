@@ -244,7 +244,7 @@
     "mariko_curve": {
       "base": 88,
       "step": 4,
-      "maxIndex": 23
+      "maxIndex": 30
     },
     "mariko": [
       {
@@ -857,7 +857,9 @@
         "key": "1228mhz",
         "length": 4,
         "table_index": 24,
-        "skip": "индекс 24 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
+        "offsets": [
+          184
+        ],
         "only_when": {
           "index_of": "GPU Eco Mode",
           "equals": "03"
@@ -897,7 +899,9 @@
         "key": "1267mhz",
         "length": 4,
         "table_index": 25,
-        "skip": "индекс 25 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
+        "offsets": [
+          188
+        ],
         "only_when": {
           "index_of": "GPU Eco Mode",
           "equals": "03"
@@ -937,7 +941,9 @@
         "key": "1305mhz",
         "length": 4,
         "table_index": 26,
-        "skip": "индекс 26 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
+        "offsets": [
+          192
+        ],
         "only_when": {
           "index_of": "GPU Eco Mode",
           "equals": "03"
@@ -977,7 +983,9 @@
         "key": "1344mhz",
         "length": 4,
         "table_index": 27,
-        "skip": "индекс 27 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
+        "offsets": [
+          196
+        ],
         "only_when": {
           "index_of": "GPU Eco Mode",
           "equals": "03"
@@ -1017,7 +1025,9 @@
         "key": "1382mhz",
         "length": 4,
         "table_index": 28,
-        "skip": "индекс 28 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
+        "offsets": [
+          200
+        ],
         "only_when": {
           "index_of": "GPU Eco Mode",
           "equals": "03"
@@ -1057,7 +1067,9 @@
         "key": "1420mhz",
         "length": 4,
         "table_index": 29,
-        "skip": "индекс 29 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
+        "offsets": [
+          204
+        ],
         "only_when": {
           "index_of": "GPU Eco Mode",
           "equals": "03"
@@ -1097,7 +1109,9 @@
         "key": "MAXmhz",
         "length": 4,
         "table_index": 30,
-        "skip": "индекс 30 выходит за marikoGpuVoltArray — попадает в eristaCpuDvfsTable",
+        "offsets": [
+          208
+        ],
         "only_when": {
           "index_of": "GPU Eco Mode",
           "equals": "03"

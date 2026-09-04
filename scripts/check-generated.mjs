@@ -1906,6 +1906,29 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   else ok.push(`bulk kip writes stay behind the MANUAL gate (${blocks} seeding blocks checked)`)
 }
 
+// ---------------- 38. a footer must not eat the item name
+//
+// The footer sits in the value slot and squeezes the label out of the row: a long
+// one leaves the button unreadable. Only plain footers are measured - one built
+// from a placeholder is unknown until the console renders it. Debt U21.
+{
+  const LIMIT = 20
+  const bad = []
+  let checked = 0
+  for (const file of iniFiles) {
+    const rel = relative(DIST, file).split(String.fromCharCode(92)).join('/')
+    for (const m of readFileSync(file, 'utf8').matchAll(/^set-footer '([^']*)'/gm)) {
+      const t = m[1]
+      if (t.includes('{')) continue
+      checked++
+      if (t.length > LIMIT) bad.push(`${rel}: футер в ${t.length} знаков — «${t}»`)
+    }
+  }
+  const NL = String.fromCharCode(10)
+  if (bad.length) problems.push({ sev: 'CRITICAL', what: 'футер длиннее ' + LIMIT + ' знаков выдавит имя пункта:' + NL + '     ' + bad.slice(0, 6).join(NL + '     ') })
+  else ok.push(`plain footers stay under ${LIMIT} characters (${checked} checked)`)
+}
+
 const crit = problems.filter(p => p.sev === 'CRITICAL')
 const warn = problems.filter(p => p.sev === 'IMPORTANT')
 

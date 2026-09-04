@@ -2938,6 +2938,11 @@ if (kipRows.length) {
         // ничего не делает. Человек не обязан знать, какая ему нужна, — это должен знать
         // пакет. Теперь пункт один, а какой блок сработает, решает паспорт файла.
         //
+        // ФУТЕРЫ КОРОТКИЕ, и это не вкусовщина: футер занимает слот значения и
+        // выдавливает имя пункта. Строка «restored from an imported copy» съедала
+        // кнопку целиком — на экране оставалась одна скобка. Причина живёт в примечании,
+        // футер отвечает только «что стало».
+        //
         // Предупреждение про неизвестную версию осталось, но в примечании под сводкой:
         // его читают до нажатия, а не выбирают между кнопками вслепую.
         'try:',
@@ -2946,9 +2951,9 @@ if (kipRows.length) {
         src[1],
         ...backupSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
         ...sideSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
-        `set-footer 'restored from an imported copy'`,
+        `set-footer 'restored (import)'`,
         'try:',
-        `set-footer 'not applied - no backup chosen, or it is for another kip layout'`,
+        `set-footer 'not applied'`,
       ],
       // УДАЛЕНИЕ ЧИСТИТ ОБА КЛЮЧА, а не одно имя: `config.ini` переживает выход из
       // оверлея и перезагрузку, так что выбор прошлого раза встречал бы человека уже

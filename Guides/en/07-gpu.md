@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=e8844d09cf06 self=5c08a7eeaa4e -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=e8844d09cf06 self=011cf9ebdef5 -->
 # GPU and stages
 
 <!-- nav:begin -->
@@ -157,6 +157,15 @@ array ends, not where the frequency ceiling is. Until that day the tuner simply 
 offer the top seven points, so they kept whatever another table had left there — which is
 exactly the "zero volts" the old warning described. They are now filled like any other
 point.
+
+**Where the table starts.** The first time you open `GPU Voltage Table` with
+`Custom Table` selected, the tuner fills it with the `Eco ST1` values — 485…960 mV.
+That is a one-off starting point: edit any point afterwards and it will never write there
+again. The test is simple — if a single cell differs from the factory content, you have
+already tuned it, and the tuner touches nothing.
+
+Without it your first visit would show the factory ladder of 395…1020 mV, whose bottom
+point sits below the safe minimum, and seven top cells holding another table's leftovers.
 
 ## On Erista it all works differently
 
