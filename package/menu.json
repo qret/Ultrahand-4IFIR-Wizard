@@ -162,6 +162,8 @@
               "offsets": [
                 44
               ],
+              "seed_from": "gpu_curve_mariko",
+              "seed_from_note": "Ссылка, а не копия. Посев ручной таблицы обязан идти и отсюда: экран кривой при выключенном режиме отправляет человека сюда и не просит вернуться, поэтому переключение режима — второй и более частый путь к незасеянной таблице. Условия и значения живут на узле gpu_curve_mariko в одном экземпляре: две копии тридцати одного значения разъехались бы.",
               "values": [
                 {
                   "name": "Eco ST1 - Default",
@@ -1291,7 +1293,7 @@
               },
               "series": "gpu_curve_mariko",
               "units": "mV",
-              "note": "the 307…1190 MHz points are set and monotonic; 1228…1420 are zeros in the current kip — where the series really ends still needs confirming",
+              "note": "confirmed 04.09.2026: the series is 31 points, 307.2 … 1459.2 MHz (CUST+88…208). The source declares the voltage array at 24 elements, but the kip's write loop is driven by the 31-row DVFS table and fills all 31 cells — there is no 1190.4 MHz ceiling, that was our misreading. In a stock kip only 307…1190 are set and monotonic; 1228…MAX have never been seeded and still hold the eristaCpuDvfsTable[0] bytes, which is why they look like noise. See docs/NOTES.md #245.",
               "stock_tables": {
                 "why": "таблицы ступеней ST1 (@7128) и ST3 (@10600) не переписываются никогда, поэтому одинаковы у всех консолей с этой прошивкой; прочитаны из живого loader.kip (kipVer 27) и хранятся здесь, чтобы генератор мог показать и проверить их без доступа к kip",
                 "rows": 31,
@@ -1970,34 +1972,23 @@
         "try:",
         "delete /config/ultrahand/downloads/4IFIR-Wizard.zip",
         "delete '/switch/.packages/.4IFIR Wizard_old/'",
-        "delete '/config/ultrahand/downloads/.keep/'",
-        "copy '/config/ultrahand/config.ini' '/config/ultrahand/downloads/.keep/config.ini'",
-        "copy '/config/ultrahand/overlays.ini' '/config/ultrahand/downloads/.keep/overlays.ini'",
-        "copy '/config/ultrahand/sounds/' '/config/ultrahand/downloads/.keep/sounds/'",
         "download 'https://github.com/qret/Ultrahand-4IFIR-Wizard/releases/latest/download/4IFIR-Wizard.zip' '/config/ultrahand/downloads/'",
         "move '/switch/.packages/4IFIR Wizard/' '/switch/.packages/.4IFIR Wizard_old/'",
         "path_exists '/switch/.packages/.4IFIR Wizard_old/package.ini'",
         "!path_exists '/switch/.packages/4IFIR Wizard/package.ini'",
         "unzip '/config/ultrahand/downloads/4IFIR-Wizard.zip' '/'",
         "path_exists '/switch/.packages/4IFIR Wizard/package.ini'",
-        "copy '/config/ultrahand/downloads/.keep/config.ini' '/config/ultrahand/config.ini'",
-        "copy '/config/ultrahand/downloads/.keep/overlays.ini' '/config/ultrahand/overlays.ini'",
-        "copy '/config/ultrahand/downloads/.keep/sounds/' '/config/ultrahand/sounds/'",
         "delete './updater/newer.flag'",
         "delete '/switch/.packages/.4IFIR Wizard_old/'",
         "delete /config/ultrahand/downloads/4IFIR-Wizard.zip",
-        "delete '/config/ultrahand/downloads/.keep/'",
         "notify-now 'Updated. Restart the overlay to apply.' 26 center word 8000",
         "try:",
         "path_exists '/switch/.packages/.4IFIR Wizard_old/package.ini'",
         "delete '/switch/.packages/4IFIR Wizard/'",
         "move '/switch/.packages/.4IFIR Wizard_old/' '/switch/.packages/4IFIR Wizard/'",
-        "copy '/config/ultrahand/downloads/.keep/config.ini' '/config/ultrahand/config.ini'",
-        "copy '/config/ultrahand/downloads/.keep/overlays.ini' '/config/ultrahand/overlays.ini'",
-        "copy '/config/ultrahand/downloads/.keep/sounds/' '/config/ultrahand/sounds/'",
         "notify-now 'Update failed. Previous version restored.' 26 center word 8000",
         "try:",
-        "notify-now 'Update failed. Check /switch/.packages/ - your settings are saved in /config/ultrahand/downloads/.keep/' 26 center word 10000"
+        "notify-now 'Update failed. Check /switch/.packages/ for a folder named .4IFIR Wizard_old' 26 center word 10000"
       ],
       "note": "Каталог бэкапа начинается с точки НАМЕРЕННО: без неё уцелевший бэкап становится вторым пакетом в меню и навсегда прописывается в packages.ini. Откат начинается с проверки бэкапа - иначе при обрыве связи до переноса безусловное удаление снесло бы живой пакет. move и delete об ошибке не сообщают вовсе, поэтому после каждого шага стоит явная проверка. Разбор - docs/ONLINE-WIZARD-UPDATE.md §11.3. Название укорочено 29.08.2026: движок вычитает ширину значения (номер версии) из места под имя, но обрезает имя только при превышении БОЛЬШЕ 20 пикселей — меньшее превышение он рисует поверх значения. «Install update» попадало ровно в эту щель, и значок удержания, стоящий последним в имени, оказывался наполовину закрыт. Лечение то же, что у версии в шапке и у имён копий: короче текст, а не шире рамка. Разбор — docs/NOTES.md №147, №158.",
       "warning": "hold A - заменяет сам пакет; при обрыве питания в середине бэкап остаётся рядом, в каталоге с точкой"
@@ -2018,34 +2009,6 @@
       {
         "offset": 170,
         "why": "exists only in Ebal and only in its backup section; the menu writes to 172. Looks like a bug in the reference rather than a real field"
-      },
-      {
-        "offset": 184,
-        "why": "NOT the GPU curve. Per customize.cpp:95 the marikoGpuVoltArray array has exactly 24 elements (88…183). eristaCpuDvfsTable, the Erista CPU frequency table, starts here. Both original packages write here by mistake and corrupt the CPU table"
-      },
-      {
-        "offset": 188,
-        "why": "eristaCpuDvfsTable[1] — see 184"
-      },
-      {
-        "offset": 192,
-        "why": "eristaCpuDvfsTable[2] — see 184"
-      },
-      {
-        "offset": 196,
-        "why": "eristaCpuDvfsTable[3] — see 184"
-      },
-      {
-        "offset": 200,
-        "why": "eristaCpuDvfsTable[4] — see 184"
-      },
-      {
-        "offset": 204,
-        "why": "eristaCpuDvfsTable[5] — see 184"
-      },
-      {
-        "offset": 208,
-        "why": "eristaCpuDvfsTable[6] — see 184"
       }
     ]
   }

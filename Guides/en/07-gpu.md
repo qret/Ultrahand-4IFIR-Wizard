@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=e8844d09cf06 self=011cf9ebdef5 -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=e8844d09cf06 self=16280365feed -->
 # GPU and stages
 
 <!-- nav:begin -->
@@ -113,7 +113,9 @@ The tuner is not available at that point — only the bootloader is:
 > console failed to boot for want of voltage, ST3 makes it worse, and raises the clock
 > ceiling as well.
 >
-> `MANUAL` is `Custom Table` with all its defects, [see below](#what-to-leave-alone).
+> `MANUAL` is the manual table, [see below](#the-manual-table). If the console will not
+> boot, the offending value is most likely sitting in that very table, so it is no use as
+> a way back.
 >
 > `ECO ST2` is useless: **the table that holds the entire difference between ST1.5, ST2
 > and ST2.5 is not shown by KipTool at all** — it is not in its list of fields. To it all
@@ -145,18 +147,18 @@ both memory clock modes at once, while a stage works out the floor for each sepa
 > A console that freezes right after the logo is usually **not** the GPU — look at the
 > CPU and memory.
 
-## What to leave alone
+## The manual table
 
 **Custom Table** — the manual table mode: you set the voltage of every frequency point
-by hand, all the way up to 1459.2 MHz. Changes apply after a reboot.
+by hand. There are thirty-one points; the top one is 1459.2 MHz, shown in the menu as
+`Max Clock`. That same point sets the GPU clock ceiling in this mode. Changes apply
+after a reboot.
 
-This used to carry a warning that anything above 1190 MHz was off limits. **That was
-wrong, and it was removed on 2026-09-04.** Reading the firmware showed it walks all
-thirty-one rows of the table, not twenty-four: 1190.4 MHz is where the internal voltage
-array ends, not where the frequency ceiling is. Until that day the tuner simply did not
-offer the top seven points, so they kept whatever another table had left there — which is
-exactly the "zero volts" the old warning described. They are now filled like any other
-point.
+> [!NOTE]
+> Earlier editions of this guide said the manual table must not go above 1190 MHz.
+> That was wrong: the firmware reads all thirty-one rows. What actually happened was
+> that the tuner did not offer the top seven points, so they kept another table's
+> leftovers. They are now filled like any other point.
 
 **Where the table starts.** The first time you open `GPU Voltage Table` with
 `Custom Table` selected, the tuner fills it with the `Eco ST1` values — 485…960 mV.

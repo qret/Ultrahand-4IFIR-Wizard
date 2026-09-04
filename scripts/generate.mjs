@@ -128,6 +128,37 @@ const SIDE_WRITES = (() => {
 const sideSet = rev => SIDE_WRITES.filter(f => !rev || f.platform === 'both' || f.platform === rev)
 
 /**
+ * Menu nodes by id, so one node can borrow data from another instead of copying it.
+ * Used by `seed_from`: the ST1 seeding lists live on the curve node alone, and the
+ * mode item points at them. Two copies of the same 31 values would drift apart.
+ */
+const MENU_BY_ID = (() => {
+  const out = new Map()
+  const walk = n => {
+    if (Array.isArray(n)) return n.forEach(walk)
+    if (!n || typeof n !== 'object') return
+    if (typeof n.id === 'string' && !out.has(n.id)) out.set(n.id, n)
+    Object.values(n).forEach(walk)
+  }
+  walk(menu.sections ?? [])
+  return out
+})()
+
+/**
+ * Number of `Fields` rows a backup of this revision carries — the same count that
+ * goes into the passport as `Meta fields`. Restore compares against it to tell an
+ * older copy from a current one, so both sides must come from here.
+ */
+const backupFieldCount = rev => backupSet(rev).length + sideSet(rev).length
+
+/**
+ * The same count for an imported copy: it carries only what the old Wizard's profile
+ * had, so the number is different. Filled in by `emitImport` while the menu is walked,
+ * read later by the backup manager - both from one place, so they cannot disagree.
+ */
+const IMPORT_FIELD_COUNT = {}
+
+/**
  * Factory values for "Reset to defaults", built by scripts/make-factory-defaults.mjs
  * from the snapshot 4IFIR ships. Deliberately separate from the menu dictionaries —
  * see the long note at the reset section below for why.
@@ -299,7 +330,8 @@ function shortLabel(name) {
  * содержимого ячейки. Но заводской массив это грубая линейка (395 мВ на 307 МГц,
  * 1020 мВ на 1190 МГц), а настоящая кривая идёт куда положе, и к верхним точкам
  * расходится с ней на 270 мВ. Всё, что вне полосы, показывалось как «Not available».
- * У живого пользователя так пропали ПЯТНАДЦАТЬ строк из двадцати четырёх — при том,
+ * У живого пользователя так пропали ПЯТНАДЦАТЬ строк из тогдашних двадцати четырёх
+ * (кривая с 04.09.2026 — 31 точка, NOTES №232) — при том,
  * что значения в kip лежали правильные и читались.
  *
  * Словарь отвечает на вопрос «что мы предлагаем ВЫСТАВИТЬ», и полоса там уместна.
@@ -724,8 +756,8 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
    * с 03.09.2026 у кривой нет словаря показа вовсе — подпись считается. Механизм ниже
    * работает и нужен, но его единственный пример в комментарии исчез.
    *
-   * The voltage curve has 24 points, and their value dictionary is THE SAME one — a set of
-   * voltages. That used to mean 24 identical files and 24 `json_file` declarations in [boot].
+   * The voltage curve has 31 points, and their value dictionary is THE SAME one — a set of
+   * voltages. That used to mean one identical file and one `json_file` declaration per point.
    * Every declaration is a file open on the SD card, and opening the package waits for all
    * of them. Deduplication is by content: identical dictionaries are written once and reused.
    */
@@ -884,9 +916,9 @@ const curveTables = (() => {
   return {
     step: g.step,
     map: './json/dvfs_uv.map.json',
-    // Подписи ВСЕХ строк, а не только тех 24, что есть в меню: редактируемый массив
-    // `Custom Table` держит 24 точки, а настоящие таблицы — 31 строку, и разгонный
-    // конец кривой (1228…1420 МГц плюс потолок) в сводке не показывался вовсе.
+    // Подписи берутся у САМОЙ ТАБЛИЦЫ — все 31 строка, — а не у группы меню: сводка
+    // не должна зависеть от того, сколько точек группа выдала на экран. Пока их было
+    // 24, разгонный конец кривой (1228…1420 МГц плюс потолок) не показывался вовсе.
     labels: (rows?.khz ?? []).map(k => `${Math.floor(k / 1000)}MHz`),
     modes: [
       { hex: '00', base: slot - span, name: 'Eco ST1' },
@@ -1007,6 +1039,28 @@ function emitItem(item, lines) {
   if (d.extraOffsets.length) lines.push('clear hex_sum_cache')
   lines.push(`${cmd} ${KIP} CUST ${field.offset} {json_file_source(*,hex)}`)
   for (const o of d.extraOffsets) lines.push(`${cmd} ${KIP} CUST ${o} {json_file_source(*,w${o})}`)
+  /**
+   * ONE-TIME SEEDING ON THE MODE SWITCH, not only on the way into the curve screen.
+   *
+   * The curve screen is gated: with the mode off it shows "set Undervolt Mode to Custom
+   * Table" and does not ask the reader to come back. Whoever followed that hint switched
+   * the mode and left, the seeding never ran, and the firmware applied the seven top
+   * points as they lie in a stock kip - bytes of another structure read as voltages.
+   *
+   * The first guard reads CUST 44 back after the line above wrote it: hexSumCache keeps
+   * the file offset of the CUST anchor, not the bytes (hex_funcs.cpp:501-540), so the
+   * read sees the fresh value. `try:` drops the rest of the section once a block succeeds,
+   * so the footer has to stand in both branches.
+   */
+  if (item.seed_from) {
+    const donor = MENU_BY_ID.get(item.seed_from)
+    if (!donor) throw new Error(`${item.id}: seed_from ссылается на "${item.seed_from}", а такого узла в карте нет`)
+    if (!(donor.seed_when?.length && donor.seed_write?.length)) {
+      throw new Error(`${item.id}: у узла "${item.seed_from}" нет seed_when/seed_write — сеять нечем`)
+    }
+    lines.push('try:', ...donor.seed_when, ...donor.seed_write, `set-footer '{json_file_source(*,short)}'`, 'try:')
+    stats.seedBlocks = (stats.seedBlocks ?? 0) + 1
+  }
   // ФУТЕР БЕРЁТ `short`, А НЕ `name`, И ЭТО НЕ ПРИДИРКА.
   //
   // Подпись под пунктом приходит из ДВУХ разных файлов: при открытии пакета — из словаря
@@ -1265,7 +1319,7 @@ function emitBackup(item, lines) {
     // Паспорт копии обязан считать ВСЁ, что в неё легло, включая попутные ячейки таблицы:
     // иначе число в файле разойдётся с числом строк, и первый же, кто станет по нему сверять
     // полноту копии, получит ложную тревогу.
-    mk.push(`set-ini-val '${path}' Meta fields '${mine.length + sideSet(rev).length}'`)
+    mk.push(`set-ini-val '${path}' Meta fields '${backupFieldCount(rev)}'`)
     for (const f of mine) {
       mk.push(`set-ini-val '${path}' Fields ${f.offset} '{hex_file(CUST,${f.offset},${f.length ?? 3})}'`)
     }
@@ -1552,6 +1606,8 @@ function emitImport(lines, rev, dir) {
   if (capRule && eco) {
     lines.push(`set-ini-val '${path}' Meta curve '{if_==({json_file(${eco.index},${eco.key})},01,from-profile,assumed-stock)}'`)
   }
+  // Число полей — паспорт полноты копии. Читает его менеджер копий, поэтому запоминаем.
+  IMPORT_FIELD_COUNT[rev] = rows.length
   lines.push(`set-ini-val '${path}' Meta fields '${rows.length}'`)
   for (const r of rows) lines.push(`set-ini-val '${path}' Fields ${r.off} '${r.expr}'`)
   // ОТВЕТ ЧЕЛОВЕКУ — ЭКРАННЫМ СООБЩЕНИЕМ, А НЕ ПОДПИСЬЮ ПУНКТА.
@@ -1897,7 +1953,7 @@ function emitPackage(node, dirPath, depth = 0) {
   /**
    * A gated section: an explanation instead of an empty screen.
    *
-   * All 24 points of the voltage table are hidden until the undervolt mode is set to Custom
+   * All 31 points of the voltage table are hidden until the undervolt mode is set to Custom
    * Table. That works correctly but looks broken: you open the section and see nothing, not
    * even a word. The engine can negate a condition (`!matching_hex_val_custom`,
    * `utils.hpp:5805`) — so we show the hint exactly when the list itself is hidden.
@@ -2132,8 +2188,8 @@ if (kipRows.length) {
       // Значения читаются ИЗ ЖИВОГО KIP. Словарь подписей не нужен: микровольты делятся
       // на тысячу прямо в подстановке, а «mV» и так стоит в каждой строке этой сводки.
       // Группа «GPU Voltage Table» СМЕШАННАЯ: в неё попадают строки обеих ревизий,
-      // 24 точки Mariko и 29 Erista. Берём только свои — иначе блок печатает 53 строки
-      // вместо 24 и таблица на экране становится вдвое длиннее. Ровно это и случилось.
+      // 31 точка Mariko и 29 Erista. Берём только свои — иначе блок печатает и чужие,
+      // и таблица на экране становится вдвое длиннее. Ровно это и случилось.
       const mrows = g.rows.filter(r => r.series === 'gpu_curve_mariko')
       if (mrows.length && curveTables) {
         // Таблицы читаются мариковские, значит и блок мариковский. Метка обязательна:
@@ -2149,13 +2205,13 @@ if (kipRows.length) {
           kl.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ...sys, ...cond,
                   `hex_file '${KIP}'`, `json_file '${curveTables.map}'`)
           /**
-           * ПОКАЗЫВАЕМ ВСЕ СТРОКИ ТАБЛИЦЫ, А НЕ 24 ИЗ МЕНЮ.
+           * ПОДПИСИ БЕРЁМ У ТАБЛИЦЫ, А НЕ У ГРУППЫ МЕНЮ.
            *
-           * Подписи раньше брались из группы меню, а в ней ровно столько строк, сколько
-           * точек у редактируемого массива `Custom Table`, — двадцать четыре. У настоящих
-           * таблиц строк тридцать одна, и обрезано было СВЕРХУ: 1228…1420 МГц и потолок
-           * не показывались вовсе. Это разгонный конец кривой, ради которого тюнер
-           * и открывают. Наследство от массива, а не решение.
+           * У настоящих таблиц тридцать одна строка. Пока меню выдавало двадцать четыре
+           * точки — по объявленному размеру массива, — подписи из группы резали сводку
+           * СВЕРХУ: 1228…1420 МГц и потолок не показывались вовсе, а это разгонный конец
+           * кривой, ради которого тюнер и открывают. Источник подписей — сама таблица,
+           * и от числа выданных точек сводка больше не зависит.
            */
           const labels = curveTables.labels.length ? curveTables.labels : mrows.map(r => r.title)
           labels.forEach((title, i) => {
@@ -2534,6 +2590,28 @@ if (kipRows.length) {
               ...source,
               `''='{if_==({ini_file(Meta,revision)},${other},${said},)}'`,
               `''='{if_==({ini_file(Meta,revision)},${other},It will not be applied.,)}'`, '')
+
+      /**
+       * Second warning, and NOT in the red block above: that one is frozen by the operator
+       * at exactly one section and one shape, checked line by line (check 39). This is a
+       * different message anyway - the copy fits this console and will be applied, it just
+       * carries less than it looks like it does.
+       *
+       * The flag is computed when the file is chosen; here we only print it. Plain text
+       * with no cell numbers: what the reader needs is that the top of the curve stays as
+       * it is and has to be set by hand. Wrapped by the same helper as the note below, so
+       * the rows fit the overlay instead of being clipped mid-word.
+       */
+      pl.push('[Info]', ';mode=table', ';background=false', ';alignment=left',
+              ';offset=10', ';spacing=0', ';gap=0', ';polling=true',
+              `ini_file './config.ini'`,
+              ...wrap(rev === 'mariko'
+                // На Mariko потеря названа прямо: копия старее расширения кривой с 24 точек
+                // до 31, и не хватает именно верха. На Erista этих точек не было никогда,
+                // поэтому там текст общий — он ждёт следующего расширения карты.
+                ? 'Older backup - the top GPU voltage points are missing. Set them by hand after restoring.'
+                : 'Older backup - some settings are missing. They will keep their current values.')
+                .map(ln => `''='{if_==({ini_file(Restore,Old)},yes,${ln},)}'`), '')
     }
 
     // Ключевые настройки — то, по чему человек и опознаёт свою копию.
@@ -2881,6 +2959,30 @@ if (kipRows.length) {
         // Имя помещается целиком, это посчитано, — но если имена когда-нибудь
         // станут длиннее, выбор будет между обрезкой здесь и обрезкой подписи там.
         `set-ini-val './config.ini' Restore Name '{file_name}'`,
+        /**
+         * IS THIS COPY OLDER THAN THE PACKAGE THAT IS ABOUT TO APPLY IT?
+         *
+         * `Meta fields` has been written into every copy since day one and read by no one.
+         * It is the only thing that tells a copy made before the curve grew from 24 points
+         * to 31 from a current one: `Meta kipver` did not change, so the gate lets the old
+         * file through and the seven missing cells are simply never written - the engine
+         * skips an empty substitution without a word (`handleHexByCustom`, utils.hpp:4724).
+         *
+         * Worked out here in steps rather than in the row that shows it. The engine can
+         * only compare for equality, and an unselected backup reads as `null`, which would
+         * light the warning up for everyone. A flag written when a file is actually chosen
+         * has neither problem: no choice - no key - no text.
+         *
+         * The expected numbers come from the generator, not from the text: they change
+         * whenever the map grows. An imported copy is counted differently - it holds only
+         * what the old profile had - and if this revision has no import path at all, the
+         * native count stands in: such a copy cannot be produced here.
+         */
+        `ini_file '{file_source}'`,
+        `set-ini-val './config.ini' Restore Have '{ini_file(Meta,fields)}'`,
+        `set-ini-val './config.ini' Restore Want '{if_==({ini_file(Meta,kipver)},imported,${IMPORT_FIELD_COUNT[rev] ?? backupFieldCount(rev)},${backupFieldCount(rev)})}'`,
+        `ini_file './config.ini'`,
+        `set-ini-val './config.ini' Restore Old '{if_==({ini_file(Restore,Have)},{ini_file(Restore,Want)},no,yes)}'`,
         // `back` последней строкой: в Ultrahand она не прерывает секцию, остаток
         // выполнится (`docs/MIGRATION.md` §3, конфликт 3).
         'back',
@@ -2971,6 +3073,9 @@ if (kipRows.length) {
         `delete {ini_file(Restore,Path)}`,
         `set-ini-val './config.ini' Restore Path ''`,
         `set-ini-val './config.ini' Restore Name ''`,
+        // Флаг «копия старая» стирается вместе с выбором: иначе предупреждение осталось бы
+        // висеть после удаления файла, которого оно касалось.
+        `set-ini-val './config.ini' Restore Old ''`,
         `notify 'Done - Deleted' 22 4000`,
         'try:',
         `notify 'Pick a backup first' 22 4000`,

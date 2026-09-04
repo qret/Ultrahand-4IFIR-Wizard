@@ -314,11 +314,11 @@
     "offset": 88,
     "series": "gpu_curve_mariko",
     "name": "GPU custom table, Mariko (marikoGpuVoltArray)",
-    "struct_field": "marikoGpuVoltArray[24]",
+    "struct_field": "marikoGpuVoltArray — DECLARED [24] in the source, but the kip writes 31 cells",
     "length": 3,
-    "offsets_valid": "88..180, step 4 — EXACTLY 24 elements (307.2 … 1190.4 MHz)",
-    "offsets_invalid": "184, 188, 192, 196, 200, 204, 208 — OUTSIDE the array, this is eristaCpuDvfsTable[0]",
-    "what": "FACT: an array of 24 GPU voltage values in MILLIVOLTS (not uV!), one per frequency of the Mariko grid. Index i corresponds to the frequency 307200 + 38400*i kHz: 88→307.2 MHz, 92→345.6, ..., 180→1190.4 MHz. The declaration in the source: '.marikoGpuVoltArray = {395, 420, 445, 470, 495, 520, 545, 570, 595, 620, 645, 670, 695, 720, 750, 780, 810, 840, 870, 900, 930, 960, 990, 1020}' (customize.cpp:95) — the kip bytes @88..180 match this list EXACTLY, which means the shipped kip has not been touched in the table.",
+    "offsets_valid": "88..208, step 4 — 31 points (307.2 … 1459.2 MHz). The source declares only 24 elements (88..180), yet the kip's write loop takes its length from the DVFS table, which has 31 rows, and fills every one of them; on Mariko 184..208 are the upper seven points of the curve.",
+    "offsets_shared": "184, 188, 192, 196, 200, 204, 208 — DUAL PURPOSE: on Erista these bytes are eristaCpuDvfsTable[0]; on Mariko they are the curve points 1228.8, 1267.2, 1305.6, 1344.0, 1382.4, 1420.8 and 1459.2 MHz. Our screen carries platform=mariko, so it is never shown on an Erista, and on a Mariko the Erista CPU table is dead — the write is safe on both.",
+    "what": "An array of GPU voltage values in MILLIVOLTS (not uV!), one per frequency of the Mariko grid. Index i corresponds to the frequency 307200 + 38400*i kHz: 88→307.2 MHz, 92→345.6, ..., 180→1190.4, 184→1228.8, ..., 208→1459.2 MHz (31 points in all). FACT, and still true: the declaration in the source is 24 elements — '.marikoGpuVoltArray = {395, 420, 445, 470, 495, 520, 545, 570, 595, 620, 645, 670, 695, 720, 750, 780, 810, 840, 870, 900, 930, 960, 990, 1020}' (customize.cpp:95) — and the kip bytes @88..180 match that list EXACTLY, which means the shipped kip has not been touched in the table. REFUTED 04.09.2026: what used to be written here as an equally hard FACT — that there are therefore only 24 usable points and the curve is capped at 1190.4 MHz — was our own misreading of the declaration. The declared length is not what the write loop uses. The real ceiling of the mode is 1459.2 MHz. See docs/NOTES.md #245.",
     "units": "mV",
     "range": {
       "min": 400,
@@ -336,7 +336,7 @@
     "affects": [
       {
         "offset": 184,
-        "how": "DANGEROUS, FACT: the menu items '1228MHz'..'MAX MHz' write into 184,188,192,196,200,204,208, which is BEYOND the end of the array (it ends at 183). eristaCpuDvfsTable starts at 184: 184 = the freq of the first row (408000 in the kip), 192 = its dfll c0 voltage (786986 uV), 196..208 = the coefficients c1..c4. Independent confirmation: the Ebal backup kipBackup/default.ini:25,27 saved under the names '1228MGPV3' and '1305MGPV3' the values C03906 (=408000) and 2A020C (=786986). HYPOTHESIS about the consequences: on Mariko the Erista CPU table is not used, so the write is harmless but also useless — these 7 items simply do nothing; if, however, this loader.kip ends up on an Erista, the first row of the CPU DVFS will contain garbage and the console may fail to boot."
+        "how": "SHARED, not dangerous. The menu items '1228MHz'..'MAX MHz' write into 184,188,192,196,200,204,208. Those bytes are also eristaCpuDvfsTable[0]: 184 = the freq of the first row (408000 in the kip), 192 = its dfll c0 voltage (786986 uV), 196..208 = the coefficients c1..c4 — that layout fact stands, and the Ebal backup kipBackup/default.ini:25,27 confirms it, having saved C03906 (=408000) and 2A020C (=786986) under the names '1228MGPV3' and '1305MGPV3'. REFUTED 04.09.2026: this entry used to be headed 'DANGEROUS, FACT' and claimed the write goes BEYOND the end of the array, so that the seven items either do nothing or brick an Erista. Neither holds. In Custom Table mode the kip reads these seven cells as the top of the GPU curve, so the items do exactly what their labels say; and the screen is gated by platform=mariko, so it never appears on an Erista at all. See docs/NOTES.md #245."
       }
     ],
     "conflicts_with": [
@@ -347,8 +347,8 @@
     ],
     "auto_value": "none — this is data, not a mode. The 'automatic' is the value 44 ≠ 03 itself.",
     "ram_relation": "NOT FOUND — no direct link between the table rows and the RAM frequency.",
-    "current_in_kip": "88..180 = 395,420,445,470,495,520,545,570,595,620,645,670,695,720,750,780,810,840,870,900,930,960,990,1020 (mV) — the source default. 184=408000, 188=0, 192=786986, 196..208=0 — FOREIGN data (eristaCpuDvfsTable[0]).",
-    "danger": "FACT: 7 items write past the array boundary (see affects). HYPOTHESIS: values that are too low → texture artefacts and an orange screen at the corresponding frequencies; the check is to set in Houdini exactly the frequency whose row was edited, disable the GPU Freq Governor, and spend 5-10 minutes in a GPU-heavy game with the RAM overclock enabled.",
+    "current_in_kip": "88..180 = 395,420,445,470,495,520,545,570,595,620,645,670,695,720,750,780,810,840,870,900,930,960,990,1020 (mV) — the source default. 184=408000, 188=0, 192=786986, 196..208=0 — these are the upper seven points of the curve, but they have never been seeded, so they still hold the eristaCpuDvfsTable[0] bytes the kip shipped with. Unseeded, not foreign: seed them (ST1 seeding writes all 31 cells) before reading the top of the curve as a voltage.",
+    "danger": "HYPOTHESIS: values that are too low → texture artefacts and an orange screen at the corresponding frequencies; the check is to set in Houdini exactly the frequency whose row was edited, disable the GPU Freq Governor, and spend 5-10 minutes in a GPU-heavy game with the RAM overclock enabled. NOT a danger, refuted 04.09.2026: this line used to open with «FACT: 7 items write past the array boundary». They do not — see affects[184] and docs/NOTES.md #245.",
     "help_quote": "It is important not to forget that the voltages from GPU Undervolt (Gpu Eco Mode) will be applied only to frequencies above xxx MHz (This is the maximum frequency at the minimum voltage)",
     "sources": [
       "Wizard/4IFIR-Wizard-update/customize.cpp:73",

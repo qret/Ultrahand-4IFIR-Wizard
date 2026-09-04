@@ -16,6 +16,7 @@
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
 import { join, dirname, relative, resolve, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { spawnSync } from 'node:child_process'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const DIST = join(ROOT, 'package', 'dist')
@@ -65,19 +66,34 @@ for (const m of text.matchAll(/hex-by-custom(?:-r?decimal)?-offset\s+\S+\s+CUST\
   writtenOffsets.add(Number(m[1]))
 }
 
-for (const it of items) {
-  for (const off of it.offsets ?? []) {
-    const f = byOffset.get(off)
-    if (!f || f.exclude_from_menu) continue
-    if (!(f.values ?? []).length) continue          // no dictionary means no item — that is legitimate
-    if (writtenOffsets.has(off)) ok.push(`item "${it.title ?? it.id}" → write to ${off}`)
-    else problems.push({ sev: 'CRITICAL', what: `item "${it.title ?? it.id}" is declared on offset ${off}, but dist has no write to it` })
+// ONE CHECK, ONE ASSERTION. This used to push an `ok` per item, so the tally at the
+// bottom grew with the size of the map instead of with the number of guards - twenty-six
+// green lines for a single check. The count is what a reader trusts when deciding whether
+// a guard was lost, so it has to mean guards. The subject count moves into the message.
+{
+  let bad = 0, checked = 0
+  for (const it of items) {
+    for (const off of it.offsets ?? []) {
+      const f = byOffset.get(off)
+      if (!f || f.exclude_from_menu) continue
+      if (!(f.values ?? []).length) continue        // no dictionary means no item — that is legitimate
+      checked++
+      if (!writtenOffsets.has(off)) {
+        bad++
+        problems.push({ sev: 'CRITICAL', what: `item "${it.title ?? it.id}" is declared on offset ${off}, but dist has no write to it` })
+      }
+    }
   }
+  if (!checked) problems.push({ sev: 'CRITICAL', what: 'ни один пункт меню не объявляет смещения — проверка записей смотрит в пустоту' })
+  else if (!bad) ok.push(`every offset a menu item declares is written in dist (${checked} declarations)`)
 }
 
 // ---------------------------------------------------------------- 2. conditional visibility
 
-for (const it of items) {
+// One assertion for the whole check - see the note on check 1.
+{
+  let bad = 0, checked = 0
+  for (const it of items) {
   const v = it.visible_when
   if (!v?.offset) continue
   // СРАВНИВАЕМ И ЗНАЧЕНИЕ, А НЕ ТОЛЬКО СМЕЩЕНИЕ.
@@ -92,9 +108,14 @@ for (const it of items) {
   const needle = `matching_hex_val_custom`
   const onOffset = lines.filter(l => l.includes(needle) && l.includes(` CUST ${v.offset} `))
   const withValue = v.value == null ? onOffset : onOffset.filter(l => l.trimEnd().endsWith(` ${v.value}`))
-  if (withValue.length) ok.push(`visibility condition for "${it.title ?? it.id}" (on ${v.offset}=${v.value})`)
-  else if (onOffset.length) problems.push({ sev: 'CRITICAL', what: `"${it.title ?? it.id}" is declared visible when ${v.offset}=${v.value}, but dist checks that cell against a different value` })
+  checked++
+  if (withValue.length) continue
+  bad++
+  if (onOffset.length) problems.push({ sev: 'CRITICAL', what: `"${it.title ?? it.id}" is declared visible when ${v.offset}=${v.value}, but dist checks that cell against a different value` })
   else problems.push({ sev: 'CRITICAL', what: `"${it.title ?? it.id}" is declared visible when ${v.offset}=${v.value}, but dist has no visibility_condition` })
+  }
+  if (!checked) problems.push({ sev: 'CRITICAL', what: 'ни один пункт не объявляет условия видимости по смещению — проверка условий смотрит в пустоту' })
+  else if (!bad) ok.push(`every declared visibility condition is in dist with its value (${checked} conditions)`)
 }
 
 // ---------------------------------------------------------------- 3. complete series
@@ -106,12 +127,20 @@ for (const f of fields) {
     bySeries.get(f.series).push(f)
   }
 }
-for (const it of items) {
-  if (!it.series) continue
-  const list = (bySeries.get(it.series) ?? []).filter(f => !f.exclude_from_menu && (f.values ?? []).length)
-  const missing = list.filter(f => !writtenOffsets.has(f.offset))
-  if (!missing.length) ok.push(`series "${it.series}" — all ${list.length} points written`)
-  else problems.push({ sev: 'CRITICAL', what: `series "${it.series}": ${missing.length} of ${list.length} not written (${missing.slice(0, 6).map(f => f.offset).join(', ')}…)` })
+// One assertion for the whole check - see the note on check 1.
+{
+  let bad = 0, series = 0, points = 0
+  for (const it of items) {
+    if (!it.series) continue
+    const list = (bySeries.get(it.series) ?? []).filter(f => !f.exclude_from_menu && (f.values ?? []).length)
+    const missing = list.filter(f => !writtenOffsets.has(f.offset))
+    series++; points += list.length
+    if (!missing.length) continue
+    bad++
+    problems.push({ sev: 'CRITICAL', what: `series "${it.series}": ${missing.length} of ${list.length} not written (${missing.slice(0, 6).map(f => f.offset).join(', ')}…)` })
+  }
+  if (!series) problems.push({ sev: 'CRITICAL', what: 'ни один пункт меню не ссылается на серию — проверка полноты серий смотрит в пустоту' })
+  else if (!bad) ok.push(`every series a menu item names is written in full (${series} series, ${points} points)`)
 }
 
 // ---------------------------------------------------------------- 4. blacklist
@@ -689,49 +718,57 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   }
 }
 
-// ------------------------------------------- 18. LICENSE и NOTICE.md против паспорта сборки
+// ------------------- 18. LICENSE и NOTICE обещают состав архива — отказ обязан его держать
 //
-// GPL v2 требует не «исходник где-то есть», а «соответствующий исходник указан однозначно».
-// В `BUILD.txt` это поле подставляется из `baseline.txt` и потому не врёт. В `LICENSE`
-// и `NOTICE.md` те же сведения были вписаны РУКАМИ — и оба файла месяцами утверждали,
-// что сборка НЕ изменена и что исходник у ppkantorski, хотя форк уже нёс нашу правку
-// (`ahead_of_upstream=1`). Три файла в одном архиве, два против третьего.
+// The old subject died on 04.09.2026. While the archive carried the engine binary, GPL v2
+// made both files name the fork it was built from, and this check enforced that. The engine
+// left the archive and the duty went with it, so the check was guarding a dead object: green
+// only because the fork link happens to sit in an unrelated sentence, and it would have gone
+// RED on the legitimate edit of striking that link out.
 //
-// Автоподстановки здесь быть не может: LICENSE и NOTICE.md лежат в репозитории и
-// публикуются, а не порождаются под каждый билд. Значит нужен сторож.
+// What is left is a promise the files still make to every reader: release archives carry the
+// configurator alone. Nothing makes that true except a switch someone has to remember, and
+// the person who finds out is the one whose engine our archive replaced on his next console
+// update. So the promise is paired with the refusal in release.ps1 that enforces it.
 {
-  // Путь ОТНОСИТЕЛЬНЫЙ, и это не стиль. Абсолютный был бы локальным путём
-  // конкретной машины, а этот файл публикуется: предохранитель `$SECRETS` в publish.ps1
-  // честно остановил публикацию на первой же попытке. Правильная реакция на такое —
-  // менять текст, а не правило (`docs/NOTES.md` №48).
-  //
-  // Сборочное окружение лежит рядом с репозиторием, на уровень выше. У постороннего
-  // его нет вовсе — и тогда проверка просто пропускается, как и задумано.
-  //
-  // Прямые слэши намеренно: Node их понимает на Windows, а обратный слэш в строке JS —
-  // это escape. Путь с обратными слэшами молча превращается в мусор с символом забоя
-  // посередине, и проверка вечно «пропускается», ничего не проверяя. Первая версия
-  // этой строки так и сделала — четвёртый случай того же класса за проект.
-  const baselinePath = join(ROOT, '..', 'WorkAround', 'out', 'baseline.txt')
-  if (!existsSync(baselinePath)) {
-    ok.push('licence-vs-passport check skipped — no baseline.txt (engine never built here)')
+  // Обе стороны — текст в репозитории, поэтому проверка не зависит от того, собирался ли
+  // здесь движок. Прежняя редакция зависела: без `baseline.txt` она «пропускалась» и всё
+  // равно засчитывалась пройденной — зелень за то, что смотреть было не на что.
+  const PROMISE = /Release archives? contains? the configurator (only|alone)/i
+  const promising = [], absent = []
+  for (const name of ['LICENSE', 'NOTICE.md']) {
+    const f = join(ROOT, name)
+    if (!existsSync(f)) { absent.push(name); continue }
+    if (PROMISE.test(readFileSync(f, 'utf8'))) promising.push(name)
+  }
+  const relPs = join(ROOT, 'scripts', 'release.ps1')
+  if (absent.length) {
+    problems.push({ sev: 'CRITICAL', what: `${absent.join(', ')} не найден — обещание о составе архива проверить не на чем` })
+  } else if (!promising.length) {
+    // Снять обещание — законная правка: файл просто перестаёт говорить о составе архива.
+    ok.push('neither LICENSE nor NOTICE.md promises anything about the archive contents — nothing to back')
+  } else if (!existsSync(relPs)) {
+    // Выпускающий скрипт в публикацию не входит (список запрещённого в publish.ps1),
+    // и у постороннего второй стороны нет вовсе. Пропуск назван вслух, а не выдан за проверку.
+    ok.push('archive-contents promise check skipped — no scripts/release.ps1 in this tree')
   } else {
-    const bl = readFileSync(baselinePath, 'utf8')
-    const ahead = Number((bl.match(/^ahead_of_upstream\s*=\s*(\d+)/m) || [])[1] ?? NaN)
-    const srcUrl = (bl.match(/^source_url\s*=\s*(\S+)/m) || [])[1] || ''
-    for (const name of ['LICENSE', 'NOTICE.md']) {
-      const f = join(ROOT, name)
-      if (!existsSync(f)) { problems.push({ sev: 'IMPORTANT', what: `${name} не найден` }); continue }
-      const text = readFileSync(f, 'utf8')
-      const claimsUnmodified = /\bunmodified\b/i.test(text)
-      if (ahead > 0 && claimsUnmodified) {
-        problems.push({ sev: 'CRITICAL', what: `${name} называет сборку движка неизменённой, а форк ушёл от апстрима на ${ahead} — это неверное указание соответствующего исходника (GPL v2)` })
-      } else if (ahead > 0 && srcUrl && !text.includes(srcUrl)) {
-        problems.push({ sev: 'CRITICAL', what: `${name} не называет ${srcUrl} — репозиторий, из которого собран лежащий в архиве бинарник` })
-      } else {
-        ok.push(`${name} agrees with baseline.txt on the corresponding source`)
-      }
+    const ps = readFileSync(relPs, 'utf8')
+    const at = ps.indexOf('$ovlInStage')
+    const stop = ps.indexOf('=== 2.', at < 0 ? 0 : at)
+    const region = at < 0 ? '' : ps.slice(at, stop < 0 ? ps.length : stop)
+    const bad = []
+    if (!region) bad.push('в release.ps1 нет разбора состава по $ovlInStage — обещание ничем не держится')
+    else {
+      // Отказ обязан срабатывать именно на ПУБЛИКАЦИИ: комплект на передачу (`-NoUpload`)
+      // несёт движок намеренно и уходит из рук в руки, а не в Releases.
+      if (!/if \(Test-Path -LiteralPath \$ovlInStage\)[\s\S]{0,400}?if \(-not \$NoUpload\)[\s\S]{0,160}?throw/.test(region))
+        bad.push('release.ps1 не отказывает, когда движок в комплекте, а релиз уходит на GitHub')
+      // Обратное требование — «движок в комплекте обязан быть» — отменено тем же решением.
+      if (/-not \(Test-Path -LiteralPath \$ovlInStage\)/.test(region))
+        bad.push('release.ps1 всё ещё требует движок в комплекте — это отменено 04.09.2026')
     }
+    if (bad.length) problems.push({ sev: 'CRITICAL', what: `${promising.join(' и ')} обещают архив без движка, а выпуск это не держит:\n     ${bad.join('\n     ')}` })
+    else ok.push(`the archive-contents promise in ${promising.join(' and ')} is backed by the release refusal`)
   }
 }
 
@@ -989,8 +1026,8 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // на Erista — ровно то, ради чего сброс и нажимают.
 {
   const factory = JSON.parse(readFileSync(join(ROOT, 'package', 'factory-defaults.json'), 'utf8')).defaults
-  const bad = [], gaps = []
-  let checked = 0
+  const bad = [], gaps = [], unmarked = []
+  let checked = 0, labelled = 0, noted = 0
   for (const f of fields) {
     if (blacklist.has(f.offset)) continue
     const want = factory[String(f.offset)]
@@ -1002,22 +1039,44 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     // У Vdd2 напряжение выбирает kip по режиму и частоте, а слова ECO/DEFAULT/SRT в подписях
     // это имена пресетов из легенды прошивки, а не «у вас стоит вот это». Молчаливого
     // исключения здесь быть не может: `default_label_note` обязателен и читается человеком.
-    if (f.default_label_note) continue
-    const marked = (f.values ?? []).filter(v => /(^|[^a-z])default([^a-z]|$)/i.test(String(v.name)))
-    if (!marked.length) continue
+    if (f.default_label_note) { noted++; continue }
     checked++
     // Сравниваем по ЗНАЧЕНИЮ, а не по строке: в словарях один и тот же ноль лежит и как
     // `00`, и как `000000`, и это законно — генератор выравнивает их сам.
     const len = f.length ?? 3
     const num = h => parseInt(String(h).padEnd(len * 2, '0').slice(0, len * 2).match(/../g).reverse().join(''), 16)
+    // THE VALUE THE RESET WRITES MUST BE IN THE DICTIONARY - the half of this check that
+    // was missing. The earlier version `continue`d past any field carrying no "Default" mark,
+    // so nine fields - `12 CPU Boost Clock`, both `RAM MHz`, `20 CPU Voltage Limit` and five
+    // more - were not checked at all, while the printed 57 read as full coverage. The mark is
+    // not the only form of the same claim: ask first whether the dictionary offers the value
+    // the reset returns to. If it does not, nobody can return by hand to where the button
+    // returns them, and that is a defect no matter what the labels say.
+    const offered = (f.values ?? []).filter(v => num(v.hex) === num(want))
+    if (!offered.length) {
+      bad.push(`${f.offset} ${f.name}: сброс пишет ${want}, а в словаре такой записи нет — руками к заводскому не вернуться`)
+      continue
+    }
+    const marked = (f.values ?? []).filter(v => /(^|[^a-z])default([^a-z]|$)/i.test(String(v.name)))
+    if (!marked.length) { unmarked.push(`${f.offset} ${f.name} → ${offered[0].name}`); continue }
+    labelled++
     if (!marked.some(v => num(v.hex) === num(want)))
       bad.push(`${f.offset} ${f.name}: «Default» стоит на ${marked.map(v => v.name).join(', ')}, а сброс пишет ${want}`)
   }
-  if (bad.length || gaps.length) {
+  // ZERO FIELDS IS RED: the baseline moved or its keys changed, and there is nothing to compare.
+  if (!checked) {
+    problems.push({ sev: 'CRITICAL', what: 'ни одно поле не сверено с эталоном сброса — проверка «Default» смотрит в пустоту' })
+  } else if (bad.length || gaps.length) {
     if (bad.length) problems.push({ sev: 'CRITICAL', what: `метка «Default» расходится с эталоном сброса:\n     ${bad.slice(0, 6).join('\n     ')}` })
     if (gaps.length) problems.push({ sev: 'CRITICAL', what: `поля участвуют в сбросе, но в эталоне их нет — сброс их не тронет:\n     ${gaps.slice(0, 8).join('\n     ')}` })
   } else {
-    ok.push(`the "Default" label agrees with the reset baseline (${checked} fields), and the baseline covers every field that resets`)
+    // FIELDS WITHOUT THE MARK ARE NAMED, NOT SKIPPED. A missing mark is not itself a defect:
+    // their factory value is called `eBamatic`, which is an honest name. But skipping them in
+    // silence turned 57 into "all there is", and nothing showed the difference.
+    const tail = unmarked.length
+      ? `; ${unmarked.length} без метки, заводское зовётся своим именем: ${unmarked.join(', ')}`
+      : ''
+    ok.push(`the "Default" label agrees with the reset baseline (${checked} fields, ${labelled} carry the label, ${noted} excused by default_label_note${tail}), and the baseline covers every field that resets`)
   }
 }
 
@@ -1195,7 +1254,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 //
 // Блок «GPU Voltage Table» печатается по варианту на каждый режим ступени, и на экране
 // должен появляться ровно один. Я взял в него ВСЕ строки группы, а группа в сводке
-// смешанная — 24 точки Mariko и 29 Erista. Вышло 53 строки вместо 24, вдобавок без метки
+// смешанная — тогда 24 точки Mariko и 29 Erista (с 04.09.2026 — 31 и 29). Вышло 53 строки вместо тогдашних 24, вдобавок без метки
 // ревизии, то есть на Erista показался бы мариковский блок поверх эристовского.
 //
 // ПЕРВАЯ РЕДАКЦИЯ ЭТОЙ ПРОВЕРКИ ТУ ПОРЧУ ПРОПУСКАЛА. Она сравнивала длины только внутри
@@ -1378,13 +1437,37 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 //
 // Списка исключений нет намеренно: список пришлось бы поддерживать руками, и он
 // разошёлся бы с картой молча — ровно та беда, от которой мы уже страдали.
+//
+// PRODUCERS ARE LOOKED FOR IN THE WHOLE PACKAGE, NOT IN ONE FILE. The earlier version read
+// only `service/package.ini`, where the import of a foreign backup lives - so OUR OWN backup
+// (`Create backup?<revision>`), which sits in `restore-*.ini`, was never checked at all,
+// while the success line promised "every source that fills its folder". One source guarded,
+// both reported.
 {
   const bad = [], soft = []
-  const pkgPath = join(DIST, 'service', 'package.ini')
-  const pkg = existsSync(pkgPath) ? readFileSync(pkgPath, 'utf8') : ''
   let impMap = {}
   try { impMap = JSON.parse(readFileSync(join(ROOT, 'package', 'backup-import.json'), 'utf8')).import_map ?? {} } catch {}
 
+  // A producer is any section of ANY package file that sets `<Key> Path` and then writes
+  // fields to that path.
+  const producers = []
+  for (const pf of iniFiles) {
+    for (const sec of readFileSync(pf, 'utf8').split(/^(?=\[)/m)) {
+      const title = sec.match(/^\[([^\]]+)\]/)?.[1]
+      if (!title) continue
+      const pm = sec.match(/set-ini-val '\.\/config\.ini' (\w+) Path '([^']+)'/)
+      if (!pm) continue
+      // Регулярка ЛИТЕРАЛЬНАЯ, а не собранная строкой: в шаблонной строке обратные
+      // слэши съедаются, регулярка выходит без экранирования и молча не находит
+      // ничего — сторож при этом светится зелёным. Проверено: так и было.
+      const offs = new Set([...sec.matchAll(/\{ini_file\((\w+),Path\)\}' Fields (\d+)/g)]
+        .filter(x => x[1] === pm[1]).map(x => Number(x[2])))
+      if (!offs.size) continue                       // the section READS the path, does not fill it
+      producers.push({ title, path: pm[2], offs })
+    }
+  }
+
+  let pages = 0, pairs = 0
   for (const file of iniFiles) {
     // basename, а не разбор строки: разделитель пути платформенный, и класс
     // символов с обратным слэшем здесь уже один раз съелся при правке.
@@ -1409,19 +1492,16 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     for (const m of text.matchAll(/=\s*'\{(?:if_==|math|hex_to_decimal)\(.+?\)\}'/g))
       for (const k of m[0].matchAll(/ini_file\(Fields,(\d+)\)/g)) keys.add(Number(k[1]))
     if (!keys.size) continue
+    pages++
 
-    // Производители этого каталога — по секциям пакета.
-    for (const sec of pkg.split(/^(?=\[)/m)) {
-      const title = sec.match(/^\[([^\]]+)\]/)?.[1]
-      if (!title) continue
-      const pm = sec.match(/set-ini-val '\.\/config\.ini' (\w+) Path '([^']+)'/)
-      if (!pm || !pm[2].startsWith(dir + '/')) continue
-      // Регулярка ЛИТЕРАЛЬНАЯ, а не собранная строкой: в шаблонной строке обратные
-      // слэши съедаются, регулярка выходит без экранирования и молча не находит
-      // ничего — сторож при этом светится зелёным. Проверено: так и было.
-      const offs = new Set([...sec.matchAll(/\{ini_file\((\w+),Path\)\}' Fields (\d+)/g)]
-        .filter(x => x[1] === pm[1]).map(x => Number(x[2])))
-      if (!offs.size) continue
+    // The producers of THIS folder.
+    const mine = producers.filter(p => p.path.startsWith(dir + '/'))
+    if (!mine.length) {
+      bad.push(`${relative(ROOT, file)}: каталог ${dir} никем не наполняется — страница читает из пустоты`)
+      continue
+    }
+    for (const { title, offs } of mine) {
+      pairs++
       const missing = [...keys].filter(o => !offs.has(o)).sort((a, b) => a - b)
       if (!missing.length) continue
       // Что производитель В ПРИНЦИПЕ мог бы записать: для импорта — своя схема донора.
@@ -1441,9 +1521,16 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       }
     }
   }
-  if (bad.length) problems.push({ sev: 'CRITICAL', what: `страница читает то, чего источник не пишет:\n     ${bad.slice(0, 6).join('\n     ')}` })
-  if (soft.length) problems.push({ sev: 'IMPORTANT', what: `источник не может дать часть строк предпросмотра:\n     ${soft.slice(0, 6).join('\n     ')}` })
-  if (!bad.length) ok.push('every offset a preview page keys on is written by every source that fills its folder')
+  // ZERO SUBJECTS IS RED, NOT GREEN - the gate checks 33 and 34 already carry. No preview
+  // page or no producer means the file names or the command shape moved, and from that day
+  // the check guards emptiness while still reporting for everyone.
+  if (!pages || !pairs) {
+    problems.push({ sev: 'CRITICAL', what: `проверка источников не нашла предмет надзора (страниц предпросмотра ${pages}, пар «страница — производитель» ${pairs}) — она смотрит в пустоту` })
+  } else {
+    if (bad.length) problems.push({ sev: 'CRITICAL', what: `страница читает то, чего источник не пишет:\n     ${bad.slice(0, 6).join('\n     ')}` })
+    if (soft.length) problems.push({ sev: 'IMPORTANT', what: `источник не может дать часть строк предпросмотра:\n     ${soft.slice(0, 6).join('\n     ')}` })
+    if (!bad.length) ok.push(`every offset a preview page keys on is written by every source that fills its folder (${pages} pages, ${pairs} sources)`)
+  }
 }
 
 // ------------------- 31. ступени с общим режимом различимы по опорной ячейке
@@ -1509,8 +1596,13 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // называть выход, иначе прочитавший «тюнер отключён» пойдёт искать компьютер.
 {
   const rootIni = join(DIST, 'package.ini')
+  // ONE ASSERTION FOR THE WHOLE CHECK. Three greens for one guard - two escape hatches
+  // plus the warning screen - inflated the tally at the bottom, so a lost guard read as
+  // a lost line rather than a lost check. The parts are counted in the message instead.
+  let bad32 = 0, writers32 = 0
+  const fail32 = what => { bad32++; problems.push({ sev: 'CRITICAL', what }) }
   if (!existsSync(rootIni)) {
-    problems.push({ sev: 'CRITICAL', what: 'нет package.ini — проверить путь обновления не на чем' })
+    fail32('нет package.ini — проверить путь обновления не на чем')
   } else {
     const text = readFileSync(rootIni, 'utf8')
     // Режем на секции: заголовок плюс всё до следующего заголовка.
@@ -1525,9 +1617,8 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     ]
     for (const [re, name] of escapes) {
       const sec = sectionOf(re)
-      if (!sec) problems.push({ sev: 'CRITICAL', what: `в корне нет пункта "${name}" — единственный путь обновиться с консоли исчез` })
-      else if (gated(sec)) problems.push({ sev: 'CRITICAL', what: `"${name}" закрыт затвором версии kip — при чужом kip человек останется заперт без возможности обновиться` })
-      else ok.push(`escape hatch "${name}" survives a kip layout change`)
+      if (!sec) fail32(`в корне нет пункта "${name}" — единственный путь обновиться с консоли исчез`)
+      else if (gated(sec)) fail32(`"${name}" закрыт затвором версии kip — при чужом kip человек останется заперт без возможности обновиться`)
     }
 
     // (б) пункты, пишущие в kip, обязаны быть С затвором. Не по звёздочке в имени,
@@ -1538,29 +1629,31 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       if (!/hex-by-custom|loader\.kip/.test(c)) continue
       if (/^\[@/.test(head)) continue                 // объявление страницы
       if (/^\[Kip version mismatch\]/.test(head)) continue
-      if (!gated(c)) problems.push({ sev: 'CRITICAL', what: `секция ${head} в корне трогает kip, но не закрыта затвором версии — на чужой раскладке она писала бы по неверным адресам` })
+      writers32++
+      if (!gated(c)) fail32(`секция ${head} в корне трогает kip, но не закрыта затвором версии — на чужой раскладке она писала бы по неверным адресам`)
     }
+    // ZERO KIP WRITERS IS RED. Finding none, half (b) would be guarding emptiness.
+    if (!writers32) fail32('в корне нет ни одной секции, пишущей в kip — затвор версии стеречь не на чем')
 
     // (в) экран-предупреждение существует, несёт РОВНО обратное условие и называет выход.
     const warnSec = sectionOf(/^\[Kip version mismatch\]/)
     if (!warnSec) {
-      problems.push({ sev: 'CRITICAL', what: 'нет экрана "Kip version mismatch" — при чужом kip человек увидит пустой корень без объяснения' })
+      fail32('нет экрана "Kip version mismatch" — при чужом kip человек увидит пустой корень без объяснения')
     } else {
       const cond = (warnSec.match(/visibility_condition=([^\r\n]+)/) ?? [])[1] ?? ''
-      if (!cond.startsWith('!')) problems.push({ sev: 'CRITICAL', what: 'экран "Kip version mismatch" показывается не по ОБРАТНОМУ условию — он либо не покажется никогда, либо будет висеть поверх работающего тюнера' })
+      if (!cond.startsWith('!')) fail32('экран "Kip version mismatch" показывается не по ОБРАТНОМУ условию — он либо не покажется никогда, либо будет висеть поверх работающего тюнера')
       // Текст обязан назвать оба пункта: диагноз без выхода отправляет человека к компьютеру.
       for (const must of ['Check for updates', 'Update']) {
-        if (!warnSec.includes(must)) problems.push({ sev: 'CRITICAL', what: `экран "Kip version mismatch" не называет пункт "${must}" — человек не поймёт, что средство стоит на том же экране` })
+        if (!warnSec.includes(must)) fail32(`экран "Kip version mismatch" не называет пункт "${must}" — человек не поймёт, что средство стоит на том же экране`)
       }
       // Третье обязательное — ПУТЬ НАРУЖУ. Обновления может ещё не быть: тогда экран
       // остаётся единственным, что человек видит, и он обязан сказать, куда идти.
       // Ссылка на группу 4IFIR добавлена 04.09.2026; без сторожа её однажды сотрут
       // при правке текста, и никто не заметит — ровно так уже уходили другие строки.
-      if (!warnSec.includes('t.me/kf4fr')) problems.push({ sev: 'CRITICAL', what: `экран "Kip version mismatch" не называет путь наружу — ссылку на группу 4IFIR` })
-      if (cond.startsWith('!') && warnSec.includes('Check for updates') && warnSec.includes('Update'))
-        ok.push('kip mismatch screen shows the way out by name')
+      if (!warnSec.includes('t.me/kf4fr')) fail32(`экран "Kip version mismatch" не называет путь наружу — ссылку на группу 4IFIR`)
     }
   }
+  if (!bad32) ok.push(`the update path survives a kip layout change (2 escape hatches ungated, ${writers32} kip writers gated, mismatch screen names the way out)`)
 }
 
 // ---------------- 33. подпись показывает ВЫБРАННОЕ, без дописок
@@ -1871,7 +1964,9 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // Seeding writes 31 cells of loader.kip, seven of them shared with row 0 of the Erista
 // CPU table. It may only run for someone who actually turned the manual table on, so the
 // guard list has to open with CUST 44 = 03. Without it a visit to the screen writes the
-// kip of a user who never asked. Details: NOTES 234.
+// kip of a user who never asked. There are two entry points now - the curve forwarder and
+// the mode item that switches Custom Table on - and the rule is the same for both.
+// Details: NOTES 234.
 {
   const bad = []
   let blocks = 0
@@ -1927,6 +2022,450 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   const NL = String.fromCharCode(10)
   if (bad.length) problems.push({ sev: 'CRITICAL', what: 'футер длиннее ' + LIMIT + ' знаков выдавит имя пункта:' + NL + '     ' + bad.slice(0, 6).join(NL + '     ') })
   else ok.push(`plain footers stay under ${LIMIT} characters (${checked} checked)`)
+}
+
+// ---------------- 39. the backup manager keeps the face the operator signed off
+//
+// The operator froze this screen on 04.09.2026: a two-line passport, no console
+// revision anywhere, and a mismatched backup announced by red text that names both
+// sides - never by a popup. Apply then refuses in silence. Every part of that is a
+// one-line edit away from being lost, and it is only visible on the console.
+{
+  const bad = []
+  const PAGES = [
+    { rel: 'service/restore-mariko.ini', here: 'Mariko', other: 'erista', Other: 'Erista' },
+    { rel: 'service/restore-erista.ini', here: 'Erista', other: 'mariko', Other: 'Mariko' },
+  ]
+  const PASSPORT = ['Memory', 'Kip layout']
+  const rowOf = l => l.match(/^'([^']*)'\s*=\s*'(.*)'$/)   // строка таблицы: подпись = значение
+  let pages = 0
+
+  for (const p of PAGES) {
+    const abs = join(DIST, p.rel)
+    if (!existsSync(abs)) { bad.push(`${p.rel}: файла нет, а менеджер копий без него не собирается`); continue }
+    pages++
+    const ls = readFileSync(abs, 'utf8').split(/\r?\n/)
+
+    // нарезка на секции с запоминанием НОМЕРА КАЖДОЙ СТРОКИ: отказ обязан указать место
+    const secs = []
+    ls.forEach((line, i) => {
+      if (/^\[/.test(line)) secs.push({ head: line, at: i + 1, body: [], bodyAt: [] })
+      else if (secs.length) { const s = secs[secs.length - 1]; s.body.push(line); s.bodyAt.push(i + 1) }
+    })
+
+    // (1) паспорт — ровно две строки и именно эти две
+    const passport = secs.filter(s => s.body.some(l => l.includes('{ini_file(Meta,ram)}')))
+    if (passport.length !== 1) {
+      bad.push(`${p.rel}: блоков паспорта ${passport.length}, а он ровно один`)
+    } else {
+      const s = passport[0]
+      const labels = s.body.map(rowOf).filter(Boolean).map(m => m[1])
+      if (labels.length !== PASSPORT.length)
+        bad.push(`${p.rel}:${s.at} строк паспорта ${labels.length} («${labels.join(' / ')}»), а их ровно две: ${PASSPORT.join(' и ')}`)
+      else if (PASSPORT.some((n, k) => labels[k] !== n))
+        bad.push(`${p.rel}:${s.at} паспорт подписан «${labels.join(' / ')}» вместо «${PASSPORT.join(' / ')}»`)
+    }
+
+    // (2) ревизия консоли на экран не выводится: она вправе стоять только красным текстом
+    for (const s of secs) {
+      const red = s.body.includes(';info_text_color=FF0000')
+      s.body.forEach((l, k) => {
+        const m = rowOf(l)
+        if (!m || !m[2].includes('{ini_file(Meta,revision)}')) return
+        if (!red) bad.push(`${p.rel}:${s.bodyAt[k]} ревизия копии печатается обычной строкой — постоянной строки с моделью на экране нет`)
+      })
+    }
+
+    // (3) красный текст — только про несовпадение: условный, с пустой иначе-веткой,
+    //     и называющий обе стороны словами, а не «копия не подходит»
+    const red = secs.filter(s => s.body.includes(';info_text_color=FF0000'))
+    if (red.length !== 1) {
+      bad.push(`${p.rel}: блоков красного текста ${red.length}, а предупреждение о чужой ревизии ровно одно`)
+    } else {
+      const s = red[0]
+      const rows = s.body.map((l, k) => [rowOf(l), s.bodyAt[k]]).filter(([m]) => m)
+      if (!rows.length) bad.push(`${p.rel}:${s.at} красный блок пуст — предупреждать нечем`)
+      for (const [m, at] of rows) {
+        const cond = m[2].match(/^\{if_==\(\{ini_file\(Meta,revision\)\},([a-z]+),(.+),\)\}$/)
+        if (!cond) bad.push(`${p.rel}:${at} красная строка печатается всегда — совпало, значит текста нет вовсе: «${m[2]}»`)
+        else if (cond[1] !== p.other) bad.push(`${p.rel}:${at} красная строка ловит ревизию «${cond[1]}», а чужая для этой страницы — «${p.other}»`)
+      }
+      const text = rows.map(([m]) => m[2]).join(' ')
+      if (!text.includes(p.here) || !text.includes(p.Other))
+        bad.push(`${p.rel}:${s.at} предупреждение не называет обе стороны — нужны слова «${p.Other}» и «${p.here}»`)
+    }
+
+    // (4) попапов ни про ревизию, ни про раскладку kip
+    ls.forEach((l, i) => {
+      const m = l.match(/^notify(?:-now)?\s+'([^']*)'/)
+      if (m && /erista|mariko|revision|kip *layout|kipver/i.test(m[1]))
+        bad.push(`${p.rel}:${i + 1} попап о ревизии или раскладке kip — их не делать: «${m[1]}»`)
+    })
+
+    // (5) применение отсекает чужую ревизию и молчит: объяснение уже дал красный текст
+    const apply = secs.find(s => /^\[Apply this backup/.test(s.head))
+    if (!apply) {
+      bad.push(`${p.rel}: пункта «Apply this backup» нет — менеджер копий ничего не применяет`)
+    } else {
+      // ветвей у применения несколько (свой kip, импортированный, молчаливый исход),
+      // и затвор нужен КАЖДОЙ ПИШУЩЕЙ: одной хватило бы, чтобы проверка позеленела
+      const gate = new RegExp(`^!matching_ini_val \\S+ Meta revision ${p.other}$`)
+      const heads = apply.body.map((l, k) => l === 'try:' ? k : -1).filter(k => k >= 0)
+      if (!heads.length) bad.push(`${p.rel}:${apply.at} у применения нет ни одной ветви try:`)
+      heads.forEach((from, n) => {
+        const to = heads[n + 1] ?? apply.body.length
+        const part = apply.body.slice(from + 1, to)
+        if (!part.some(l => /^hex-by-custom-offset\s/.test(l))) return   // молчаливый исход ничего не пишет
+        if (!part.some(l => gate.test(l)))
+          bad.push(`${p.rel}:${apply.bodyAt[from]} ветвь применения пишет kip, не отсекая копию с чужой модели — нужен запрет «Meta revision ${p.other}»`)
+      })
+      const say = apply.body.findIndex(l => /^notify/.test(l))
+      if (say >= 0) bad.push(`${p.rel}:${apply.bodyAt[say]} применение объясняет отказ попапом — при несовпадении оно молчит`)
+    }
+  }
+
+  if (pages !== PAGES.length) problems.push({ sev: 'CRITICAL', what: `страниц менеджера копий ${pages} из ${PAGES.length} — проверка вида смотрит в пустоту` })
+  else if (bad.length) problems.push({ sev: 'CRITICAL', what: `вид менеджера копий изменён, а он зафиксирован решением оператора:\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else ok.push(`the backup manager keeps its frozen face (${pages} pages: two-line passport, red mismatch text, no popups)`)
+}
+
+// ---------------- 40. the manual GPU table is seeded with the ST1 curve
+//
+// Seeding must hand the user a copy of Eco ST1 and must compare every cell it is
+// about to overwrite - one matching cell is not proof the table is untouched. Both
+// halves are data, not code: ST1 lives in menu.json, the seeding is a generated
+// list, and a row shifted by one would go unnoticed until the console booted.
+{
+  const bad = []
+  const CURVE0 = 88, CURVE_STEP = 4
+
+  // ST1 из карты: ячейки лежат по абсолютным смещениям таблицы, значение — 4 байта µV
+  let st1 = null, meta = null
+  ;(function findStock(node, path) {
+    if (!node || typeof node !== 'object' || st1) return
+    if (!Array.isArray(node) && node.stock_tables?.tables?.ST1?.cells) { st1 = node.stock_tables.tables.ST1; meta = node.stock_tables; return }
+    for (const k of Object.keys(node)) findStock(node[k], `${path}/${k}`)
+  })(menu, '')
+
+  const le = h => { let v = 0; for (let i = h.length - 2; i >= 0; i -= 2) v = v * 256 + parseInt(h.substr(i, 2), 16); return v }
+  const expect = new Map()
+  if (st1) {
+    const rows = Object.keys(st1.cells).map(Number).sort((a, b) => a - b)
+    rows.forEach((off, i) => expect.set(CURVE0 + CURVE_STEP * i, le(st1.cells[String(off)]) / 1000))
+  }
+
+  // посев в дереве: try:-блок, который сторожит те же ячейки, что и пишет
+  let found = 0
+  for (const file of iniFiles) {
+    const rel = relative(DIST, file).split(String.fromCharCode(92)).join('/')
+    const ls = readFileSync(file, 'utf8').split(/\r?\n/)
+    let i = 0
+    while (i < ls.length) {
+      if (ls[i] !== 'try:') { i++; continue }
+      let j = i + 1
+      while (j < ls.length && ls[j] !== 'try:' && !/^\[/.test(ls[j])) j++
+      const writes = [], guards = []
+      for (let k = i + 1; k < j; k++) {
+        const w = ls[k].match(/^hex-by-custom-offset\s+\S+\s+CUST\s+(\d+)\s+([0-9A-F]+)$/)
+        if (w) { writes.push({ off: Number(w[1]), hex: w[2], at: k + 1 }); continue }
+        const g = ls[k].match(/^matching_hex_val_custom\s+\S+\s+CUST\s+(\d+)\s+([0-9A-F]+)$/)
+        if (g) guards.push({ off: Number(g[1]), hex: g[2], at: k + 1 })
+      }
+      const guarded = new Set(guards.map(g => g.off))
+      if (writes.length > 1 && writes.some(w => guarded.has(w.off))) {
+        found++
+        const written = new Set(writes.map(w => w.off))
+        // (1) сравниваются ВСЕ ячейки, которые будут переписаны, — решение оператора
+        const unguarded = writes.filter(w => !guarded.has(w.off)).map(w => w.off)
+        if (unguarded.length) bad.push(`${rel}:${i + 1} посев пишет ${unguarded.length} ячеек, которых не сверял: ${unguarded.slice(0, 6).join(', ')}`)
+        // (2) и не сверяет лишнего, кроме затвора режима CUST 44
+        const extra = guards.filter(g => g.off !== 44 && !written.has(g.off)).map(g => g.off)
+        if (extra.length) bad.push(`${rel}:${i + 1} посев сверяет ячейки, которых не пишет: ${extra.slice(0, 6).join(', ')}`)
+        // (3) записанное — это ST1, ячейка в ячейку
+        for (const w of writes) {
+          const want = expect.get(w.off)
+          if (want === undefined) { bad.push(`${rel}:${w.at} посев пишет CUST ${w.off} — вне 31 точки кривой, у ST1 такой строки нет`); continue }
+          const got = le(w.hex)
+          if (got !== want) bad.push(`${rel}:${w.at} CUST ${w.off} = ${got} мВ, а ST1 для этой строки даёт ${want} мВ`)
+        }
+      }
+      i = j
+    }
+  }
+
+  if (!st1) problems.push({ sev: 'CRITICAL', what: 'в menu.json нет stock_tables.tables.ST1 — сверять посев не с чем' })
+  else if (expect.size !== 31) problems.push({ sev: 'CRITICAL', what: `у ST1 ${expect.size} строк вместо 31 — кривая Mariko перестала совпадать с эталоном (kipVer ${meta?.kip_ver})` })
+  else if (!found) problems.push({ sev: 'CRITICAL', what: 'посев ручной таблицы не найден ни в одном файле — проверка ST1 смотрит в пустоту' })
+  else if (bad.length) problems.push({ sev: 'CRITICAL', what: `посев ручной таблицы разошёлся с ST1:\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else ok.push(`the manual table is seeded with a cell-for-cell copy of ST1 (${found} ${found === 1 ? 'block' : 'blocks'}, 31 points guarded and written each)`)
+}
+
+// ---------------- 41. a value the backup does not carry shows a dash
+//
+// A row with nothing behind it is normal for an imported backup - the old format
+// simply did not store some fields. Without the `null` fallback the engine prints
+// "Not available", which reads as a broken screen rather than an empty field. The
+// key is added by the generator, so a new dictionary path silently loses it.
+{
+  const DASH = String.fromCharCode(8212)   // «—», а не дефис: подмена сверяется буквально
+  const bad = []
+  const maps = []
+  const walkJson = d => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name)
+      if (e.isDirectory()) walkJson(p)
+      // словари ПОДСТАНОВКИ — только `.map.json`; `.flat.json` читается иначе и запасного ключа не несёт
+      else if (e.name.endsWith('.map.json')) maps.push(p)
+    }
+  }
+  walkJson(DIST)
+
+  for (const p of maps) {
+    const rel = relative(DIST, p).split(String.fromCharCode(92)).join('/')
+    let doc
+    try { doc = JSON.parse(readFileSync(p, 'utf8')) } catch { bad.push(`${rel}:1 не читается как JSON`); continue }
+    const obj = Array.isArray(doc) ? doc[0] : doc
+    if (!obj || typeof obj !== 'object') { bad.push(`${rel}:1 не словарь подстановки`); continue }
+    // номер строки ключа — чтобы отказ указывал место, а не только файл
+    const at = readFileSync(p, 'utf8').split(/\r?\n/).findIndex(l => l.includes('"null"')) + 1
+    if (!Object.prototype.hasOwnProperty.call(obj, 'null')) bad.push(`${rel}:1 нет ключа "null" — пустое значение выйдет на экран как «Not available»`)
+    else if (obj['null'] !== DASH) bad.push(`${rel}:${at || 1} ключ "null" даёт «${obj['null']}» вместо прочерка «${DASH}»`)
+  }
+
+  if (!maps.length) problems.push({ sev: 'CRITICAL', what: 'словарей подстановки не найдено — проверка прочерка смотрит в пустоту' })
+  else if (bad.length) problems.push({ sev: 'CRITICAL', what: `словарь не умеет показать пустое значение прочерком:\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else ok.push(`every dictionary shows a missing value as a dash (${maps.length} dictionaries)`)
+}
+
+// ---------------- 42. the updater downloads the name the release actually publishes
+//
+// The asset name is hard-coded on both sides and they must agree letter for letter:
+// the package fetches releases/latest/download/<name>, release.ps1 uploads <name>.
+// Rename either one and nothing fails loudly - GitHub answers 404, download gives up
+// after three tries, and every installed copy simply stops seeing updates. We would
+// hear about it from users, not from a build. The version file the package reads to
+// decide whether an update exists at all travels the same way and is checked with it.
+{
+  const relPs1 = join(ROOT, 'scripts', 'release.ps1')
+  const bad = []
+  if (!existsSync(relPs1)) {
+    problems.push({ sev: 'CRITICAL', what: 'release.ps1 не найден — проверка имени ассета смотрит в пустоту' })
+  } else {
+    const ps = readFileSync(relPs1, 'utf8')
+    // Кавычки в PowerShell могут быть любыми, поэтому берём содержимое, а не строку целиком.
+    const declared = new Set()
+    for (const m of ps.matchAll(/[$]assetName\s*=\s*['"]([^'"]+)['"]/g)) declared.add(m[1])
+    for (const m of ps.matchAll(/Join-Path\s+[$]env:TEMP\s+['"](RELEASE\.ini)['"]/gi)) declared.add(m[1])
+    // Что пакет реально просит у GitHub: последний сегмент пути releases/latest/download/.
+    const wanted = new Set()
+    for (const m of text.matchAll(/releases\/latest\/download\/([^'"\s]+)/g)) wanted.add(m[1])
+    if (!wanted.size) problems.push({ sev: 'CRITICAL', what: 'в пакете нет ни одной ссылки releases/latest/download — стеречь имя ассета не на чем' })
+    else if (!declared.size) problems.push({ sev: 'CRITICAL', what: 'в release.ps1 не нашлось ни одного имени ассета — проверка имени смотрит в пустоту' })
+    else {
+      for (const w of wanted) if (!declared.has(w)) bad.push(`пакет качает «${w}», а релиз такого ассета не выкладывает: есть ${[...declared].join(', ')}`)
+      if (bad.length) problems.push({ sev: 'CRITICAL', what: `обновление просит у GitHub не то имя, что публикует релиз:\n     ${bad.join('\n     ')}` })
+      else ok.push(`the updater asks GitHub for the exact names the release publishes (${[...wanted].join(', ')})`)
+    }
+  }
+}
+
+// ---------------- 43. no text promises the reader an engine the archive has not carried since 04.09.2026
+//
+// Fourteen such claims were found by hand on 04.09.2026, one of them printed on the
+// operator's screen after every handoff build. Nothing caught them: check 18 pairs the
+// promise in LICENSE and NOTICE with the refusal in release.ps1, and looks nowhere else.
+// The composition of the archive is settled in one place and repeated in prose in dozens,
+// so prose is what rots. The rule is deliberately coarse - a paragraph that ties the engine
+// binary to what we ship must carry a year, which is how this project marks a statement as
+// history. Anything still written in the present tense is a promise, and the promise is false.
+{
+  const SCAN_DIRS = ['docs', 'Guides', 'Make', '.']
+  // Журнал и разведка исключены осознанно: это датированные отчёты, и переписывание
+  // их убивает провенанс. INSTALL-engine.txt описывает законсервированный отдельный
+  // релиз движка, а не наш архив.
+  const SKIP = [/^docs[\/]NOTES\.md$/i, /^docs[\/]research[\/]/i, /^docs[\/]INSTALL-engine\.txt$/i]
+  // Форма самого утверждения, а не всякое соседство: «архив НЕСЁТ движок».
+  // Без глагола обладания в сеть попадали глоссарий, аудит ссылок и шаги сборки.
+  const CARRIES = /(нес[ёе]т|содержит|внутри|едет|включает|carr(y|ies|ied)|contains?|ships?|shipped|inside|bundle)/i
+  const ARCHIVE = /(архив|релиз|комплект|поставк|release|archive|kit|[.]zip)/i
+  // Комплект на передачу автору прошивки движок НЕСЁТ законно, и сборщик движка
+  // законно про движок рассказывает. Предмет надзора один: ПУБЛИКУЕМЫЙ архив релиза.
+  const EXEMPT = /(handoff|на передач|NoUpload|build(s|ing)? |собирает|сборка движка)/i
+  const HISTORY = /(19|20)\d\d/
+  // Год — не единственная пометка истории: абзац, прямо говорящий «прежде было так,
+  // а теперь нет», честен и без даты. Настоящая ложь — настоящее время без оговорки.
+  const PAST = /(прежде|раньше|больше нет|уже не|отпал|ушл(и|о)|отменен|no longer|used to|was |were |former)/i
+  const files = []
+  const walk = d => {
+    let entries = []
+    try { entries = readdirSync(join(ROOT, d), { withFileTypes: true }) } catch { return }
+    for (const e of entries) {
+      const rel = d === '.' ? e.name : `${d}/${e.name}`
+      if (e.isDirectory()) { if (!/^(\.git|node_modules|out|package)$/i.test(e.name) && d !== '.') walk(rel); continue }
+      if (!/\.(md|txt|bat)$/i.test(e.name)) continue
+      if (SKIP.some(r => r.test(rel.split('/').join(String.fromCharCode(92))) || r.test(rel))) continue
+      files.push(rel)
+    }
+  }
+  for (const d of SCAN_DIRS) walk(d)
+
+  const bad = []
+  for (const rel of files) {
+    const raw = readFileSync(join(ROOT, rel), 'utf8')
+    const lines = raw.split(/\r?\n/)
+    // Абзац, а не строка: дату почти всегда пишут в соседнем предложении, и построчная
+    // проверка утонула бы в ложных срабатываниях на переносах.
+    let start = 0, buf = [], heading = ''
+    const flush = () => {
+      const para = buf.join(' ')
+      if (buf.length && /ovlmenu/i.test(para) && CARRIES.test(para) && ARCHIVE.test(para) && !EXEMPT.test(para) && !PAST.test(para) && !HISTORY.test(para) && !HISTORY.test(heading))
+        bad.push(`${rel}:${start + 1} — «${para.replace(/\s+/g, ' ').trim().slice(0, 95)}…»`)
+      buf = []
+    }
+    for (let i = 0; i < lines.length; i++) {
+      if (!lines[i].trim()) { flush(); continue }
+      if (/^\s*(#|rem |::|\|)/.test(lines[i]) && !buf.length) heading = lines[i]
+      if (!buf.length) start = i
+      buf.push(lines[i])
+    }
+    flush()
+  }
+
+  // Отдельно — положительное утверждение, а не поиск запрещённого: инструкция едет
+  // ВНУТРИ архива, и она обязана сказать читателю, что движка в нём нет.
+  const instAbs = join(ROOT, 'docs', 'INSTALL.txt')
+  // 04.09.2026, РАЗОВОЕ ИСКЛЮЧЕНИЕ: последний релиз собирается по-старому, движком
+  // и конфигуратором в одном архиве. Пока это так, INSTALL.txt обязан говорить
+  // обратное — что движок в архиве ЕСТЬ. Утверждение остаётся положительным: файл
+  // обязан назвать состав, а не молчать о нём. Вернуть первую форму сразу после
+  // публикации — см. память release-with-engine-exception.
+  const instTxt = existsSync(instAbs) ? readFileSync(instAbs, 'utf8') : ''
+  const instSays = /THE ENGINE IS NOT HERE/i.test(instTxt) || /LAST ARCHIVE BUILT THIS WAY/i.test(instTxt)
+
+  if (!files.length) problems.push({ sev: 'CRITICAL', what: 'проверка текстов не нашла ни одного файла — она смотрит в пустоту' })
+  else if (!existsSync(instAbs)) problems.push({ sev: 'CRITICAL', what: 'docs/INSTALL.txt не найден, а он едет внутри архива' })
+  else if (!instSays) problems.push({ sev: 'CRITICAL', what: 'docs/INSTALL.txt не называет состав архива — а он едет внутри архива' })
+  else if (bad.length) problems.push({ sev: 'CRITICAL', what: `текст обещает читателю движок в поставке, и это не помечено как история:\n     ${bad.slice(0, 10).join('\n     ')}${bad.length > 10 ? `\n     …и ещё ${bad.length - 10}` : ''}` })
+  else ok.push(`no text promises an engine in the archive (${files.length} files scanned; INSTALL.txt states it outright)`)
+}
+
+// ---------------- 44. every script is decided: published on purpose, or withheld on purpose
+//
+// The publish whitelist alone keeps a private script out of GitHub, so a script missing
+// from BOTH lists leaks nothing - and that is exactly why it went unnoticed. NOTES 2414
+// promised every one-shot map-editing script was also in the deny list, as a second line;
+// two had quietly fallen out of both, and the promise had been false for weeks. A name in
+// neither list is an undecided name: nobody chose to keep it back, it was merely forgotten.
+{
+  const pub = join(ROOT, 'scripts', 'publish.ps1')
+  if (!existsSync(pub)) {
+    problems.push({ sev: 'CRITICAL', what: 'publish.ps1 не найден — проверка списков смотрит в пустоту' })
+  } else {
+    const ps = readFileSync(pub, 'utf8')
+    const listed = new Set()
+    // Имена встречаются и голыми, и с путём ('scripts/generate.mjs') — берём последний сегмент.
+    for (const m of ps.matchAll(/'(?:[\w.-]+\/)*([\w.-]+[.](?:mjs|ps1))'/g)) listed.add(m[1])
+    let names = []
+    try { names = readdirSync(join(ROOT, 'scripts')).filter(f => /\.(mjs|ps1)$/.test(f)) } catch {}
+    const undecided = names.filter(f => !listed.has(f)).sort()
+    if (!names.length) problems.push({ sev: 'CRITICAL', what: 'в scripts/ не найдено ни одного сценария — проверка списков смотрит в пустоту' })
+    else if (!listed.size) problems.push({ sev: 'CRITICAL', what: 'в publish.ps1 не разобрано ни одного имени — проверка списков смотрит в пустоту' })
+    else if (undecided.length) problems.push({ sev: 'CRITICAL', what: `сценарий не назван ни в белом списке, ни в чёрном — решения по нему нет:\n     ${undecided.join('\n     ')}` })
+    else ok.push(`every script in scripts/ is named in publish.ps1, published or withheld on purpose (${names.length})`)
+  }
+}
+
+// ---------------- 45. every script still parses
+//
+// merge-fields.mjs sat broken in HEAD for a whole commit on 04.09.2026: a backtick inside
+// a template literal closed it mid-sentence, and the file stopped parsing. The full gate
+// went green over it, because every check here reads what the generator PRODUCED, and a
+// script that is never run in the gate is never even parsed. The broken one is destructive
+// (--force rebuilds fields.json from scratch) and runs rarely - exactly the profile that
+// hides a syntax error until the day you need the script. One --check each, a second total.
+{
+  const dir = join(ROOT, 'scripts')
+  let files = []
+  try { files = readdirSync(dir).filter(f => f.endsWith('.mjs')) } catch {}
+  const bad = []
+  for (const f of files) {
+    const r = spawnSync(process.execPath, ['--check', join(dir, f)], { encoding: 'utf8' })
+    if (r.status !== 0) {
+      const line = String(r.stderr || '').split(/\r?\n/).find(l => /SyntaxError|Error:/.test(l)) || 'не разбирается'
+      bad.push(`${f}: ${line.trim().slice(0, 90)}`)
+    }
+  }
+  if (!files.length) problems.push({ sev: 'CRITICAL', what: 'в scripts/ нет ни одного .mjs — проверка разбора смотрит в пустоту' })
+  else if (bad.length) problems.push({ sev: 'CRITICAL', what: `сценарий не разбирается — запустить его нельзя:\n     ${bad.join('\n     ')}` })
+  // .ps1 сюда не входят: разобрать PowerShell из node нечем. Их парсер зовёт
+  // check-before-release.bat, и это единственное место, где они проверяются.
+  else ok.push(`every .mjs in scripts/ parses (${files.length}; .ps1 are checked by Make/github/check-before-release.bat)`)
+}
+
+// ---------------- 46. an offset list bound to a series must not fall behind that series
+//
+// In dependencies.json an entry that NAMES a series (`series`/`target`) normally spells the
+// series out offset by offset, and the generator prints a hint against every offset it finds
+// there. The series itself lives in fields.json and grows; that spelled-out copy does not, and
+// nothing ever tied the two together. The drift is silent - the hint simply stops appearing.
+// REAL CASE 04.09.2026: the Mariko GPU curve grew from 24 points to 31 (88…208), fields.json
+// was fixed, `switches[44].enables[0].offsets` stayed at 24, and the top seven curve items
+// shipped with no "Needs GPU Undervolt Mode = Custom Table" and no "Stay within 75 mV of the
+// Eco ST2 curve" - 31 menu items, 24 hints, tuned blind for weeks. No guard saw it.
+// A DELIBERATELY partial list declares itself IN THE DATA, next to the list:
+//   "partial_series": { "<series name>": "<why these and not the whole series>" }
+// No exceptions by name here, ever - a silent exception is the disease itself.
+{
+  const SERIES_NAMED_BY = ['series', 'target', 'of_series', 'scope']
+  const OFFSET_LIST_KEYS = ['offsets', 'inputs', 'order', 'then', 'claimed_offsets']
+
+  // Membership comes from the field map, the only place that knows the whole series.
+  // `series` is a string on most fields and an object with `.name` on the off-grid one (170).
+  const seriesMembers = new Map()
+  for (const f of fields) {
+    const nm = typeof f.series === 'string' ? f.series
+      : (f.series && typeof f.series === 'object' ? f.series.name : null)
+    if (!nm) continue
+    if (!seriesMembers.has(nm)) seriesMembers.set(nm, new Set())
+    seriesMembers.get(nm).add(f.offset)
+  }
+
+  const bad = []
+  let listsSeen = 0, bindings = 0, declaredPartial = 0
+  const walkDeps = (node, path) => {
+    if (Array.isArray(node)) { node.forEach((v, i) => walkDeps(v, `${path}[${i}]`)); return }
+    if (!node || typeof node !== 'object') return
+    const named = [...new Set(SERIES_NAMED_BY
+      .map(k => node[k])
+      .filter(v => typeof v === 'string' && seriesMembers.has(v)))]
+    for (const k of OFFSET_LIST_KEYS) {
+      const v = node[k]
+      if (!Array.isArray(v) || !v.every(Number.isInteger)) continue
+      // An empty list under a named series is the loudest case of falling behind, so it is
+      // kept; an empty list with no series named is simply not our subject.
+      if (!v.length && !named.length) continue
+      listsSeen++
+      const have = new Set(v)
+      for (const nm of named) {
+        bindings++
+        const missing = [...seriesMembers.get(nm)].filter(o => !have.has(o)).sort((a, b) => a - b)
+        if (!missing.length) continue
+        const why = (node.partial_series ?? {})[nm]
+        if (typeof why === 'string' && why.trim().length >= 20) { declaredPartial++; continue }
+        const total = seriesMembers.get(nm).size
+        bad.push(`${path}.${k} названа серией «${nm}», но несёт ${total - missing.length} её смещений из ${total}; отстали ${missing.length}: ${missing.join(', ')}`)
+      }
+    }
+    for (const [k, v] of Object.entries(node)) walkDeps(v, `${path}.${k}`)
+  }
+  if (deps) walkDeps(deps, 'dependencies')
+
+  if (!deps) problems.push({ sev: 'CRITICAL', what: 'граф зависимостей не прочитан — проверка полноты серий смотрит в пустоту' })
+  else if (!seriesMembers.size) problems.push({ sev: 'CRITICAL', what: 'в fields.json не нашлось ни одной серии — проверка полноты серий смотрит в пустоту' })
+  else if (!listsSeen) problems.push({ sev: 'CRITICAL', what: 'в графе зависимостей не нашлось ни одного списка смещений — проверка полноты серий смотрит в пустоту' })
+  else if (!bindings) problems.push({ sev: 'CRITICAL', what: 'ни один список в графе не назван серией — сверять полноту не с чем, проверка смотрит в пустоту' })
+  else if (bad.length) problems.push({ sev: 'CRITICAL', what: `список смещений отстал от серии, которую сам называет:\n     ${bad.join('\n     ')}` })
+  else ok.push(`every offset list bound to a series spells it out in full (${listsSeen} lists, ${bindings} list-to-series bindings across ${seriesMembers.size} series${declaredPartial ? `, ${declaredPartial} declared partial` : ''})`)
 }
 
 const crit = problems.filter(p => p.sev === 'CRITICAL')

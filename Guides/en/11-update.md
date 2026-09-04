@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/11-update.md sha=4dbe520c3b5c self=add6140703e7 -->
+<!-- i18n: source=Guides/ru/11-update.md sha=4dbe520c3b5c self=8656b15bdcc0 -->
 # Updating
 
 <!-- nav:begin -->
@@ -28,7 +28,9 @@ settings file, and our archive does not touch it.
 Only the tuner itself. The firmware, the bootloader and the 4IFIR overlay stay as they
 were. We do not touch them, at install or at update.
 
-The overlay engine is updated separately, with a new archive.
+**The overlay engine stays as it was too.** It is maintained by the author of the
+firmware and comes with the 4IFIR build; our archive does not carry it, so updating the
+tuner changes nothing about your key combination, theme, overlay order or sounds.
 
 ## The order, if you are updating everything
 

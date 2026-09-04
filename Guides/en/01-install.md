@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/01-install.md sha=9d35faf1ba31 self=ef1512b3a9ae -->
+<!-- i18n: source=Guides/ru/01-install.md sha=9d35faf1ba31 self=aad6ab891eb6 -->
 # Installation
 
 <!-- nav:begin -->
@@ -10,7 +10,8 @@ The tuner installs **on top of an existing 4IFIR**. It does not touch the firmwa
 itself: the bootloader, `loader.kip`, the 4IFIR overlay and the system modules all
 stay as they are.
 
-Only two things change: the overlay engine and the tuning package.
+Only one thing changes: the tuning package. The Ultrahand overlay engine the tuner runs
+on comes with the 4IFIR build — we neither ship it nor swap it out.
 
 ## Step 1. Delete the old package
 
@@ -33,19 +34,14 @@ them, and side by side the two will get in each other's way.
 
 Unpack the contents of the archive **into the root of the SD card**, overwriting.
 
-The old `ovlmenu.ovl` is replaced by the new one automatically — no need to delete it
-separately.
+Inside there is one folder of settings — `switch\.packages\4IFIR Wizard\` — plus
+`INSTALL.txt`, `BUILD.txt`, `LICENSE` and `NOTICE.txt` beside it.
 
 > [!IMPORTANT]
-> **If you already have Ultrahand, skip two files:**
->
-> - `config\ultrahand\config.ini` — it holds your key combination, theme and language;
-> - `config\ultrahand\overlays.ini` — it holds the order of your overlays, your
->   favourites and the hidden ones.
->
-> Copy them over and you lose your own setup. Everything else copies without worry.
->
-> Installing Ultrahand for the first time — copy everything, both files are needed.
+> **The engine is not in the archive, and that is on purpose.** Ultrahand and its
+> `config\ultrahand\` — key combination, theme, language, overlay order, sounds — come
+> with the 4IFIR build. Our archive carries none of that and overwrites none of it: your
+> overlay setup stays yours, however many times you update the tuner.
 
 ## Step 3. Check
 
@@ -62,7 +58,12 @@ files from step 1 are still there.
 
 ## If the key combination does not work
 
-It is set in `config\ultrahand\config.ini`.
+It is set in `config\ultrahand\config.ini` — a file that came with the 4IFIR build, not
+with our archive.
+
+If the overlay does not open at all, on any combination, the problem is the engine rather
+than the tuner. It arrives with the 4IFIR build:
+[update that](11-update.md#if-you-are-updating-4ifir-itself).
 
 > [!WARNING]
 > The combination in `config\tesla\config.ini` must **match** the one in

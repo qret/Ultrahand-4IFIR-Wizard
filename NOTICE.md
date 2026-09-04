@@ -40,32 +40,26 @@ for the same community.
 
 ### The Ultrahand Overlay engine
 
-Release archives contain a compiled `ovlmenu.ovl`. It is a build of **Ultrahand
-Overlay** by **ppkantorski**, GPL v2:
+The package runs on **Ultrahand Overlay** by **ppkantorski**, GPL v2:
 <https://github.com/ppkantorski/Ultrahand-Overlay>
 
-**It is a modified build.** We carry our own changes on top of upstream, so the
-corresponding source is **our fork**, not upstream:
+**This release archive carries a modified build of it**, version 2.5.3, alongside the
+configurator. GPL v2 obliges us to name the corresponding source, and it is our fork —
+<https://github.com/qret/Ultrahand-Overlay>, branch `4ifir`; `BUILD.txt` in the archive
+records the exact commit and the sha256 of the binary.
+
+This is the last release built this way. From the next one on the engine is maintained by
+the author of the 4IFIR firmware and reaches people with the firmware build, and our
+archives carry the configurator alone.
+
+Our own engine changes live in a fork, and anything we build from it has its source
+there:
 
 > <https://github.com/qret/Ultrahand-Overlay>, branch `4ifir`
-
-That is where the source matching the shipped binary lives. Upstream does not
-contain our changes and is therefore not the corresponding source for it.
-
-`BUILD.txt` inside each archive names the repository, the branch, the exact commit
-and the sha256 of the binary shipped in that archive — read there, not here: this
-file cannot be re-generated per build, `BUILD.txt` is.
 
 **Byte-for-byte reproduction is not possible:** the Makefile passes `-flto=$(NPROC)`, so
 the result depends on the core count of the build machine. Compare version and behaviour,
 not hashes.
-
-### Themes, languages and sounds
-
-`config/ultrahand/` in release archives carries assets from the Ultrahand project —
-themes, language files, sounds, wallpapers. They are ppkantorski's work, distributed
-under GPL v2 with **CC BY 4.0** on part of the materials, which asks for attribution.
-This is it.
 
 ### Overclocking itself
 

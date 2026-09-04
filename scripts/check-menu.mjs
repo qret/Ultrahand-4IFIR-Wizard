@@ -78,9 +78,18 @@ function walk(node, path = [], inMicro = false) {
     assigned.get(off).push(node.id)
   }
 
+  // ПУНКТ, КОТОРЫЙ НИЧЕГО НЕ ДЕЛАЕТ. No children, no offsets, no series - the item exists
+  // on screen and leads nowhere. This was collected and never printed: the output below
+  // simply did not know about it, so the finding sat in a variable for months.
+  //
+  // `commands` is the exception, not an oversight. Fan Control has five items that own no
+  // offset by design: they write the fan curve into the system settings ini, not into the
+  // kip (docs/FAN-CONTROL.md). Turning the check on without this would have made five
+  // working items look broken - which is why enabling it and excusing them is one change.
   const kids = node.children ?? []
-  if (!kids.length && !own.length && node.kind !== 'section' && !node.note) {
-    problems.emptyItem.push(node.id)
+  const acts = (node.commands ?? []).length > 0
+  if (!kids.length && !own.length && !acts && node.kind !== 'section' && !node.note) {
+    problems.emptyItem.push({ id: node.id, path: here.join(' > ') })
   }
   for (const k of kids) walk(k, here, micro)
 }
@@ -167,6 +176,13 @@ if (problems.unknownSeries.length) {
   console.log()
 }
 
+if (problems.emptyItem.length) {
+  bad++
+  console.log(`❌ DEAD ITEMS — nothing to open, nothing to write, nothing to run:`)
+  for (const p of problems.emptyItem) console.log(`   ${p.id} — ${p.path}`)
+  console.log()
+}
+
 const badDupes = dupes.filter(d => !d.allowed)
 if (badDupes.length) {
   bad++
@@ -189,8 +205,17 @@ if (revDupes.length) {
   console.log()
 }
 
+// A STALE PENDING DECLARATION IS AN ERROR, NOT A NOTE.
+//
+// `unassigned` exempts an offset from the LOST FEATURES search above. Leave one there
+// after attaching it and the exemption outlives the reason: the offset can fall out of
+// the menu later and this guard says nothing. That is how the seven top curve points
+// (184…208) sat here carrying an explanation the 04.09.2026 code reading disproved,
+// while the line below printed as a friendly note nobody acted on.
 if (declaredButCovered.length) {
-  console.log(`ℹ Declared as pending but already attached: ${declaredButCovered.join(', ')}`)
+  bad++
+  console.log(`❌ STALE PENDING — declared as unassigned but already attached: ${declaredButCovered.join(', ')}`)
+  console.log(`   Remove them from menu.json "unassigned": while they sit there, losing them again is silent.`)
   console.log()
 }
 

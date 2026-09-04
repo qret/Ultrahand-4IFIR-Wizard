@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/10-profiles.md sha=0ed436441ffd self=3917a5021047 -->
+<!-- i18n: source=Guides/ru/10-profiles.md sha=0ed436441ffd self=6838e67efa00 -->
 # Profiles, backups and reset
 
 <!-- nav:begin -->
@@ -52,13 +52,26 @@ whether you picked the right copy.
 
 Applying is a separate press; it will not happen by accident.
 
+If the copy was taken on the other console model, a red line above the buttons names
+both sides outright. Such a copy cannot be applied: the Erista and Mariko setting lists
+do not overlap.
+
+> [!NOTE]
+> Copies taken with tuner versions before 4 September 2026 do not carry the top seven
+> points of the GPU curve — the tuner did not offer them yet. Restoring such a copy
+> leaves those points as they were, and the tuner will not say so: it cannot tell
+> "nothing to write" from "the write failed". Take a fresh copy on the new version
+> and the question goes away.
+
 ## Importing old profiles
 
 If you used the old wizard, its profiles are stored elsewhere on the card.
 **`Service → Import old 4IFIR backup`** converts them into our format.
 
-The import carries over both the mode and the **GPU voltage curve** — so the restored
-stage matches the one that was saved, rather than turning into a neighbouring one.
+The import carries over both the mode and the **whole GPU voltage curve** — points above
+1190 MHz included — so the restored stage matches the one that was saved, rather than
+turning into a neighbouring one. Before 4 September 2026 the top seven points were
+silently dropped.
 
 The imported copy records where its curve came from: the profile itself, or factory
 values substituted in.

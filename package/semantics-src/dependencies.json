@@ -144,7 +144,12 @@
           88,
           180
         ],
-        "note": "FACT: exactly 24 elements (customize.cpp:95), the last one at offset 180. Correspondence with the frequencies: 88=307MHz … 180=1190MHz."
+        "effective_elements": 31,
+        "effective_range": [
+          88,
+          208
+        ],
+        "note": "FACT: the DECLARATION in the source is 24 elements (customize.cpp:95), the last of them at offset 180 — that part is true and stays. But the kip's write loop takes its length from the DVFS table (31 rows), not from the declaration, so in Custom Table mode it fills all 31 cells, 88…208. On Mariko 184…208 are therefore the upper seven points of the GPU curve (1228.8 … 1459.2 MHz) and writing them is legitimate; on Erista the same bytes are eristaCpuDvfsTable[0], but the whole screen is closed behind platform=mariko. Correspondence with the frequencies: 88=307MHz … 180=1190MHz … 208=MAX (1459.2). REFUTED 04.09.2026: the earlier conclusion «therefore only 24 points are reachable and the curve is capped at 1190.4 MHz» was our own misreading, not a property of the firmware — docs/NOTES.md #245."
       },
       {
         "offset": 184,
@@ -313,9 +318,9 @@
     ],
     "status_in_our_project": {
       "checked_at": "the end of this session",
-      "fields_json": "FIXED: 184…208 have been renamed to eristaCpuDvfsTable[0..6] and excluded from the gpu_curve_mariko series — the series has exactly 24 points, 88…180. Offset 170 is marked with the backup/restore roles and is not exposed in the menu.",
-      "dist": "CLEAN: package/dist/ contains no reference to 170 or to 184…208 (verified with grep over both write forms — hex_file(CUST,N,..) and hex-by-custom-offset CUST N).",
-      "remaining_risk": "184…204 have kept the backup/menu/preset/restore roles in fields.json, and 208 has menu. If the generator ever starts expanding the menu/preset roles automatically, the bug will come back. Keep invalid_offsets as a hard blacklist at the generator input rather than relying on the absence of a series."
+      "fields_json": "CURRENT (04.09.2026): the gpu_curve_mariko series holds all 31 points, 88…208 — 184…208 are the upper seven frequencies of the curve, not foreign data, see the note below. Offset 170 is marked with the backup/restore roles and is not exposed in the menu. HISTORY: for a while 184…208 were renamed to eristaCpuDvfsTable[0..6] and thrown out of the series on the strength of the «24 elements» reading; that was reverted when the reading was refuted.",
+      "dist": "CLEAN with respect to the actual blacklist: package/dist/ contains no reference to 170. It DOES write 184…208 — deliberately, as the upper seven points of the Mariko GPU curve; the screen carries platform=mariko, so those writes never reach an Erista.",
+      "remaining_risk": "The blacklist is what protects us, not the shape of a series: keep invalid_offsets a hard filter at the generator input. Note that 184…208 are NOT on it and must not be put back — they are real curve cells."
     },
     "note": "ВАЖНО, 04.09.2026: смещения 184…208 ИСКЛЮЧЕНЫ из этого списка. Прежде они значились запрещёнными с пометкой «доноры пишут сюда по ошибке» — вывод оказался неверным. Разбор кода прошивки (цикл vaddr 0x14F68) показал, что в режиме Custom Table прошивка читает их как верхние семь точек кривой GPU: цикл идёт по 31 строке таблицы, а массив напряжений объявлен на 24. На Mariko это законные точки, на Erista — первая строка таблицы CPU. Поэтому теперь они помечены platform=mariko, а не запрещены, и их стережёт проверка №36."
   },
@@ -360,10 +365,17 @@
             168,
             172,
             176,
-            180
+            180,
+            184,
+            188,
+            192,
+            196,
+            200,
+            204,
+            208
           ],
           "when": "03",
-          "note": "FACT: only 24 points. 184…208 are NOT part of the series — see invalid_offsets."
+          "note": "FACT: 31 points, 88…208. The source declares marikoGpuVoltArray at 24 elements (88…180), but the kip's write loop is driven by the 31-row DVFS table and fills all 31 cells, so on Mariko 184…208 are the upper seven points of the curve (1228.8 … 1459.2 MHz). REFUTED 04.09.2026: the previous note said «only 24 points, 184…208 are NOT part of the series» — that was our misreading; see docs/NOTES.md #245. Consequence for the generator: all 31 items must carry the «Needs GPU Undervolt Mode = Custom Table» hint, not just the first 24."
         }
       ],
       "disables": [
@@ -374,7 +386,7 @@
             "01",
             "02"
           ],
-          "note": "FACT: with 00/01/02 the marikoGpuVoltArray array is not read at all — the values in it remain non-working leftovers. In the live kip 44=00, and 88…180 contain exactly the default curve from customize.cpp:95."
+          "note": "FACT: with 00/01/02 the custom curve is not read at all — the values in it remain non-working leftovers. In the live kip 44=00, 88…180 contain exactly the default curve from customize.cpp:95, and the upper seven cells 184…208 still hold untouched eristaCpuDvfsTable[0] bytes, because nothing has ever seeded them. That is why the top of the curve looks like nonsense in a stock kip: it is unseeded, not out of bounds."
         }
       ],
       "value_constraint": {
@@ -421,7 +433,11 @@
           6600,
           6656,
           6712,
-          6768
+          6768,
+          6824,
+          6880,
+          6936,
+          6992
         ],
         "note": "FACT: shifts the WHOLE Erista curve at once. A link that is present in no package."
       },
@@ -894,7 +910,11 @@
         6600,
         6656,
         6712,
-        6768
+        6768,
+        6824,
+        6880,
+        6936,
+        6992
       ],
       "why": "FACT: offset 44 shifts the whole Erista curve at once. There is no gate — the table is always read.",
       "confidence": "fact",
@@ -1663,7 +1683,7 @@
       "broken": true,
       "problems": [
         "FACT: the value sources are kipBackup/Eco.ini, EcoPlus.ini, SuperEco.ini. These files are NOT in the distribution (verified by a recursive search over the whole of Ebal). Three of the five GPU menu items for Erista write an undefined value into 44 and into 30 offsets.",
-        "FACT: they write into 184…204, which are not part of marikoGpuVoltArray — see invalid_offsets.",
+        "FACT: they write into 184…204. That used to be listed here as a defect («outside the array»); REFUTED 04.09.2026 — on Mariko those cells are the upper points of the GPU curve, so the addresses themselves are fine. What remains wrong with this item is the two problems around this line, not the offsets. See docs/NOTES.md #245.",
         "FACT: they edit the Mariko array, which Erista does not read — see switches[44/erista]."
       ],
       "do_not_port": true,
@@ -1953,6 +1973,7 @@
       "scope": "gpu_custom_table",
       "first": null,
       "then": [
+        44,
         88,
         92,
         96,
@@ -1977,11 +1998,18 @@
         172,
         176,
         180,
-        44
+        184,
+        188,
+        192,
+        196,
+        200,
+        204,
+        208
       ],
       "why": "FACT (Wizard): each of the 31 curve items writes the point first and THEN 44=03 as a side write. Ebal does the opposite (44 first), and in custom_table.ini it does not write 44 at all — there the user has to switch the mode by hand. Recommendation for our tuner: reproduce the Wizard behaviour (side_write 44=03), otherwise the curve will not be applied.",
       "confidence": "fact",
-      "evidence": "Wizard/4Advanced/GPU/GPU custom table/config.ini:7-8,15-16 (and onwards up to 247-248) · Ebal/boot_package.ini:439 · Ebal/custom_table.ini (44 is not written)"
+      "evidence": "Wizard/4Advanced/GPU/GPU custom table/config.ini:7-8,15-16 (and onwards up to 247-248) · Ebal/boot_package.ini:439 · Ebal/custom_table.ini (44 is not written)",
+      "series": "gpu_curve_mariko"
     }
   ],
   "order_semantics": {
@@ -2007,11 +2035,11 @@
     {
       "a": 184,
       "b": null,
-      "kind": "corruption",
-      "severity": "critical",
-      "why": "FACT: a write into 184…208 as if into the «GPU curve» corrupts eristaCpuDvfsTable. See invalid_offsets.",
-      "confidence": "fact",
-      "evidence": "customize.cpp:95 + loader.kip + Ebal/kipBackup/default.ini:25,27"
+      "kind": "refuted",
+      "severity": "none",
+      "why": "REFUTED 04.09.2026. This entry used to read «a write into 184…208 as if into the GPU curve corrupts eristaCpuDvfsTable», kind=corruption, severity=critical — and because of that the generator hung «WARNING: writing here damages neighbouring data» on the perfectly ordinary 1228MHz item. The premise was our own misreading of the 24-element declaration: the kip's write loop is driven by the 31-row DVFS table, so on Mariko 184…208 ARE the top of the GPU curve and writing them is what the mode is for. On Erista the same bytes are eristaCpuDvfsTable[0], but our screen is closed behind platform=mariko and never appears there. Kept as a record rather than deleted, with severity=none so no warning is generated. See docs/NOTES.md #245.",
+      "confidence": "refuted",
+      "evidence": "docs/NOTES.md #245 · firmware write loop vaddr 0x14F68 · verified against the operator's live copy"
     },
     {
       "a": 170,
@@ -2198,11 +2226,11 @@
     "must": [
       {
         "id": "bounds_check",
-        "what": "Fail at build time if an offset goes beyond the bounds of an array from struct_layout. It was exactly the absence of this check that produced the bug with 184…208."
+        "what": "Fail at build time if an offset goes beyond the bounds of an array from struct_layout. CAUTION about the example this requirement used to cite: 184…208 were named here as «the bug», and they are not one — the kip fills 31 cells while the source declares 24, so a bounds check driven by the DECLARED length would reject legitimate curve points. Bound against the effective length (struct_layout.effective_range) or the check will fight the firmware. See docs/NOTES.md #245."
       },
       {
         "id": "drop_invalid",
-        "what": "Discard all the offsets from invalid_offsets — 170 and 184…208."
+        "what": "Discard all the offsets from invalid_offsets. As of 04.09.2026 that list is 170 only. It used to say «170 and 184…208»; 184…208 were taken off it when they turned out to be the upper seven points of the Mariko GPU curve — do not put them back."
       },
       {
         "id": "conditional_visibility",
@@ -2308,8 +2336,9 @@
         204,
         208
       ],
-      "q": "In the source marikoGpuVoltArray has 24 elements (307…1190 MHz), but both tuners show 31 items up to «MAX MHz». Is it correct that 184…208 do not belong to the GPU curve and that writing there corrupts eristaCpuDvfsTable? Was an extension of the array to 31 planned?",
-      "priority": "high"
+      "q": "In the source marikoGpuVoltArray is declared with 24 elements (307…1190 MHz), yet both tuners show 31 items up to «MAX MHz» and the write loop is driven by the 31-row DVFS table, so it fills 184…208 as well. We read those cells as the upper seven points of the curve on Mariko and as eristaCpuDvfsTable[0] on Erista. Is the dual purpose deliberate, and is the declared length of 24 simply stale?",
+      "status": "ANSWERED BY OURSELVES 04.09.2026 — no longer blocking. The dual purpose is real and the write is legitimate on Mariko; verified in the firmware write loop (vaddr 0x14F68) and on the operator's live copy. The earlier form of this question asserted that 184…208 «do not belong to the GPU curve» and that writing there «corrupts eristaCpuDvfsTable»; both were our misreading. What is left for the author is only the intent, not the behaviour. See docs/NOTES.md #245.",
+      "priority": "low"
     },
     {
       "id": 8,

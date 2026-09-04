@@ -12,22 +12,28 @@ PARTICULAR PURPOSE. See the GNU General Public License below for more details.
 --------------------------------------------------------------------------------
 WHAT THIS COVERS, AND WHAT CAME FROM OTHERS
 
-  Release archives also contain a build of Ultrahand Overlay by ppkantorski
-  (GPL v2), version 2.5.3, MODIFIED: it carries our own changes on top of
-  upstream. The corresponding source for that binary is our fork:
+  This release archive contains the configurator, switch\.packages\4IFIR Wizard\,
+  and a build of Ultrahand Overlay by ppkantorski (GPL v2), version 2.5.3,
+  MODIFIED: it carries our own changes on top of upstream.
+
+  The corresponding source for that binary is our fork:
   https://github.com/qret/Ultrahand-Overlay  (branch 4ifir)
   Upstream is https://github.com/ppkantorski/Ultrahand-Overlay - it does not
   contain our changes and is not the corresponding source for this binary.
-  BUILD.txt inside each archive records the exact repository, branch, commit
-  and sha256 of the binary shipped there.
+  BUILD.txt inside the archive records the exact repository, branch, commit and
+  sha256 of the binary shipped there.
+
+  This is the last release built this way. From the next one on the engine is
+  maintained by the author of the 4IFIR firmware and arrives with the firmware
+  build, and our archives carry the configurator alone.
+  Where our own engine changes live, if you want to build one: our fork,
+  https://github.com/qret/Ultrahand-Overlay  (branch 4ifir)
+  Upstream is https://github.com/ppkantorski/Ultrahand-Overlay
 
   Value dictionaries and part of the help texts originate from the 4IFIR Wizard
   package by rashevskyv and contributors (https://github.com/rashevskyv/4IFIR),
   which states no licence for the package itself. Used with attribution; it will
   be removed on request from its authors.
-
-  Themes, languages and sounds under config/ultrahand/ are ppkantorski's work,
-  GPL v2 with CC BY 4.0 on part of the materials.
 
   Overclocking itself, loader.kip and the 4IFIR firmware are the work of Cooler3D
   and the Switch-OC-Suite authors. Not included here and not modified.
