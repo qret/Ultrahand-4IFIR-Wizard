@@ -38,7 +38,7 @@ there or from the overlay's own settings.
 If that key is missing from the config, the engine falls back to its own default,
 `ZL` + `ZR` + `▼` — which is *not* what 4IFIR ships, so do not go looking for it there.
 
-**Before changing anything:** go to `Service` → `Create backup`. It takes a second and
+**Before changing anything:** go to `Service` → `Backup manager` → `Create backup`. It takes a second and
 saves an evening. Backups land in `atmosphere/kips/.bak/<revision>/` as plain ini files
 you can read on a PC.
 
@@ -51,7 +51,7 @@ you can read on a PC.
 | **Advanced** | every parameter individually: CPU, GPU, RAM, Micro-Enhance Logic, Fan Control. Sections that hold settings have a second page with help — press L or R. |
 | **Service** | backups, restore, import from the old Wizard, reset to defaults, system info. |
 | **Check for updates** | asks GitHub whether a newer build exists and says so on the spot. |
-| **Install update** | downloads and installs it. The old package is kept aside and put back if anything goes wrong. |
+| **Update** | downloads and installs it. The old package is kept aside and put back if anything goes wrong. |
 | **Reboot the console** | reboots into the entry 4IFIR boots by itself. |
 
 Nothing takes effect until you restart the console.
@@ -112,8 +112,8 @@ about a safe limit.
 
 **The GPU curve goes all the way up.** Seven offsets that look like another table are the
 top seven points of the Mariko curve — 1228.8 to 1459.2 MHz. Both previous tuners wrote
-them; we called that a mistake and stopped, then read the firmware and found they were
-right. On Erista the same bytes are row 0 of the CPU table, so there they stay untouched.
+them, and reading the firmware confirms they were right to. On Erista the same bytes are
+row 0 of the CPU table, so there they stay untouched.
 
 **Reset to defaults shows you what it will write** before writing it, and applying is
 a separate hold-A item. The values come from the file the firmware itself ships, and that
@@ -147,7 +147,7 @@ was not in the list at all, so a changed point could not be put back.
 **Settings saved by the old 4IFIR Wizard can be carried over.** `Service -> Import old
 4IFIR backup` reads the copies it left in `atmosphere/kips/kip-json` and turns them into
 a copy in this package's own format. The import writes nothing to the kip: you review the
-result like any other copy and apply it from `Restore backup`.
+result like any other copy and apply it from `Backup manager → Apply this backup`.
 
 **Settings are filtered by revision.** Mariko consoles don't see Erista-only fields and
 vice versa. The original showed everything at once.
@@ -418,7 +418,7 @@ your console. Use at your own risk.
 Если этого ключа в конфиге нет, движок берёт своё умолчание — `ZL` + `ZR` + `▼`.
 В поставке 4IFIR так не бывает, так что искать эту комбинацию там не стоит.
 
-**Прежде чем что-то менять:** зайдите в `Service` → `Create backup`. Занимает секунду,
+**Прежде чем что-то менять:** зайдите в `Service` → `Backup manager` → `Create backup`. Занимает секунду,
 экономит вечер. Бэкапы кладутся в `atmosphere/kips/.bak/<ревизия>/` обычными ini-файлами,
 которые читаются на компьютере.
 
@@ -431,7 +431,7 @@ your console. Use at your own risk.
 | **Advanced** | каждый параметр отдельно: CPU, GPU, RAM, Micro-Enhance Logic, Fan Control. У разделов с настройками есть вторая страница со справкой — L или R. |
 | **Service** | копии настроек, восстановление, импорт из старого визарда, сброс к заводским, информация о консоли. |
 | **Check for updates** | спрашивает у GitHub, вышла ли сборка новее, и сразу отвечает. |
-| **Install update** | скачивает и ставит её. Старый пакет откладывается в сторону и возвращается, если что-то пошло не так. |
+| **Update** | скачивает и ставит её. Старый пакет откладывается в сторону и возвращается, если что-то пошло не так. |
 | **Reboot the console** | перезагружает в ту запись, которой 4IFIR грузится сам. |
 
 Ничего не вступает в силу до перезагрузки консоли.
@@ -493,8 +493,8 @@ your console. Use at your own risk.
 
 **Кривая GPU доходит до самого верха.** Семь смещений, похожих на чужую таблицу, — это
 верхние семь точек кривой Mariko, 1228,8…1459,2 МГц. Оба прошлых тюнера туда писали,
-мы сочли это ошибкой и перестали, а потом разобрали код прошивки и увидели, что правы
-были они. На Erista те же байты — строка 0 таблицы CPU, и там мы их не трогаем.
+и разбор кода прошивки подтверждает: писать туда правильно. На Erista те же байты —
+строка 0 таблицы CPU, и там мы их не трогаем.
 
 **Сброс к умолчаниям сначала показывает, что запишет**, а применение — отдельный пункт
 с удержанием A. Значения берутся из файла, который кладёт сама прошивка, и этот файл едет
@@ -527,7 +527,7 @@ your console. Use at your own risk.
 **Настройки, сохранённые старым 4IFIR Wizard, можно перенести.** `Service -> Import old
 4IFIR backup` читает копии, оставленные им в `atmosphere/kips/kip-json`, и превращает их
 в копию нашего формата. Импорт в kip ничего не пишет: результат вы смотрите как любую
-другую копию и применяете из `Restore backup`.
+другую копию и применяете из `Backup manager → Apply this backup`.
 
 **Настройки фильтруются по ревизии.** Mariko не видит полей, которые есть только у Erista,
 и наоборот. Оригинал показывал всё сразу.

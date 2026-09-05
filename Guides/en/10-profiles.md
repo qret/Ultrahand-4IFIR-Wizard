@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/10-profiles.md sha=0ed436441ffd self=3741dd45dd48 -->
+<!-- i18n: source=Guides/ru/10-profiles.md sha=0ed436441ffd self=910cd7f9dba4 -->
 # Profiles, backups and reset
 
 <!-- nav:begin -->
@@ -17,7 +17,7 @@ This is the simplest way back, and it needs nothing prepared in advance. While y
 nothing of your own set up, it is all you need.
 
 > [!IMPORTANT]
-> A reset changes the GPU undervolt mode but **does not touch the working voltage
+> A reset changes the GPU voltage stage but **does not touch the working voltage
 > table**. If you were on a half stage, what you get afterwards is a combination the
 > menu never offers. The tuner names it correctly, but if you want a clean state, pick
 > a stage again.
@@ -57,13 +57,12 @@ both sides outright. Such a copy cannot be applied: the Erista and Mariko settin
 do not overlap.
 
 > [!NOTE]
-> Copies taken with tuner versions before 4 September 2026 do not carry the top seven
-> points of the GPU curve — the tuner did not offer them yet. Restoring such a copy
-> leaves those points as they were.
+> Not every copy holds everything. If the one you picked is short of something, a line on
+> the selection screen says so before anything is applied. On Mariko it names the top
+> points of the GPU voltage curve; on Erista it simply says some settings are missing.
 >
-> The tuner now warns you about it: pick such a copy and the selection screen says the
-> top curve points are missing and will have to be set by hand after restoring. Take a
-> fresh copy on the new version and the question goes away entirely.
+> Whatever is missing keeps its current value after restoring: set those by hand, or take
+> a fresh copy and the question goes away entirely.
 
 ## Importing old profiles
 
@@ -72,14 +71,13 @@ If you used the old wizard, its profiles are stored elsewhere on the card.
 
 The import carries over both the mode and the **whole GPU voltage curve** — points above
 1190 MHz included — so the restored stage matches the one that was saved, rather than
-turning into a neighbouring one. Before 4 September 2026 the top seven points were
-silently dropped.
+turning into a neighbouring one.
 
 The imported copy records where its curve came from: the profile itself, or factory
 values substituted in.
 
 > [!NOTE]
-> The old profile schema for Erista is thinner than the Mariko one: six settings are
+> The old profile format for Erista is thinner than the Mariko one: six settings are
 > simply not in it. Those lines will be blank on an imported Erista copy — there is
 > nowhere to take the values from, and we will not invent them.
 
@@ -94,7 +92,7 @@ recipe: the power controllers differ per revision — [details](12-troubleshooti
 
 ## Console info
 
-**`Service → System info`** shows what console you have: revision, memory size and
+**`Service → System Info`** shows what console you have: revision, memory size and
 manufacturer, firmware version.
 
 The memory manufacturer matters more than you would think: identical-looking consoles

@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=a060745131b7 self=be39d92d0b78 -->
+<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=a060745131b7 self=960bca33a094 -->
 # If something goes wrong
 
 <!-- nav:begin -->
@@ -42,7 +42,7 @@ Both open a preview page. To apply, **hold A** on the entry at the bottom.
 
 If the system will not come up the usual way, the bootloader has a second entry —
 **`Stock (semi-stock)`**. The tuner works there, so the setting can be fixed the normal
-way, with no payloads and no editing bytes.
+way — nothing to launch from the bootloader, no bytes to edit by hand.
 
 > [!IMPORTANT]
 > The console **goes straight** to the main entry without showing the bootloader menu. To
@@ -67,9 +67,10 @@ reset a category at once.
 > [!WARNING]
 > **If the GPU stage is the problem, pick only `ECO ST1` in KipTool.**
 >
-> Not `ECO ST3`: that is the deepest undervolt in the firmware. If the console failed to
-> boot because it did not get enough voltage, `ECO ST3` will make it worse. And not
-> `MANUAL`: that is the manual table, and it has a known defect.
+> Not `ECO ST3`: it takes more voltage away than any other stage. If the console failed
+> to boot because it did not get enough voltage, `ECO ST3` will make it worse. And not
+> `MANUAL`: that is the manual table, and the offending value is most likely sitting in
+> it.
 >
 > `ECO ST2` is useless here. Half stages look exactly the same to KipTool, so it will
 > change nothing. See [GPU and stages](07-gpu.md).
@@ -99,10 +100,9 @@ KipTool, another package, or a restored backup.
 (1600 MHz) → Efficiency Stages` — the same control also shows up as `Advanced →
 Micro-Enhance Logic → sMeh 0-17 → sMeh 8 E-Boost`. Put it back to `0`, the factory value.
 
-**The fan stays quiet while the console runs hot.** Check `Advanced → Fan Control`. On
-versions before 5 September 2026, moving any slider quietly dropped the fan speed in the
-hot zone while the entry still read a hundred per cent. Set the sliders again, or reset to
-factory — [details](09-timings.md#cooling).
+**The fan stays quiet while the console runs hot.** Check `Advanced → Fan Control`. If
+the top band reads a hundred per cent and the fan still holds back, open `Fan Control` and set the sliders again. A factory reset does not help here — the fan
+curve lives outside the file the tuner resets — [details](09-timings.md#cooling).
 
 **It hangs after ten or fifteen minutes of play.** The CPU is short of margin. Set
 `Advanced → CPU → Low MHz Undervolt` to `lvl 1`. If that does not help, try
@@ -136,9 +136,9 @@ build, downloaded from its author's GitHub).
 
 > [!WARNING]
 > **Do not run it if you have no battery trouble — you will get some.** The calibration is
-> stored separately for the system NAND and for every emuNAND, so after a reset it has to
-> be rebuilt in each of them: two full discharge and charge cycles, without switching
-> between them.
+> stored separately for the console's own storage and for each virtual copy of it, so
+> after a reset it has to be rebuilt in each of them: two full discharge and charge
+> cycles, without switching between them.
 >
 > Before reaching for the tool, lower your clocks. They are what drove the controller into
 > this state, and without that it will happen again.
@@ -148,7 +148,7 @@ build, downloaded from its author's GitHub).
 The power controllers differ per revision: Mariko uses `MAX77812`, Erista uses `MAX77621`.
 
 According to the 4IFIR authors, the **older** Erista has the stronger one: 16 A on each
-rail, against 6 A for the CPU and 12 A for the GPU on Mariko. We could not find the
+power line, against 6 A for the CPU and 12 A for the GPU on Mariko. We could not find the
 original source for these numbers, so we pass them on as someone else's claim, not as
 fact.
 

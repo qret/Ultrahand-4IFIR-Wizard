@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/01-install.md sha=9d35faf1ba31 self=aad6ab891eb6 -->
+<!-- i18n: source=Guides/ru/01-install.md sha=9d35faf1ba31 self=fe489dba2c86 -->
 # Installation
 
 <!-- nav:begin -->
@@ -75,8 +75,8 @@ than the tuner. It arrives with the 4IFIR build:
 Do a clean 4IFIR install: delete **everything from the card except the `Nintendo` and
 `emummc` folders**, then unpack the 4IFIR build again.
 
-`Nintendo` holds your games and saves, `emummc` is the console's virtual storage.
-Leave both alone.
+`Nintendo` holds your games and saves. `emummc` is a virtual copy of the console's own
+internal storage — the one it starts from. Leave both alone.
 
 ---
 

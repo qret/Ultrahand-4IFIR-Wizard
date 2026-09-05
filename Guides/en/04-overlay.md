@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/04-overlay.md sha=dcb0d87b7ab3 self=c29a045c9a47 -->
+<!-- i18n: source=Guides/ru/04-overlay.md sha=dcb0d87b7ab3 self=ad116a921cc2 -->
 # The 4IFIR overlay: where clocks are set
 
 <!-- nav:begin -->
@@ -34,7 +34,7 @@ The first thing the overlay shows is what the console is doing right now:
 | next to them | the voltages, in millivolts |
 | `LCD` | screen refresh rate |
 | `FPS` | frames per second |
-| `EMC` | memory throughput |
+| `EMC` | how much data the memory gets through |
 | `SOC` `PCB` `TSN` | temperature — **one** figure, the hottest of three: chip, board, shell |
 
 The label on the temperature changes to say which one is showing. `TSN` is not a sensor
@@ -107,10 +107,11 @@ them is easier than starting from bare numbers.
 from the next profile down the order. That is how you clear a setting — set `Default`
 rather than guessing what the number used to be.
 
-## Governors
+## A clock that moves on its own
 
-Three entries — `CPU Freq Governor`, `GPU Freq Governor`, `LCD Freq Governor` — turn on
-automatic clocking: the clock follows the load instead of standing still.
+Three entries — `CPU Freq Governor`, `GPU Freq Governor`, `LCD Freq Governor` — let the
+console raise and drop the clock by itself, following the load instead of holding it
+still. That is what the word `Governor` on the screen means.
 
 They show up on two conditions: the general `Active Governors` setting is on, and you are
 in **`Edit app profile`**. The global profile does not have them.
@@ -120,7 +121,7 @@ lasts longer. But turn them on **last**, once everything else is stable — auto
 clocking adds one more moving part to whatever you are debugging.
 
 > [!NOTE]
-> The 4IFIR guide warns that the GPU governor **costs frames** in some games instead of
+> The 4IFIR guide warns that on the GPU this **costs frames** in some games instead of
 > saving power. If the frame rate drops after you turn it on, turn it off first.
 
 ## What else is in there

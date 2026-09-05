@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=e8844d09cf06 self=d3a855d50e65 -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=e8844d09cf06 self=c3536375f492 -->
 # GPU and stages
 
 <!-- nav:begin -->
@@ -33,7 +33,7 @@ power, which shows up as artefacts.
 
 > [!TIP]
 > Stages differ at the **bottom** of the curve. The top row is the same for all three —
-> 960 mV, the limit of the GPU rail. Looking for the difference at the top will never
+> 960 mV, the most the GPU is allowed to be fed. Looking for the difference at the top will never
 > find it.
 
 ## A stage also changes the clock ceiling
@@ -70,8 +70,8 @@ This tuner adds two in between — **Eco ST1.5** and **Eco ST2.5**. Each sits ro
 halfway between its neighbours, closer to the lower one: about ten millivolts below on
 average, though at high clocks the gap reaches twenty-five.
 
-**The top row does not change** — it stays at those same 960 mV. The GPU rail limit must
-not be lowered, so "halfway" applies to the curve, not to its peak.
+**The top row does not change** — it stays at those same 960 mV. That ceiling must not
+come down, so "halfway" applies to the curve, not to its peak.
 
 **A half stage inherits the clock ceiling of the stage below it:**
 
@@ -109,7 +109,8 @@ The tuner is not available at that point — only the bootloader is:
 > [!WARNING]
 > **Only `ECO ST1`. Not `ECO ST3`, and not `MANUAL`.**
 >
-> `ECO ST3` is the **deepest undervolt in the firmware**, 25–60 mV below ST1.5. If the
+> `ECO ST3` takes **more voltage away than anything else in the firmware**, 25–60 mV
+> below ST1.5. If the
 > console failed to boot for want of voltage, ST3 makes it worse, and raises the clock
 > ceiling as well.
 >
@@ -124,13 +125,13 @@ The tuner is not available at that point — only the bootloader is:
 For the same reason half stages are not visible in KipTool and never will be — there is
 nothing to tell apart in the number it shows.
 
-KipTool can edit other tables — the `Custom Table` array, timings, the `pMeh` and `sMeh`
+KipTool can edit other tables — `Custom Table`, the timings, the `pMeh` and `sMeh`
 rows. Just not this one.
 
 ## Minimum voltage
 
-`Min Voltage` sets a **floor**: the GPU will not go below it at any clock. It acts from
-below, the stage acts above it.
+`Min Voltage` sets the **lowest voltage allowed**: the GPU will not go below it at any
+clock. It holds the bottom, the stage shapes everything above.
 
 The choices are the same three Eco stages. That is deliberate: a fixed number would hit
 both memory clock modes at once, while a stage works out the floor for each separately.
@@ -155,10 +156,9 @@ by hand. There are thirty-one points; the top one is 1459.2 MHz, shown in the me
 after a reboot.
 
 > [!NOTE]
-> Earlier editions of this guide said the manual table must not go above 1190 MHz.
-> That was wrong: the firmware reads all thirty-one rows. What actually happened was
-> that the tuner did not offer the top seven points, so they kept another table's
-> leftovers. They are now filled like any other point.
+> All thirty-one points are in play: the firmware reads the whole table. The seven above
+> 1190 MHz count for just as much as the rest, and the tuner fills them along with
+> everything else.
 
 **Where the table starts.** The tuner fills it with the `Eco ST1` values — 485…960 mV,
 all thirty-one points. It does so in two places: when you **switch the mode** to
@@ -170,9 +170,10 @@ write there again. The test is simple — if a single cell differs from the fact
 content, you have already tuned it, and the tuner touches nothing.
 
 > [!NOTE]
-> It used to happen only when you opened the table. Anyone who followed the hint to
-> "turn the mode on" and never came back to the table was left with the top of the
-> curve unfilled. Switching the mode is now enough.
+> If the table has been edited at some point in the past, look at the end of the list.
+> The voltages should climb evenly, up to 960 mV at the last point. If the top rows are
+> out of line — jumping about, or far above or below their neighbours — set them by hand:
+> once a table has been touched, the tuner never writes into it again.
 
 Without it your first visit would show the factory ladder of 395…1020 mV, whose bottom
 point sits below the safe minimum, and seven top cells holding another table's leftovers.
@@ -201,17 +202,26 @@ Practical consequences:
   100 mV to whatever you pick: an entry reading "610 mV" actually gives 710.
 - **KipTool on Erista can edit the curve itself**, not only the mode number. Be careful
   though: from the second row on, the clock labels it shows do not match reality.
-- **KipTool shows the Erista stages shifted by one.** Its `ECO ST1` is in fact no
-  undervolt at all, `ECO ST2` is the first stage, `ECO ST3` the second. The third stage
+- **KipTool shows the Erista stages shifted by one.** Its `ECO ST1` in fact lowers
+  nothing at all, `ECO ST2` is the first stage, `ECO ST3` the second. The third stage
   cannot be reached from there.
 
   For emergency recovery that is convenient: **the first entry in KipTool is the safest
   thing you can pick.** But the statement above that "`ECO ST2` changes nothing" applies
   to Mariko only. On Erista it gives you a real first stage.
-- **This tuner has no `Custom Table` entry on Erista.** There is no manual table on that
-  revision, and the entry quietly gave you the deepest voltage offset instead of the editor
-  it promised — so it was taken out of the list. If you meet it in another tool, do not
-  pick it.
+- **On Erista the voltage table is always live — there is nothing to switch on.** The
+  firmware reads your curve at any stage, so there is no `Custom Table` entry here and
+  there cannot be one: there is nothing to enable. Edit the points in `GPU Voltage Table`
+  and they apply straight away.
+- **On Erista the stage is not a table selector, it is an offset.** The firmware takes your
+  whole curve and subtracts the same amount from every point: `Default` — nothing,
+  `Eco ST1` — 12.5 mV, `Eco ST2` — 25 mV, `Eco ST3` — 37.5 mV. The shape of the curve does
+  not change, and no hidden manual table sits behind the third stage — it is simply the
+  deepest of the four cuts. Other tools label the same entry `Custom Table`, and that name
+  is misleading.
+- **The stage and your own edits stack.** Lower the points by hand, then pick `Eco ST3`,
+  and the firmware takes another 12.5 mV off on top. If artefacts or crashes start after
+  that, put the stage back to `Default` and work on the curve on its own.
 
 ---
 

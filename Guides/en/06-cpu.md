@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/06-cpu.md sha=c8260aae8e4f self=693c3af3a0dc -->
+<!-- i18n: source=Guides/ru/06-cpu.md sha=c8260aae8e4f self=ee95329e5dfa -->
 # CPU
 
 <!-- nav:begin -->
@@ -26,9 +26,9 @@ everything else.
 | `Min Voltage` | lower voltage bound | both |
 | `Max Voltage` | upper voltage bound | Mariko |
 | `Voltage Limit` | upper voltage bound | Erista |
-| `dCPUv` | the second voltage floor — for middle and high clocks | Mariko |
-| `Low MHz Undervolt` | undervolt for clocks up to roughly 1600 MHz | Mariko |
-| `High MHz Undervolt` | undervolt for clocks above 1600 MHz | Mariko |
+| `dCPUv` | another lowest-voltage limit, this one only at middle and high clocks | Mariko |
+| `Low MHz Undervolt` | lowers the voltage at clocks up to roughly 1600 MHz | Mariko |
+| `High MHz Undervolt` | lowers the voltage at clocks above 1600 MHz | Mariko |
 | `Speed Shift` | shifts the whole voltage curve — the main saving lever | both |
 
 Most of them have `eBAMATIC` as their first value — automatic selection. Start there,
@@ -79,7 +79,7 @@ themselves.
 ## Telling what you overdid
 
 **A freeze right after the Atmosphere logo** most often means the CPU — the lower
-voltage bound or the low-clock undervolt.
+voltage bound, or too much voltage taken away at low clocks.
 
 But memory behaves the same way: both the clock and the fine controls produce the same
 picture. So the rule is the same as everywhere: **roll back what you changed last**,
@@ -88,7 +88,10 @@ not what you suspect.
 ## The voltage bounds
 
 - **`Min Voltage`** — the CPU will not go below this under any load.
-- **`dCPUv`** (Mariko only) — the second floor, for middle and high clocks.
+- **`dCPUv`** (Mariko only) — the same kind of limit, but it applies only at middle and
+  high clocks. Raise it and the CPU has more margin there, at the cost of heat and
+  battery. Lower it and the console runs cooler and lasts longer, until at some point
+  heavy games start freezing.
 - **`Max Voltage`** / **`Voltage Limit`** — the upper bound, and the lever for reachable
   clock.
 

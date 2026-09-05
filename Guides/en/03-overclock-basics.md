@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/03-overclock-basics.md sha=c64e680d086f self=bef8978ef692 -->
+<!-- i18n: source=Guides/ru/03-overclock-basics.md sha=c64e680d086f self=298e20a51635 -->
 # Overclocking: where to start
 
 <!-- nav:begin -->
@@ -47,8 +47,8 @@ on the others.
 Tuning blind is guesswork. The build already ships with instruments that show what the
 hardware is actually doing.
 
-**Readings over the game** — the `Status Monitor` overlay. Clocks, load per component,
-frames per second, temperatures, battery drain. It comes in several sizes, from a full
+**Readings over the game** — the `Status Monitor` overlay. Clocks, how busy the CPU, the
+GPU and the memory are, frames per second, temperatures, battery drain. It comes in several sizes, from a full
 screen of data down to a tiny line in the corner that does not get in the way.
 
 **Voltages and drain** — the `InfoNX` overlay. It shows the clock and the voltage of each

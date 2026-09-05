@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/09-timings.md sha=50b5bbbd65fe self=62c1603c1792 -->
+<!-- i18n: source=Guides/ru/09-timings.md sha=50b5bbbd65fe self=3a0d6173c001 -->
 # Timings and fine tuning
 
 <!-- nav:begin -->
@@ -30,8 +30,8 @@ set here keeps working.
 | a set per profile | no, one for all | **yes**, per memory clock + eBal pair |
 
 **Fine tuning goes through EMC Magician** — the 4IFIR guide of its own says so outright,
-and keeps the description of the eight `Core Timings` as a reference for those who want
-the old way.
+and keeps the description of the eight `Core Timings` as a reference for anyone who finds
+it easier to set them there.
 
 The reason is simple: here you get eight steps and a reboot per change, there a value
 applies at once and can be set more precisely.
@@ -43,8 +43,8 @@ the work and the **4IFIR** overlay displays it — `EMC Magician` is just one of
 entries.
 
 The main difference: **a value applies immediately**. You can leave a memory benchmark
-running, move a slider, and watch the numbers change. What costs a reboot per step the
-old way takes seconds here.
+running, move a slider, and watch the numbers change. What costs a reboot per step
+through `Core Timings` takes seconds here.
 
 The second difference: a separate set of timings **for each memory clock + eBal pair**.
 Switch profile and its set comes with it — nothing to set up again.
@@ -58,7 +58,7 @@ Measuring is done with `MicroMemBench` and `MicroMemTest`, both already in the b
 
 They have to run in **full memory mode** or they refuse to start. 4IFIR sets this up out
 of the box: **hold `R` while launching any game** and the Homebrew Menu opens instead,
-already in that mode. There is no need to install it separately, as older guides advise.
+already in that mode. There is no need to install it separately, whatever other guides say.
 
 > [!TIP]
 > You can put `MicroMemBench` on the home screen: the `games` folder on the card holds
@@ -115,7 +115,7 @@ profile from `/config/4IFIR/emc_timings.ini` and reboot.
 > `/config/4IFIR/emc_timings.ini` on a computer and delete the section for the current
 > profile.
 
-## Core Timings — the older way, in this tuner
+## Core Timings — the coarse layer, in this tuner
 
 Eight entries under `Advanced → RAM → Core Timings`.
 
@@ -150,7 +150,7 @@ never touched it.
 
 > [!NOTE]
 > We have not verified this on hardware; the question is on our list for the firmware
-> author. The donor guide claims the opposite — that timings do not affect one another —
+> author. The 4IFIR guide claims the opposite — that timings do not affect one another —
 > but on that point it should not be trusted.
 >
 > The practical conclusion does not depend on it: if freezes start after you change the
@@ -173,13 +173,13 @@ several hundred is real.
 
 ## Micro-Enhance Logic
 
-`Advanced → Micro-Enhance Logic` holds the raw firmware controls under their code names,
-`pMeh` and `sMeh`.
+`Advanced → Micro-Enhance Logic` holds the firmware controls as they are, under the
+firmware's own code names, `pMeh` and `sMeh`.
 
-**The numbering must not change, and we do not change it.** It is a contract with
-KipTool: if the console will not boot, that is where you will look for a setting by its
-number. The names, incidentally, have already drifted apart between KipTool and the
-firmware — the numbers have not, and that is why they are the contract.
+**The numbering must not change, and we do not change it.** That is deliberate: if the
+console will not boot, you will be looking the setting up in KipTool by its number, and
+the number has to match. The names, incidentally, have already drifted apart between
+KipTool and the firmware — the numbers have not, and everything rests on them.
 
 Most people never need these. What is genuinely worth adjusting has been moved into
 readable entries in `RAM → Optimized Mode (1600 MHz)`.
@@ -209,20 +209,10 @@ The factory setting for the top band is a hundred per cent: once the console rea
 58 °C the fan runs flat out and does not back off.
 
 > [!IMPORTANT]
-> **This is where we had a bug, and it is worth knowing about.** Touching **any** slider
-> used to wreck the top of the curve: the `58-100°C` entry went on showing a hundred per
-> cent while the fan in the hot zone actually settled at around sixty. Opening the screen
-> and confirming without moving anything was enough to trigger it.
->
-> The cause was in how we wrote the curve: the top row is meant to be flat, and we turned
-> it into a gentle ramp stretched over hundreds of degrees. The old donor package has the
-> same flaw.
->
-> **Fixed.** The top band is flat again, and the entry means exactly what it says.
-
-If you adjusted fan speeds on an older version of the tuner, or in the old wizard, open
-`Fan Control` and set the sliders again — the new write lays down a correct curve. The
-simplest route is to put everything back with `Service → Restore Factory Defaults`.
+> **If the top band reads a hundred per cent and the fan still holds back in a hot
+> game**, the curve in the file does not match what the entry says. Open `Fan Control`
+> and set the sliders again: writing them lays a correct curve down. The simplest route
+> is to put everything back with `Service → Restore Factory Defaults`.
 
 A fan that stays quiet under load is almost always a setting rather than wear. Check this
 curve before you take the console apart.

@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/11-update.md sha=4dbe520c3b5c self=545ff64d86d0 -->
+<!-- i18n: source=Guides/ru/11-update.md sha=4dbe520c3b5c self=000bc82541dc -->
 # Updating
 
 <!-- nav:begin -->
@@ -33,9 +33,10 @@ firmware and comes with the 4IFIR build; our archive does not carry it, so updat
 tuner changes nothing about your key combination, theme, overlay order or sounds.
 
 > [!NOTE]
-> The tuner checks the version of the settings structure and refuses to work with one it
-> does not know. That is a safeguard: writing values using the wrong layout is a reliable
-> way to end up with a console that will not boot.
+> The tuner checks whether it recognises your firmware version, and refuses to work with
+> one it does not. That is a safeguard: on another firmware the settings sit in other
+> places, so the writes would land in the wrong ones — a reliable way to end up with a
+> console that will not boot.
 >
 > **You will not be locked out.** The settings are hidden, but `Check for updates` and
 > `Update` stay on screen and keep working. Press the first one: if a build for your
@@ -50,8 +51,8 @@ When everything is being updated, the order is:
 3. **Our package**.
 
 Do not swap the first two: the 4IFIR guide warns that the other way round leaves the
-console unable to start. Our package goes last so that it sees the new layout of the
-settings structure.
+console unable to start. Our package goes last so that it sees the already updated
+firmware.
 
 ## If you are updating 4IFIR itself
 
