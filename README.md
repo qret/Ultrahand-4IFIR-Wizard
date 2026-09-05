@@ -23,8 +23,8 @@ replaces it.
 
 ### 📖 [User guide — how to set it up](Guides/en/README.md)
 
-Twelve pages: installation, what to tune first, the CPU, the GPU and its stages, memory,
-timings, backups, and what to do when the console will not boot.
+Installation, what to tune first, the CPU, the GPU and its stages, memory, timings,
+cooling, backups, a settings reference, and what to do when the console will not boot.
 [На русском](Guides/ru/README.md).
 
 ---
@@ -59,6 +59,10 @@ Nothing takes effect until you restart the console.
 If the tuner opens on a single screen saying the kip layout does not match, the menu is
 hidden on purpose: that `loader.kip` is from another firmware, and writing into it by
 this field map would hit the wrong bytes.
+
+Updating still works there, and that is deliberate too. `Check for updates` and `Update`
+stay on that same screen: press the first, and if a build for your firmware exists, the
+second installs it. You are not locked out.
 
 ### Reading the values
 
@@ -399,8 +403,8 @@ your console. Use at your own risk.
 
 ### 📖 [Руководство — как всё настроить](Guides/ru/README.md)
 
-Двенадцать страниц: установка, с чего начать, процессор, видеоядро и ступени, память,
-тайминги, копии настроек и что делать, если консоль перестала грузиться.
+Установка, с чего начать, процессор, видеоядро и ступени, память, тайминги, охлаждение,
+копии настроек, справочник настроек и что делать, если консоль перестала грузиться.
 [In English](Guides/en/README.md).
 
 ---
@@ -424,7 +428,7 @@ your console. Use at your own risk.
 |---|---|
 | **eBAMATIC Stage** | лёгкий путь. Одна настройка на всё — kip сам считает напряжения CPU, GPU и памяти, вы выбираете только насколько далеко зайти. Если не уверены — меняйте только это. |
 | **Current Settings** | что сейчас в kip, только чтение. L или R — вторая страница с таймингами и тонкой настройкой. |
-| **Advanced** | каждый параметр отдельно: CPU, GPU, RAM, Micro-Enhance Logic. У разделов с настройками есть вторая страница со справкой — L или R. |
+| **Advanced** | каждый параметр отдельно: CPU, GPU, RAM, Micro-Enhance Logic, Fan Control. У разделов с настройками есть вторая страница со справкой — L или R. |
 | **Service** | копии настроек, восстановление, импорт из старого визарда, сброс к заводским, информация о консоли. |
 | **Check for updates** | спрашивает у GitHub, вышла ли сборка новее, и сразу отвечает. |
 | **Install update** | скачивает и ставит её. Старый пакет откладывается в сторону и возвращается, если что-то пошло не так. |

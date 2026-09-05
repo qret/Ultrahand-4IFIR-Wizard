@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/09-timings.md sha=50b5bbbd65fe self=e70140d8f47c -->
+<!-- i18n: source=Guides/ru/09-timings.md sha=50b5bbbd65fe self=62c1603c1792 -->
 # Timings and fine tuning
 
 <!-- nav:begin -->
@@ -149,9 +149,12 @@ first and the fifth**. So raise the first and the fifth goes up with it, even th
 never touched it.
 
 > [!NOTE]
-> This is the author's own note, not something we verified on hardware. The question is
-> on our list for the firmware author. The donor guide meanwhile claims timings do not
-> affect one another — on that point it should not be trusted.
+> We have not verified this on hardware; the question is on our list for the firmware
+> author. The donor guide claims the opposite — that timings do not affect one another —
+> but on that point it should not be trusted.
+>
+> The practical conclusion does not depend on it: if freezes start after you change the
+> first one, look at the fifth.
 
 If freezes start after changing the first one, check the fifth.
 
@@ -186,6 +189,43 @@ readable entries in `RAM → Optimized Mode (1600 MHz)`.
 >
 > The same control appears in `Optimized Mode (1600 MHz)` as `Efficiency Stages` — it is
 > one field, resetting either one does the job.
+
+## Cooling
+
+`Advanced → Fan Control` holds the fan curve. Five sliders, one per temperature band:
+
+| Band | What it covers |
+|---|---|
+| `16-35°C` | a cold console, menus and simple scenes |
+| `36-40°C` | light load |
+| `41-46°C` | an ordinary game |
+| `47-57°C` | a heavy game |
+| `58-100°C` | the hot zone |
+
+A slider sets **the highest fan speed allowed in that band**, from zero to a hundred per
+cent. The curve is read when the console starts, so a change needs a reboot.
+
+The factory setting for the top band is a hundred per cent: once the console reaches
+58 °C the fan runs flat out and does not back off.
+
+> [!IMPORTANT]
+> **This is where we had a bug, and it is worth knowing about.** Touching **any** slider
+> used to wreck the top of the curve: the `58-100°C` entry went on showing a hundred per
+> cent while the fan in the hot zone actually settled at around sixty. Opening the screen
+> and confirming without moving anything was enough to trigger it.
+>
+> The cause was in how we wrote the curve: the top row is meant to be flat, and we turned
+> it into a gentle ramp stretched over hundreds of degrees. The old donor package has the
+> same flaw.
+>
+> **Fixed.** The top band is flat again, and the entry means exactly what it says.
+
+If you adjusted fan speeds on an older version of the tuner, or in the old wizard, open
+`Fan Control` and set the sliders again — the new write lays down a correct curve. The
+simplest route is to put everything back with `Service → Restore Factory Defaults`.
+
+A fan that stays quiet under load is almost always a setting rather than wear. Check this
+curve before you take the console apart.
 
 ## What we do not do
 

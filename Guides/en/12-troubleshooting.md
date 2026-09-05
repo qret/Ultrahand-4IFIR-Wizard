@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=a060745131b7 self=5880a578c172 -->
+<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=a060745131b7 self=be39d92d0b78 -->
 # If something goes wrong
 
 <!-- nav:begin -->
@@ -29,10 +29,12 @@ If the console still boots, you can settle this on the spot:
 Both open a preview page. To apply, **hold A** on the entry at the bottom.
 
 > [!NOTE]
-> A reset returns the settings themselves to factory values, but it **does not rewrite the
-> GPU voltage curve**: there is no factory copy of that curve to put back. The curve stops
-> taking effect in a different way. The mode becomes `Eco ST1` again, and that mode reads
-> another table, which was never touched.
+> A reset returns the settings themselves to factory values, and rewrites the manual GPU
+> curve **only at the top**: the seven top points go back to factory, the other
+> twenty-four stay as you left them — there is no factory copy of those to put back.
+>
+> The curve stops taking effect either way: the mode becomes `Eco ST1` again, and that
+> mode reads another table, which was never touched.
 >
 > Only `Backup manager` brings the whole state back, curve included.
 
@@ -93,27 +95,14 @@ into a file; the firmware reads that file at startup.
 the file right now. If that differs from what you picked, something else wrote over it:
 KipTool, another package, or a restored backup.
 
-**The console shuts down under load, and the charge drops suddenly.** The power
-controller is designed for a peak draw of around fifteen watts. Exceed it, and protection
-cuts in and shuts the console down. It may also lower its estimate of the remaining
-charge. The fix is lower clocks, not a new battery.
-
-The battery has **not** degraded — the controller's calibration has drifted. It can be
-restored, and there is a separate tool for that, `Battery Desync Fix NX` (not part of the
-build, downloaded from its author's GitHub).
-
-> [!WARNING]
-> **Do not run it if you have no battery trouble — you will get some.** The calibration is
-> stored separately for the system NAND and for every emuNAND, so after a reset it has to
-> be rebuilt in each of them: two full discharge and charge cycles, without switching
-> between them.
->
-> Before reaching for the tool, lower your clocks. They are what drove the controller into
-> this state, and without that it will happen again.
-
 **Stripes on the screen in the dock.** The culprit is `Advanced → RAM → Optimized Mode
 (1600 MHz) → Efficiency Stages` — the same control also shows up as `Advanced →
 Micro-Enhance Logic → sMeh 0-17 → sMeh 8 E-Boost`. Put it back to `0`, the factory value.
+
+**The fan stays quiet while the console runs hot.** Check `Advanced → Fan Control`. On
+versions before 5 September 2026, moving any slider quietly dropped the fan speed in the
+hot zone while the entry still read a hundred per cent. Set the sliders again, or reset to
+factory — [details](09-timings.md#cooling).
 
 **It hangs after ten or fifteen minutes of play.** The CPU is short of margin. Set
 `Advanced → CPU → Low MHz Undervolt` to `lvl 1`. If that does not help, try
@@ -135,6 +124,24 @@ The profile itself is not set here but in the 4IFIR overlay — the fix, however
 **A black screen after the Nintendo logo.** With KipTool, set `Speed Shift` to `100`. That
 is the same thing as `ECO Stage 1` in the tuner: KipTool shows the number, the tuner shows
 the name.
+
+**The console shuts down under load, and the charge drops suddenly.** The power
+controller is designed for a peak draw of around fifteen watts. Exceed it, and protection
+cuts in and shuts the console down. It may also lower its estimate of the remaining
+charge. The fix is lower clocks, not a new battery.
+
+The battery has **not** degraded — the controller's calibration has drifted. It can be
+restored, and there is a separate tool for that, `Battery Desync Fix NX` (not part of the
+build, downloaded from its author's GitHub).
+
+> [!WARNING]
+> **Do not run it if you have no battery trouble — you will get some.** The calibration is
+> stored separately for the system NAND and for every emuNAND, so after a reset it has to
+> be rebuilt in each of them: two full discharge and charge cycles, without switching
+> between them.
+>
+> Before reaching for the tool, lower your clocks. They are what drove the controller into
+> this state, and without that it will happen again.
 
 ## Why the limits differ between consoles
 

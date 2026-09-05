@@ -9,7 +9,7 @@ Every tuner item that offers a list of values, in menu order. Voltage-curve poin
 
 Actions — backup, restore, factory reset, system info — are not in the table: there is nothing to pick in them.
 
-"Values" is the length of the very list that opens on screen. A field's name dictionary is wider: the tuner can name a value some other package wrote, but it does not offer such a value The GPU voltage curve has no dictionary at all: its value is read straight from the settings file, so whatever is written there gets named, by whoever wrote it. for picking, and it is not counted here.
+"Values" is the length of the very list that opens on screen. A field's name dictionary is wider: the tuner can name a value some other package wrote, but it does not offer such a value for picking, and it is not counted here. The GPU voltage curve has no dictionary at all: its value is read straight from the settings file, so whatever is written there gets named, by whoever wrote it.
 
 The table is generated from the **built package** — the same files that go onto the SD card, so it cannot drift out of step with the menu.
 

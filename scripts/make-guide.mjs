@@ -154,8 +154,8 @@ const changed = []
             'to pick in them.\n\n' +
             '"Values" is the length of the very list that opens on screen. A field\'s name dictionary is ' +
             'wider: the tuner can name a value some other package wrote, but it does not offer such a value ' +
-            'The GPU voltage curve has no dictionary at all: its value is read straight from the settings file, so whatever is written there gets named, by whoever wrote it. ' +
-            'for picking, and it is not counted here.\n\n' +
+              'for picking, and it is not counted here.' +
+              ' The GPU voltage curve has no dictionary at all: its value is read straight from the settings file, so whatever is written there gets named, by whoever wrote it.\n\n' +
             'The table is generated from the **built package** — the same files that go onto the SD card, ' +
             'so it cannot drift out of step with the menu.',
           h: ['Menu item', 'Firmware field', 'Revision', 'Values', 'Examples'],

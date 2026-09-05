@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=e8844d09cf06 self=16280365feed -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=e8844d09cf06 self=d3a855d50e65 -->
 # GPU and stages
 
 <!-- nav:begin -->
@@ -160,11 +160,19 @@ after a reboot.
 > that the tuner did not offer the top seven points, so they kept another table's
 > leftovers. They are now filled like any other point.
 
-**Where the table starts.** The first time you open `GPU Voltage Table` with
-`Custom Table` selected, the tuner fills it with the `Eco ST1` values — 485…960 mV.
-That is a one-off starting point: edit any point afterwards and it will never write there
-again. The test is simple — if a single cell differs from the factory content, you have
-already tuned it, and the tuner touches nothing.
+**Where the table starts.** The tuner fills it with the `Eco ST1` values — 485…960 mV,
+all thirty-one points. It does so in two places: when you **switch the mode** to
+`Custom Table`, and when you **open `GPU Voltage Table`** with the mode already on.
+Either one is enough, and the order does not matter.
+
+That is a one-off starting point: edit any point afterwards and the tuner will never
+write there again. The test is simple — if a single cell differs from the factory
+content, you have already tuned it, and the tuner touches nothing.
+
+> [!NOTE]
+> It used to happen only when you opened the table. Anyone who followed the hint to
+> "turn the mode on" and never came back to the table was left with the top of the
+> curve unfilled. Switching the mode is now enough.
 
 Without it your first visit would show the factory ladder of 395…1020 mV, whose bottom
 point sits below the safe minimum, and seven top cells holding another table's leftovers.
