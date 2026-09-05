@@ -735,12 +735,22 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   // здесь движок. Прежняя редакция зависела: без `baseline.txt` она «пропускалась» и всё
   // равно засчитывалась пройденной — зелень за то, что смотреть было не на что.
   const PROMISE = /Release archives? contains? the configurator (only|alone)/i
-  const promising = [], absent = []
+  // Обещание СНЯТЬ — законно: файл перестаёт его давать. А переформулировать и не заметить,
+  // что проверка его больше не узнаёт, — тихая беда: гейт уходит в зелёную ветку «нечего
+  // подкреплять». Файл, который всё ещё говорит про состав архива, но не в узнаваемой форме,
+  // поднимает флаг: не отказ, но и не молчание.
+  const MENTIONS = new RegExp('release archives?[\\s\\S]{0,120}configurator|configurator[\\s\\S]{0,120}release archives?', 'i')
+  const promising = [], absent = [], reworded = []
   for (const name of ['LICENSE', 'NOTICE.md']) {
     const f = join(ROOT, name)
     if (!existsSync(f)) { absent.push(name); continue }
-    if (PROMISE.test(readFileSync(f, 'utf8'))) promising.push(name)
+    const txt = readFileSync(f, 'utf8')
+    if (PROMISE.test(txt)) promising.push(name)
+    else if (MENTIONS.test(txt)) reworded.push(name)
   }
+  // Флаг ставится ОТДЕЛЬНО от цепочки: если один файл переформулировали, а второй
+  // ещё обещает, цепочка ушла бы в зелёную ветку и о первом промолчала.
+  if (reworded.length) problems.push({ sev: 'IMPORTANT', what: `${reworded.join(' и ')} говорит про состав релизного архива, но не в той форме, которую узнаёт проверка — она это обещание не подкрепляет и промолчала бы о нём` })
   const relPs = join(ROOT, 'scripts', 'release.ps1')
   if (absent.length) {
     problems.push({ sev: 'CRITICAL', what: `${absent.join(', ')} не найден — обещание о составе архива проверить не на чем` })
@@ -2334,17 +2344,17 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   // Отдельно — положительное утверждение, а не поиск запрещённого: инструкция едет
   // ВНУТРИ архива, и она обязана сказать читателю, что движка в нём нет.
   const instAbs = join(ROOT, 'docs', 'INSTALL.txt')
-  // 04.09.2026, РАЗОВОЕ ИСКЛЮЧЕНИЕ: последний релиз собирается по-старому, движком
-  // и конфигуратором в одном архиве. Пока это так, INSTALL.txt обязан говорить
-  // обратное — что движок в архиве ЕСТЬ. Утверждение остаётся положительным: файл
-  // обязан назвать состав, а не молчать о нём. Вернуть первую форму сразу после
-  // публикации — см. память release-with-engine-exception.
+  // ОБЕ ПОЛОВИНЫ. Файл двуязычный, и до 04.09.2026 стереглась только английская:
+  // русский абзац можно было вырезать целиком, а прогон оставался зелёным. Читатель
+  // у этого файла в основном русскоязычный — охранялась не та половина.
   const instTxt = existsSync(instAbs) ? readFileSync(instAbs, 'utf8') : ''
-  const instSays = /THE ENGINE IS NOT HERE/i.test(instTxt) || /LAST ARCHIVE BUILT THIS WAY/i.test(instTxt)
+  const instHalves = [['английская', /THE ENGINE IS NOT HERE/i], ['русская', /\u0414\u0412\u0418\u0416\u041a\u0410\u0020\u0417\u0414\u0415\u0421\u042c\u0020\u041d\u0415\u0422/]]
+  const instMissing = instHalves.filter(([, r]) => !r.test(instTxt)).map(([n]) => n)
+  const instSays = existsSync(instAbs) && !instMissing.length
 
   if (!files.length) problems.push({ sev: 'CRITICAL', what: 'проверка текстов не нашла ни одного файла — она смотрит в пустоту' })
   else if (!existsSync(instAbs)) problems.push({ sev: 'CRITICAL', what: 'docs/INSTALL.txt не найден, а он едет внутри архива' })
-  else if (!instSays) problems.push({ sev: 'CRITICAL', what: 'docs/INSTALL.txt не называет состав архива — а он едет внутри архива' })
+  else if (!instSays) problems.push({ sev: 'CRITICAL', what: `docs/INSTALL.txt не говорит читателю, что движка в архиве нет — а он едет внутри архива (${instMissing.join(' и ')} половина молчит)` })
   else if (bad.length) problems.push({ sev: 'CRITICAL', what: `текст обещает читателю движок в поставке, и это не помечено как история:\n     ${bad.slice(0, 10).join('\n     ')}${bad.length > 10 ? `\n     …и ещё ${bad.length - 10}` : ''}` })
   else ok.push(`no text promises an engine in the archive (${files.length} files scanned; INSTALL.txt states it outright)`)
 }
@@ -2466,6 +2476,131 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   else if (!bindings) problems.push({ sev: 'CRITICAL', what: 'ни один список в графе не назван серией — сверять полноту не с чем, проверка смотрит в пустоту' })
   else if (bad.length) problems.push({ sev: 'CRITICAL', what: `список смещений отстал от серии, которую сам называет:\n     ${bad.join('\n     ')}` })
   else ok.push(`every offset list bound to a series spells it out in full (${listsSeen} lists, ${bindings} list-to-series bindings across ${seriesMembers.size} series${declaredPartial ? `, ${declaredPartial} declared partial` : ''})`)
+}
+
+// ---------------- 47. no Erista curve choice can be shifted onto a firmware search constant
+//
+//
+// ⚠ ЭТО ПРЕДУПРЕЖДЕНИЕ, А НЕ ОТКАЗ, И ВОТ ПОЧЕМУ. 05.09.2026 посчитаны вхождения искомых
+// чисел в СТОКОВОЙ прошивке 4IFIR (loader.kip, 431700 байт, якорь CUST на 406548):
+// 1125000 — два раза (CUST−880 и CUST+6936), 1150000 — ТРИ раза (CUST+2992, +4728, +6992).
+// Предел записи «MEM Volt» равен 2. Значит по нашей модели нетронутая консоль уже стояла
+// бы за пределом и не грузилась — а она грузится. Модель неполна: либо сканер смотрит не
+// те области, либо предел означает не то, либо представление в файле не то, что ищется
+// в памяти. Разбора обработчика у нас нет. Поэтому проверка НАЗЫВАЕТ находки, но не
+// роняет прогон, и значения из меню не убраны. Понизить до отказа — только после разбора.
+// GUARDED: every voltage a human can PICK for an Erista GPU curve point, measured as the
+// PCV scanner will see it. The scanner aborts with the descriptor's name on screen when a
+// searched constant matches MORE times than its limit; entry 10 `MEM Volt` searches
+// 1 125 000 uV and allows two. The compare is raw, so a curve point is indistinguishable.
+// FOUR VALUES, NOT ONE: on Erista CUST[44] is a multiplier, V_scanned = V_row - 12500*code,
+// and the field takes four codes - 1125.0 / 1137.5 / 1150.0 / 1162.5 mV all reach it.
+// REAL CASE: the ±75 mV band around the factory value walks into that family at the four
+// top points - twelve non-factory offers today. Check 27 could not see them: it walks
+// `series === 'gpu_curve_mariko'`, and the Mariko `scan_guard` list has no 1125000 at all.
+// CAVEAT, KEPT HONEST: whether the scanner sees the Erista GPU table AT ALL is NOT PROVEN -
+// entry 10's handler was never disassembled. This is a hypothesis, held true because the
+// guard is cheap and the failure is a console that will not boot.
+{
+  // Constants and mode step travel in the map (`scan_guard_erista`) exactly as the Mariko
+  // half travels in `scan_guard`, so the gate needs no kip. The two lists stay separate on
+  // purpose - see `why_separate_key` beside them.
+  let guard = null, carrier = null
+  const walkG = n => {
+    if (Array.isArray(n)) return n.forEach(walkG)
+    if (!n || typeof n !== 'object') return
+    if (n.scan_guard_erista && !guard) { guard = n.scan_guard_erista; carrier = n }
+    Object.values(n).forEach(walkG)
+  }
+  walkG(menu.sections ?? [])
+
+  const consts = (guard?.consts ?? []).filter(Number.isInteger)
+  const step = Number(guard?.mode_step)
+  const series = guard?.series
+  // The number of mode codes is the carrier's own option list: it IS the CUST[44] selector,
+  // so a fifth code added tomorrow widens the ban by itself instead of quietly not widening.
+  const codes = (carrier?.values ?? []).length
+  const seriesFields = series ? fields.filter(f => f.series === series) : []
+
+  // Dictionaries are looked up in what actually SHIPPED, not in fields.json: the human picks
+  // from the file in dist/, and a check that reads the source would miss a generator that
+  // drops or widens the list on the way out.
+  const dictByOffset = new Map()
+  if (series) {
+    const rx = new RegExp(`^${series}_(\\d+)\\.json$`)
+    const walkJson = dir => {
+      for (const n of readdirSync(dir)) {
+        const p = join(dir, n)
+        if (statSync(p).isDirectory()) { walkJson(p); continue }
+        const m = rx.exec(n)
+        if (m) dictByOffset.set(Number(m[1]), p)
+      }
+    }
+    walkJson(DIST)
+  }
+
+  const banned = new Map()   // forbidden value -> how it is reached
+  for (const c of consts)
+    for (let k = 0; k < codes; k++)
+      if (!banned.has(c + step * k)) banned.set(c + step * k, `${c} при CUST[44]=${k}`)
+
+  const bad = []
+  let dicts = 0, offers = 0, factorySkipped = 0
+  for (const f of seriesFields) {
+    const file = dictByOffset.get(f.offset)
+    if (!file) { bad.push(`точка ${f.name} (смещение ${f.offset}) серии «${series}» не имеет словаря в dist — проверять нечего, а пункт в меню есть`); continue }
+    dicts++
+    const list = JSON.parse(readFileSync(file, 'utf8'))
+    for (const v of Array.isArray(list) ? list : []) {
+      const uv = parseInt(String(v.hex ?? '').slice(0, 8).match(/../g)?.reverse().join('') ?? '', 16)
+      if (!Number.isInteger(uv)) continue
+      // The factory value is the one explicit exception: it already stands in the table,
+      // nobody picks it, and banning it would ban a stock console. Only new picks add matches.
+      if (/default/i.test(String(v.name ?? ''))) { factorySkipped++; continue }
+      offers++
+      if (banned.has(uv))
+        bad.push(`${relative(ROOT, file)}: «${v.name}» = ${uv} мкВ даёт совпадение с ${banned.get(uv)} — лишнее совпадение сканера PCV`)
+    }
+  }
+
+  if (!guard) problems.push({ sev: 'CRITICAL', what: 'в карте меню нет ключа `scan_guard_erista` — сторож эристовской кривой смотрит в пустоту' })
+  else if (!consts.length) problems.push({ sev: 'CRITICAL', what: '`scan_guard_erista.consts` пуст — сторож эристовской кривой смотрит в пустоту' })
+  else if (!Number.isInteger(step) || step <= 0) problems.push({ sev: 'CRITICAL', what: `\`scan_guard_erista.mode_step\` = ${guard.mode_step} — сдвиг режима не задан, сторож эристовской кривой смотрит в пустоту` })
+  else if (!codes) problems.push({ sev: 'CRITICAL', what: 'у носителя `scan_guard_erista` нет вариантов режима — число кодов CUST[44] неизвестно, сторож смотрит в пустоту' })
+  else if (!seriesFields.length) problems.push({ sev: 'CRITICAL', what: `в fields.json нет ни одного поля серии «${series}» — сторож эристовской кривой смотрит в пустоту` })
+  else if (!dicts) problems.push({ sev: 'CRITICAL', what: `в dist не нашлось ни одного словаря серии «${series}» — сторож эристовской кривой смотрит в пустоту` })
+  else if (!offers) problems.push({ sev: 'CRITICAL', what: `в словарях серии «${series}» не нашлось ни одного НЕзаводского варианта — сторож эристовской кривой смотрит в пустоту` })
+  else if (bad.length) problems.push({ sev: 'IMPORTANT', what: `предложенное значение точки кривой Erista даёт лишнее совпадение сканера — консоль не загрузится с надписью «MEM Volt»:\n     ${bad.slice(0, 8).join('\n     ')}${bad.length > 8 ? `\n     … и ещё ${bad.length - 8}` : ''}` })
+  else ok.push(`no Erista curve choice lands on a firmware search constant (${offers} offers over ${dicts} points against ${banned.size} banned values from ${consts.length} constants x ${codes} mode codes, ${factorySkipped} factory values excluded)`)
+}
+
+// ---------------- 48. no generated line is longer than the engine's read buffer
+//
+// The engine reads ini files with fgets(buffer, 1024, ...) — libultra/source/ini_funcs.cpp,
+// both loadOptionsFromIni and the write path. A longer line is torn in half SILENTLY: no
+// error, no log, just a command that ends mid-argument and a second one made of the tail.
+// The same buffer is used when any neighbouring key is rewritten, so a too-long line in the
+// TARGET file breaks later, far from the change that caused it. Nothing guarded this: the
+// longest line in the package is the fan curve at ~630 bytes, and it fit by luck. Bytes,
+// not characters — «°» is two of them in UTF-8, and the fan sections are full of it.
+{
+  const LIMIT = 1023, WARN = 900
+  const over = [], near = []
+  let lines = 0
+  for (const f of iniFiles) {
+    const rel = relative(ROOT, f)
+    let n = 0
+    for (const line of readFileSync(f, 'utf8').split(/\r?\n/)) {
+      n++; lines++
+      const bytes = Buffer.byteLength(line, 'utf8')
+      if (bytes > LIMIT) over.push(`${rel}:${n} — ${bytes} байт при пределе ${LIMIT}`)
+      else if (bytes > WARN) near.push(`${rel}:${n} — ${bytes} байт, до предела ${LIMIT - bytes}`)
+    }
+  }
+  if (!lines) problems.push({ sev: 'CRITICAL', what: 'ни одной строки в собранном пакете — проверка длины смотрит в пустоту' })
+  else if (over.length) problems.push({ sev: 'CRITICAL', what: `строка длиннее буфера движка — она будет разорвана пополам молча:\n     ${over.join('\n     ')}` })
+  else if (near.length) problems.push({ sev: 'IMPORTANT', what: `строка подошла к пределу буфера движка вплотную:\n     ${near.join('\n     ')}` })
+  else ok.push(`every generated line fits the engine's 1023-byte read buffer (${lines} lines checked)`)
 }
 
 const crit = problems.filter(p => p.sev === 'CRITICAL')

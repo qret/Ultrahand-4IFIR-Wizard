@@ -43,14 +43,10 @@ for the same community.
 The package runs on **Ultrahand Overlay** by **ppkantorski**, GPL v2:
 <https://github.com/ppkantorski/Ultrahand-Overlay>
 
-**This release archive carries a modified build of it**, version 2.5.3, alongside the
-configurator. GPL v2 obliges us to name the corresponding source, and it is our fork —
-<https://github.com/qret/Ultrahand-Overlay>, branch `4ifir`; `BUILD.txt` in the archive
-records the exact commit and the sha256 of the binary.
-
-This is the last release built this way. From the next one on the engine is maintained by
-the author of the 4IFIR firmware and reaches people with the firmware build, and our
-archives carry the configurator alone.
+**We do not distribute it.** Release archives contain the configurator alone —
+`switch\.packages\4IFIR Wizard\` — and no engine binary. The engine is maintained by
+the author of the 4IFIR firmware and reaches people with the firmware build; installing
+or updating our package leaves it, and its `config/ultrahand/`, untouched.
 
 Our own engine changes live in a fork, and anything we build from it has its source
 there:
