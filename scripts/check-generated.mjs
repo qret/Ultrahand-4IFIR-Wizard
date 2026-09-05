@@ -115,6 +115,23 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /одну левую часть/,
     },
     {
+      // Ровно та беда, ради которой заведена проверка 54: пересев корневой подписи убран
+      // из блока применения, и `eBAMATIC Stage` до конца сеанса врёт доприменённым значением.
+      name: 'пересев корневой подписи пропал из блока применения',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.split(`\nset-ini-val './../config.ini' '*eBAMATIC Stage' footer`).join(`\n;was-set-ini-val './../config.ini' '*eBAMATIC Stage' footer`),
+      expect: /корневая подпись останется устаревшей/,
+    },
+    {
+      // Третья дверь к той же беде: обычный пункт правит корневой байт из подкаталога.
+      // Блоки применения при этом целы, поэтому проверка 54 молчит — красным обязана
+      // стать общая 55-я.
+      name: 'пункт правит корневой байт и не пересевает подпись',
+      file: join(DIST, 'advanced', 'micro-enhance', 'pmeh', 'package.ini'),
+      hurt: s => s.split(`\nset-ini-val './../../../config.ini' '*eBAMATIC Stage' footer`).join(`\n;was-set-ini-val './../../../config.ini' '*eBAMATIC Stage' footer`),
+      expect: /оставляет корневую подпись устаревшей/,
+    },
+    {
       // Единственная проба, бьющая по ОБЩЕМУ затвору, а не по личному сторожу:
       // у проверки подписей своей проверки на пустоту нет, и до 05.09.2026 она
       // печатала «0 checked» зелёным. Ловит её теперь только правило «ноль — красный».
@@ -3002,6 +3019,11 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
         entries++
         const p = e.name.indexOf(' - ')
         const left = p === -1 ? e.name : e.name.slice(0, p)
+        // "On" and "Off" may not be a row name. applyLangReplacements(itemName, true) runs
+        // AFTER the item is built (main.cpp:4057), so the comparison uses the translated
+        // string while the cache keeps the untranslated one -- such a row loses its
+        // checkmark for good, even right after being picked. Zero today; this keeps it so.
+        if (/^(On|Off)$/.test(left)) bad.push(`${rel}: строка названа «${left}» — движок переводит это имя перед сравнением, но не перед записью в кэш, и галочка теряется навсегда`)
         if (left !== e.short) bad.push(`${rel}: «${e.name}» → движок ищет «${left}», а футер несёт «${e.short}»`)
         else if (seenLeft.has(left)) bad.push(`${rel}: «${e.name}» и «${seenLeft.get(left)}» дают одну левую часть «${left}» — галочка достанется первой`)
         else seenLeft.set(left, e.name)
@@ -3033,6 +3055,123 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   }
 }
 
+// ---------------- 54. КОРНЕВАЯ ПОДПИСЬ ПЕРЕСЕВАЕТСЯ ПОСЛЕ КАЖДОГО ПРИМЕНЕНИЯ
+//
+// У разделов подпись чинит форвардер над ними: вошёл — перечитал kip — переписал
+// `*/config.ini`. Над КОРНЕМ форвардера нет, и его подпись сеется единственный раз,
+// секцией `[boot]` при входе в пакет. Значит любой блок, пишущий kip мимо корневого
+// пункта (сброс, восстановление копии), обязан пересеять её сам — иначе `eBAMATIC Stage`
+// показывает доприменённое значение до конца сеанса, а человек читает подпись как факт.
+//
+// Стережём три вещи разом: что блок применения вообще есть, что за каждым `set-footer
+// 'restored…'` идёт пересев, и что пересев берёт ТОТ ЖЕ словарь и ТО ЖЕ смещение, что
+// и `[boot]`. Третье важнее первых двух: разойдись они, подпись меняла бы смысл
+// в зависимости от того, кто её написал последним.
+{
+  const bootPath = join(DIST, 'boot_package.ini')
+  const bootTxt = existsSync(bootPath) ? readFileSync(bootPath, 'utf8') : ''
+  // Корневые писатели футера — те, чей путь `./config.ini`, без подкаталога.
+  const rootSeeds = bootTxt.split(/\r?\n/).filter(l => /^set-ini-val '\.\/config\.ini' /.test(l))
+  // Из `service/` тот же файл и тот же словарь адресуются на уровень выше.
+  const want = rootSeeds.map(l => l.replace(/'\.\//g, `'./../`))
+  const SERVICE = ['reset.ini', 'restore-mariko.ini', 'restore-erista.ini']
+  const bad = []
+  let blocks = 0
+
+  for (const name of SERVICE) {
+    const p = join(DIST, 'service', name)
+    if (!existsSync(p)) { bad.push(`${name}: файла нет — блоку применения негде быть`); continue }
+    const ls = readFileSync(p, 'utf8').split(/\r?\n/)
+    for (let i = 0; i < ls.length; i++) {
+      if (!/^set-footer 'restored/.test(ls[i])) continue
+      blocks++
+      // Хвост блока — от подписи до его конца: пустая строка, `try:` или новая секция.
+      // Длину не считаем: у пересева на каждый пункт своё объявление словаря.
+      const tail = []
+      for (let j = i + 1; j < ls.length && ls[j].trim() && ls[j] !== 'try:' && ls[j][0] !== '['; j++) tail.push(ls[j])
+      if (!tail.includes(`hex_file '/atmosphere/kips/loader.kip'`))
+        bad.push(`${name}:${i + 1} «${ls[i]}» — за подписью нет объявления kip, читать нечего`)
+      for (const w of want) {
+        if (!tail.includes(w)) bad.push(`${name}:${i + 1} «${ls[i]}» — корневая подпись не пересеяна: ждали «${w}»`)
+      }
+    }
+  }
+
+  if (!rootSeeds.length || !blocks) {
+    problems.push({ sev: 'CRITICAL', what: `проверка пересева корневой подписи не нашла предмета надзора (корневых подписей ${rootSeeds.length}, блоков применения ${blocks}) — она смотрит в пустоту, ничего не проверив` })
+  } else if (bad.length) {
+    problems.push({ sev: 'CRITICAL', what: `корневая подпись останется устаревшей до конца сеанса (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}${bad.length > 8 ? `\n     … и ещё ${bad.length - 8}` : ''}` })
+  } else {
+    ok.push(`the root footer is re-seeded after every apply (${blocks} blocks, ${rootSeeds.length} root footers)`)
+  }
+}
+
+// ---------------- 55. ЛЮБОЙ ПИШУЩИЙ БАЙТ КОРНЕВОЙ ПОДПИСИ ПЕРЕСЕВАЕТ ЕЁ
+//
+// Проверка 54 стережёт блоки применения — сброс и восстановление копии. Но тот же байт
+// правит обычный пункт: `pMeh 18` пишет 12436 из `advanced/micro-enhance/pmeh/`, и после
+// него корневая подпись врёт до конца сеанса. Дверь другая, дефект тот же.
+//
+// Поэтому правило общее и без имён: берём смещения, которые читают корневые подписи,
+// и требуем пересева от КАЖДОГО блока `try:`, который в эти смещения пишет, — в любом
+// файле дерева и на любой глубине. Глубина считается по пути: движок разрешает пути
+// пакета от каталога, где лежит его ini.
+{
+  const KIPL = '/atmosphere/kips/loader.kip'
+  const bootPath = join(DIST, 'boot_package.ini')
+  const bootTxt = existsSync(bootPath) ? readFileSync(bootPath, 'utf8') : ''
+  const rootSeeds = bootTxt.split(/\r?\n/).filter(l => /^set-ini-val '\.\/config\.ini' /.test(l))
+  const rootOffsets = new Set(rootSeeds.flatMap(l =>
+    [...l.matchAll(/hex_file\(CUST,(\d+),\d+\)/g)].map(m => Number(m[1]))))
+  const WRITE = /^hex-by-\S+\s+\S+\s+CUST\s+(\d+)\s/
+  const bad = []
+  let writers = 0
+
+  for (const p of iniFiles) {
+    const rel = p.slice(DIST.length + 1).split(/[\\/]/)
+    const up = rel.length - 1
+    const want = [`hex_file '${KIPL}'`, ...rootSeeds.map(l => l.replace(/'\.\//g, `'./${'../'.repeat(up)}`))]
+    const ls = readFileSync(p, 'utf8').split(/\r?\n/)
+    let start = 0, header = '', writesAt = 0
+
+    const judge = (end) => {
+      if (!writesAt) return
+      writers++
+      const block = ls.slice(start, end)
+      // На глубине 0 подпись пункта пишет его собственный `set-footer`, поэтому свою строку
+      // с него не спрашиваем; чужую — спрашиваем, второй корневой пункт на том же байте
+      // сам себя не починит.
+      const self = header.replace(/^\[\*?/, '').replace(/\]$/, '')
+      const need = up === 0
+        ? want.filter(l => !l.startsWith(`set-ini-val './config.ini' '*${self}' footer `))
+        : want
+      if (!need.some(l => l.startsWith('set-ini-val'))) return
+      for (const w of need) {
+        if (!block.includes(w)) bad.push(`${rel.join('/')}:${writesAt} «${header}» — корневая подпись не пересеяна: ждали «${w}»`)
+      }
+    }
+
+    for (let i = 0; i < ls.length; i++) {
+      if (ls[i].startsWith('[') || ls[i] === 'try:') {
+        judge(i)
+        start = i; writesAt = 0
+        if (ls[i].startsWith('[')) header = ls[i]
+      }
+      const m = WRITE.exec(ls[i])
+      if (m && rootOffsets.has(Number(m[1]))) writesAt = i + 1
+    }
+    judge(ls.length)
+  }
+
+  if (!rootSeeds.length || !rootOffsets.size || !writers) {
+    problems.push({ sev: 'CRITICAL', what: `общая проверка пересева корневой подписи не нашла предмета надзора (подписей ${rootSeeds.length}, смещений ${rootOffsets.size}, пишущих блоков ${writers}) — она смотрит в пустоту, ничего не проверив` })
+  } else if (bad.length) {
+    problems.push({ sev: 'CRITICAL', what: `есть пункт, который правит корневой байт и оставляет корневую подпись устаревшей (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}${bad.length > 8 ? `\n     … и ещё ${bad.length - 8}` : ''}` })
+  } else {
+    ok.push(`every block writing a root-footer byte re-seeds that footer (${writers} blocks, ${rootOffsets.size} offsets)`)
+  }
+}
+
 // ---------------- 49. the gate does not quietly lose a check
 //
 // A check whose subject disappears can vanish from this file's own count without a word:
@@ -3042,7 +3181,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // loops. A hard-coded expectation is crude, but it is the one thing that notices a guard
 // going missing. Raise it deliberately when you add a check; never to make a run green.
 {
-  const EXPECTED = 54
+  const EXPECTED = 56
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,

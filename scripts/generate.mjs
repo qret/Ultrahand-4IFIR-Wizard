@@ -197,10 +197,17 @@ if (process.argv.includes('--clean') && existsSync(OUT)) rmSync(OUT, { recursive
 mkdirSync(join(OUT, 'json'), { recursive: true })
 
 const enc = 'utf8'
-const write = (rel, text) => {
-  const p = join(OUT, rel)
-  mkdirSync(dirname(p), { recursive: true })
-  writeFileSync(p, text.replace(/\r\n/g, '\n'), enc)
+// Files are BUFFERED, not written as they are built. The root-footer post-pass at the end
+// needs the finished tree in hand: which items must re-seed the root footer depends on what
+// the root turns out to read, and emission order must not decide that.
+const FILES = new Map()
+const write = (rel, text) => { FILES.set(rel, text.replace(/\r\n/g, '\n')) }
+const flushFiles = () => {
+  for (const [rel, text] of FILES) {
+    const p = join(OUT, rel)
+    mkdirSync(dirname(p), { recursive: true })
+    writeFileSync(p, text, enc)
+  }
 }
 
 /**
@@ -1060,7 +1067,11 @@ function emitItem(item, lines) {
     lines.push(`;visibility_condition=matching_hex_val_custom ${KIP} CUST ${v.offset} ${v.value}`)
     stats.guards++
   }
-  if (item.help) lines.push(`;footer_highlight=true`)
+  // NO ;footer_highlight= (dropped 05.09.2026). It only picks the colour of the value on
+  // the right -- bright cyan or faint grey -- and for ;mode=option `true` IS the default,
+  // so it changed nothing on screen. What it did do was make the engine write the key into
+  // the USER's config.ini, where it then overrides the package: 15 stale keys that would
+  // dictate behaviour if the engine's own defect were ever fixed. See NOTES 273.
   lines.push(`json_file_source '${d.list}' name`)
   // Кэш найденного смещения якоря движок не сбрасывает сам. Пока команда одна, это неважно;
   // когда их три десятка — один скан файла вместо тридцати, и заодно страховка на случай,
@@ -2075,6 +2086,23 @@ for (const s of menu.sections) {
   rootLines.push('')
   stats.lazyLines = (stats.lazyLines ?? 0) + secBoot.length
 }
+
+/**
+ * Re-seed the ROOT item footers after a block writes the kip. Sections get theirs rewritten
+ * by the forwarder above them on every entry; the root has no forwarder, so its footer kept
+ * the pre-change value for the rest of the session. Reading back right after the write is
+ * safe: hexSumCache holds the CUST anchor offset, not the bytes (hex_funcs.cpp:501-540).
+ * `up` is how many levels the writing file sits below the package root.
+ */
+const rootFooterAgain = (up = 1) => rootBoot.length
+  ? [`hex_file '${KIP}'`, ...rootBoot.map(l => l.replace(/'\.\//g, `'./${'../'.repeat(up)}`))]
+  : []
+
+// Offsets the root footers read. Declared HERE, right after the root loop, so the set is
+// complete before anything consumes it: inside the loop it would hold only the sections
+// already passed, and correctness would rest on their order in menu.json.
+const rootFooterOffsets = new Set(
+  rootBoot.flatMap(l => [...l.matchAll(/hex_file\(CUST,(\d+),\d+\)/g)].map(m => Number(m[1]))))
 
 /**
  * ПОРЯДОК СТРОК ВНУТРИ ГРУППЫ, заданный человеком, а не структурой кипа.
@@ -3102,6 +3130,8 @@ if (kipRows.length) {
         // иначе read_only-поля сохраняются и не возвращаются.
         ...backupSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
         ...sideSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
+        // NO re-seed of the root footer written by hand here or in the import branch below:
+        // `reseedRootFooters` adds it to every try-block that writes a root-footer offset.
         `set-footer 'restored'`,
         // ВТОРОЙ БЛОК — ДЛЯ ИМПОРТИРОВАННЫХ КОПИЙ, НО КНОПКА ОДНА.
         //
@@ -3442,11 +3472,82 @@ if (boot.some(l => l.startsWith('set-ini-val'))) {
   stats.bootFiles = 1
 }
 
+/**
+ * ANYONE WHO WRITES A BYTE A ROOT FOOTER READS MUST RE-SEED THAT FOOTER.
+ *
+ * A section's footers are rewritten by the forwarder above it on every entry; the root has
+ * no forwarder, so its footer is seeded once, by `[boot]`, and keeps the pre-change value
+ * for the rest of the session. Three doors led to the same defect - reset, restore, and
+ * `pMeh 18`, which writes 12436 from three levels down.
+ *
+ * Done as a POST-PASS over the finished files, and that is the point: at this moment the
+ * whole tree and the whole root are known, so nothing depends on the order in which
+ * menu.json listed the sections or on which emitter produced the item.
+ *
+ * Granularity is the `try:` block, not the section: the engine stops a section at the first
+ * fully successful block, so a re-seed parked at the end of the section would never run in
+ * the branch that did the writing. `set-ini-val` and the source declarations return void,
+ * so the added lines cannot break the block's own success.
+ */
+function reseedRootFooters () {
+  if (!rootFooterOffsets.size) return 0
+  const WRITE = /^hex-by-\S+\s+\S+\s+CUST\s+(\d+)\s/
+  let patched = 0
+
+  for (const [rel, text] of FILES) {
+    if (!rel.endsWith('.ini')) continue
+    // The engine resolves a package's relative paths from the directory its ini sits in.
+    const up = rel.split('/').length - 1
+    const seed = rootFooterAgain(up)
+    if (!seed.length) continue
+
+    const out = []
+    let block = []
+    let header = ''
+    let writes = false
+
+    const closeBlock = () => {
+      if (writes) {
+        // At the root the item's own `set-footer` already wrote that very key (utils.hpp:5477),
+        // so its line is dropped; a SECOND root item on the same byte still gets its own.
+        const self = header.replace(/^\[\*?/, '').replace(/\]$/, '')
+        const want = up === 0
+          ? seed.filter(l => !l.startsWith(`set-ini-val './config.ini' '*${self}' footer `))
+          : seed
+        if (want.some(l => l.startsWith('set-ini-val')) && !want.every(l => block.includes(l))) {
+          let end = block.length
+          while (end > 0 && !block[end - 1].trim()) end--
+          block.splice(end, 0, ...want)
+          patched++
+        }
+      }
+      out.push(...block)
+      block = []
+      writes = false
+    }
+
+    for (const line of text.split('\n')) {
+      if (line.startsWith('[')) { closeBlock(); header = line }
+      else if (line === 'try:') closeBlock()
+      block.push(line)
+      const m = WRITE.exec(line)
+      if (m && rootFooterOffsets.has(Number(m[1]))) writes = true
+    }
+    closeBlock()
+    FILES.set(rel, out.join('\n'))
+  }
+  return patched
+}
+
+stats.rootReseeds = reseedRootFooters()
+flushFiles()
+
 // ---------------------------------------------------------------- report
 
 console.log(`items generated : ${stats.items}`)
 console.log(`dictionaries    : ${stats.dicts}`)
 console.log(`lines in [boot] : ${stats.bootLines}`)
+console.log(`root re-seeds   : ${stats.rootReseeds}`)
 console.log(`skipped         : ${stats.skipped.length}`)
 if (stats.skipped.length) {
   const byWhy = new Map()
