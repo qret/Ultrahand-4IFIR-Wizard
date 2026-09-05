@@ -324,6 +324,31 @@ function shortLabel(name) {
 }
 
 /**
+ * ИМЯ В СПИСКЕ ВЫБОРА НАЧИНАЕТСЯ С ТОГО, ЧТО СТОИТ В ФУТЕРЕ. ЭТО КУРСОР, А НЕ ОФОРМЛЕНИЕ.
+ *
+ * Открывая `;mode=option`, движок ставит фокус не «на позицию», а на пункт с ГАЛОЧКОЙ
+ * (`jumpItemValue = CHECKMARK_SYMBOL`, форк `main.cpp:5914`), а галочку получает пункт,
+ * чьё имя равно футеру родителя (`main.cpp:4065`). Имя при этом режется по ASCII `" - "`:
+ * слева пункт, справа пояснение (`main.cpp:4037-4043`). Не совпало — штатный откат ставит
+ * фокус на первую строку (`tesla.hpp:7501`), и в ряду из 31 значения человек листает
+ * шестнадцать раз при каждом заходе.
+ *
+ * Футер — это `short` (см. врезку у `set-footer` ниже), поэтому `short` обязан идти
+ * ПЕРВЫМ, а всё остальное уезжает вправо через ASCII-разделитель. Раньше имя склеивалось
+ * длинным тире, которое движок не режет вовсе, и с галочкой не совпадало ни одно из 552
+ * значений в 110 словарях.
+ *
+ * `dropFirst` — для точек кривой: там `short` СЧИТАЕТСЯ из hex, а первая часть донорского
+ * имени это то же напряжение, напечатанное иначе («612.5mV» против «612 mV»). Держать
+ * его пояснением значило бы дважды назвать одно число.
+ */
+function engineName(name, short, dropFirst = false) {
+  const parts = String(name).split(' — ').map(p => p.trim()).filter(Boolean)
+  const rest = dropFirst ? parts.slice(1) : parts.filter(p => p !== short)
+  return rest.length ? `${short} - ${rest.join(' — ')}` : short
+}
+
+/**
  * ТОЧКИ КРИВОЙ GPU ПОКАЗЫВАЮТСЯ ВЫЧИСЛЕНИЕМ, А НЕ СЛОВАРЁМ.
  *
  * ПОЧЕМУ. У каждой точки был свой словарь подписи — полоса ±75 мВ вокруг ЗАВОДСКОГО
@@ -632,19 +657,23 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
     map[probeLen ? hex + padHex(v.writes[String(probeLen.offset)], probeLen.len) : hex] = shortLabel(name)
     seenInMap.add(hex)
     if (v.not_in_menu) continue
-    const short = CURVE_SERIES.has(field.series) ? curveShort(hex, field) : shortLabel(name)
-    if (!extraOffsets.length) { list.push({ name, short, hex }); continue }
+    const isCurveRow = CURVE_SERIES.has(field.series)
+    const short = isCurveRow ? curveShort(hex, field) : shortLabel(name)
+    // The engine focuses the option list on the row whose left part equals the footer,
+    // so the row name is rebuilt as `short` + ASCII " - " + the rest. See `engineName`.
+    const listName = engineName(name, short, isCurveRow)
+    if (!extraOffsets.length) { list.push({ name: listName, short, hex }); continue }
     // Пропущенный ключ движок молча превращает в `null`, а запись с `null` так же молча
     // не выполняется — пункт при этом покажет галочку. Поэтому недостающее смещение это
     // ошибка сборки, а не повод подставить ноль: половина таблицы осталась бы от прошлой
     // ступени, и получилась бы кривая, которой никто не выбирал.
-    // `short` — та же подпись без дописок, для футера. Полное имя остаётся в `name`
-    // и показывается в списке выбора.
+    // `short` — та же подпись без дописок, для футера. В `name` она же стоит слева
+    // от ASCII `" - "`, а пояснение — справа: по левой части движок и ищет галочку.
     //
     // Ключ обязан быть у КАЖДОЙ записи, даже когда он равен `name`: движок, не найдя
     // ключа, печатает `null`. Лишние ~60 КБ на пакет — цена того, чтобы футер не менял
     // текст при первом касании пункта.
-    const row = { name, short, hex }
+    const row = { name: listName, short, hex }
     for (const o of extraOffsets) {
       const val = v.writes?.[String(o)]
       if (!val) throw new Error(`значение «${name}» поля ${field.offset} не задаёт запись в смещение ${o}`)
@@ -1067,6 +1096,10 @@ function emitItem(item, lines) {
   // (`[boot]`, `set-ini-val … footer`), а сразу после выбора значения — отсюда, из списка.
   // Оставь здесь `name` — и пункт показывал бы короткую подпись до касания и длинную
   // после, до следующего открытия оверлея. Найдено разбором 02.09.2026 ДО правки.
+  //
+  // ЭТА ЖЕ СТРОКА — КУРСОР. Открывая список, движок ищет пункт, чьё имя до ASCII `" - "`
+  // равно футеру, и ставит на него галочку и фокус. Поэтому `name` в словаре начинается
+  // с `short` (см. `engineName`), и трогать одно без другого нельзя.
   lines.push(`set-footer '{json_file_source(*,short)}'`)
   lines.push('')
 
@@ -1636,7 +1669,9 @@ function emitImport(lines, rev, dir) {
 function emitAction(item, lines) {
   if (item.backup_restore) { emitBackup(item, lines); return }
   const title = safeName(item.title ?? item.id)
-  if (usedTitles.has(title)) return
+  // A name clash used to drop the item without a word, while emitItem records every refusal.
+  // An invisible loss is worse than a visible one: nothing on screen, nothing in the report.
+  if (usedTitles.has(title)) { stats.skipped.push({ id: item.id ?? title, why: `section name "${title}" is already taken` }); return }
   usedTitles.add(title)
 
   // Пункт-переход: ничего не делает сам, открывает отдельную страницу. Так устроены
@@ -1646,6 +1681,9 @@ function emitAction(item, lines) {
     lines.push(';mode=forwarder')
     lines.push(`package_source '${item.forwarder_to}'`)
     lines.push('')
+    // Help belongs to the screen the forwarder STANDS ON, not to the one it opens - the
+    // reader asks what the item is before pressing it. Collected here, before the return.
+    if (item.help) infoRows.push({ title: item.title ?? item.id, warns: [], help: item.help, platform: item.platform })
     stats.actions++
     return
   }
@@ -1792,23 +1830,29 @@ function emitInfoPage(rows, lines, sectionTitle) {
 
   lines.push(`[@Info]`)
   lines.push('')
-  for (const r of rows) {
-    // In the reference the block is always called `[Info]`, and the setting name is the first
-    // row of the table. That keeps the label from turning into a group heading and dragging a
-    // separator along with it.
-    lines.push('[Info]')
-    lines.push(';mode=table')
-    if (r.platform === 'mariko' || r.platform === 'erista') lines.push(`;system=${r.platform}`)
-    lines.push(';alignment=left')
-    lines.push(';offset=10')       // without an indent the left edge of the text hits the frame
-    lines.push(';spacing=4')
-    lines.push(';gap=30')
-    lines.push(`'${safeName(r.title)}:'=''`)
-    const body = [...(r.help ? [r.help] : []), ...r.warns]
-    for (const s of body) for (const ln of wrap(s)) lines.push(`''='${ln.replace(/'/g, '`')}'`)
-    lines.push('')
-    stats.infoBlocks++
-  }
+  for (const r of rows) emitInfoBlock(r, lines)
+}
+
+/**
+ * One help block. Split out of emitInfoPage so the ROOT page can print the same blocks:
+ * root items have help too, and the root prints `root_help` instead of `infoRows`.
+ */
+function emitInfoBlock(r, lines) {
+  // In the reference the block is always called `[Info]`, and the setting name is the first
+  // row of the table. That keeps the label from turning into a group heading and dragging a
+  // separator along with it.
+  lines.push('[Info]')
+  lines.push(';mode=table')
+  if (r.platform === 'mariko' || r.platform === 'erista') lines.push(`;system=${r.platform}`)
+  lines.push(';alignment=left')
+  lines.push(';offset=10')       // without an indent the left edge of the text hits the frame
+  lines.push(';spacing=4')
+  lines.push(';gap=30')
+  lines.push(`'${safeName(r.title)}:'=''`)
+  const body = [...(r.help ? [r.help] : []), ...r.warns]
+  for (const s of body) for (const ln of wrap(s)) lines.push(`''='${ln.replace(/'/g, '`')}'`)
+  lines.push('')
+  stats.infoBlocks++
 }
 
 const rootLines = []
@@ -1867,6 +1911,9 @@ function emitPackage(node, dirPath, depth = 0) {
 
   // nested sub-packages: their footers are written when you enter them, not at startup
   const links = []
+  // A folded child is a forwarder here, so its help belongs to THIS screen's [@Info]. The
+  // recursion below resets infoRows, so the rows are parked here and merged back after it.
+  const linkInfo = []
   for (const k of heavyKids) {
     const kidBoot = emitPackage(k, here, depth + 1)
     if (kidBoot) {
@@ -1881,6 +1928,7 @@ function emitPackage(node, dirPath, depth = 0) {
       let name = raw
       if (usedTitles.has(raw)) name = `${raw}?${slug(k.platform ?? k.id)}`
       usedTitles.add(name)
+      if (k.help) linkInfo.push({ title: k.title ?? k.id, warns: [], help: k.help, platform: k.platform })
       links.push(`[*${name}]`)
       if (k.platform === 'mariko' || k.platform === 'erista') links.push(`;system=${k.platform}`)
       links.push(';mode=forwarder')
@@ -1948,7 +1996,8 @@ function emitPackage(node, dirPath, depth = 0) {
   kipGroup = node.title ?? node.id
   kipGroupCtx = node.header_context ?? ''
   infoRows.length = 0
-  infoRows.push(...ownInfo)
+  // forwarders are drawn above the section's own items, so their help leads the page too
+  infoRows.push(...linkInfo, ...ownInfo)
 
   /**
    * A gated section: an explanation instead of an empty screen.
@@ -1998,19 +2047,25 @@ function emitPackage(node, dirPath, depth = 0) {
  * same name, and since `[boot]` addresses footers by name, one would overwrite the other.
  */
 const rootBoot = []
+// Help of the ROOT items. The root prints `root_help`, not `infoRows`, and every emitPackage
+// call clears that buffer - so a root item's help was written into a bucket nobody read.
+const rootInfo = []
 for (const s of menu.sections) {
   const isPlainItem = !(s.children ?? []).length && (s.offsets?.length || s.commands || s.info_table)
 
   if (isPlainItem) {
     currentDir = ''
     bootLines.length = 0
+    infoRows.length = 0
     emitSection(s, rootLines, 1)
     rootBoot.push(...bootLines)
+    rootInfo.push(...infoRows)
     continue
   }
 
   const secBoot = emitPackage(s, '')
   if (!secBoot) continue
+  if (s.help) rootInfo.push({ title: s.title ?? s.id, warns: [], help: s.help, platform: s.platform })
   const dirName = slug(s.id ?? s.title)
   rootLines.push(`[*${safeName(s.title ?? s.id)}]`)
   rootLines.push(`;mode=forwarder`)
@@ -2602,16 +2657,26 @@ if (kipRows.length) {
        * it is and has to be set by hand. Wrapped by the same helper as the note below, so
        * the rows fit the overlay instead of being clipped mid-word.
        */
-      pl.push('[Info]', ';mode=table', ';background=false', ';alignment=left',
-              ';offset=10', ';spacing=0', ';gap=0', ';polling=true',
-              `ini_file './config.ini'`,
-              ...wrap(rev === 'mariko'
+      /* ЗАТВОР НА СЕКЦИЮ, А НЕ УСЛОВИЕ В КАЖДОЙ СТРОКЕ (05.09.2026).
+         *
+         * Было: три строки, каждая читает `Restore,Old` через `{if_==}`. Три открытия
+         * файла ради одного ответа — и, когда копия не старая, три ПУСТЫЕ строки всё
+         * равно занимают свою высоту: под предпросмотром висела дыра в три строки,
+         * которой никто не заказывал.
+         *
+         * Стало: условие видимости на секцию. Файл читается один раз, а нет копии
+         * старого образца — нет и секции, вместе с её высотой. Опрос не нужен: флаг
+         * вычисляется при выборе копии, а выбор копии перестраивает страницу.
+         */
+        pl.push('[Info]', ';mode=table', ';background=false', ';alignment=left',
+              ';offset=10', ';spacing=0', ';gap=0', `;visibility_condition=matching_ini_val ./config.ini Restore Old yes`,
+                            ...wrap(rev === 'mariko'
                 // На Mariko потеря названа прямо: копия старее расширения кривой с 24 точек
                 // до 31, и не хватает именно верха. На Erista этих точек не было никогда,
                 // поэтому там текст общий — он ждёт следующего расширения карты.
                 ? 'Older backup - the top GPU voltage points are missing. Set them by hand after restoring.'
                 : 'Older backup - some settings are missing. They will keep their current values.')
-                .map(ln => `''='{if_==({ini_file(Restore,Old)},yes,${ln},)}'`), '')
+                .map(ln => `''='${ln}'`), '')
     }
 
     // Ключевые настройки — то, по чему человек и опознаёт свою копию.
@@ -2655,7 +2720,12 @@ if (kipRows.length) {
      * один раз по смыслу, второй раз под своим номером в аварийном ряду, — и предпросмотр
      * повторяет это, а не прячет вторую половину.
      */
-    const previewGroups = (src, heading, before = null) => {
+    // ОПРОС ТОЛЬКО ТАМ, ГДЕ ЕСТЬ ЧТО ПЕРЕЧИТЫВАТЬ. 05.09.2026: вторая страница несёт
+    // 151 подстановку и опрашивалась раз в секунду, хотя выборщика копии на ней нет и
+    // меняться нечему — переключение страниц пересобирает экран заново. Выходило до
+    // 183 открытий файла в секунду на неподвижных данных, дороже всей сводки, ради
+    // которой затевались кэши. Опрос остаётся на первой странице, где выбор живой.
+    const previewGroups = (src, heading, before = null, pollHere = true) => {
       const out = []
       const PREVIEW_GROUPS = []
       for (const r of src) {
@@ -2743,7 +2813,7 @@ if (kipRows.length) {
         out.push('[Gap]', ';mode=table', ';background=false', ...sys, `;gap=${HEAD_GAP}`, '')
         out.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ...sys,
                 `'${g.name}' = ''`, '')
-        out.push('[Info]', ';mode=table', ...poll, ';spacing=0', ';gap=0', ...sys, ...source)
+        out.push('[Info]', ';mode=table', ...(pollHere ? poll : []), ';spacing=0', ';gap=0', ...sys, ...source)
         // ОБЪЯВЛЕНИЕ СЛОВАРЯ — ОДНО НА ТАБЛИЦУ, А НЕ НА СТРОКУ, и это не косметика.
         // В нашем форке движка разобранный json кэшируется на время сборки ОДНОЙ таблицы
         // (`JsonScope`, `utils.hpp`, коммит 215270d5). Повторное `json_file` внутри той же
@@ -2899,7 +2969,8 @@ if (kipRows.length) {
              `'GPU Voltage Table - stages' = ''`, '')
       // Объявления — ОДИН РАЗ НА ТАБЛИЦУ: словарь у всех строк один, и кэш разбора json
       // на время сборки таблицы (`JsonScope`) работает только при таком порядке.
-      t.push('[Info]', ';mode=table', ...poll, ';spacing=0', ';gap=0', ...source,
+      // Блок ступеней живёт на ВТОРОЙ странице — там опроса нет, см. previewGroups.
+      t.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ...source,
              `json_file '${rebase(curveTables.map, depth)}'`)
       for (const [title, off] of cells) {
         t.push(`'${safeName(title)}' = '{json_file(0,{ini_file(Fields,${off})})}'`)
@@ -2908,7 +2979,7 @@ if (kipRows.length) {
       return t
     }
 
-    const deepLines = previewGroups(deep, 'Also applied', stageTable)
+    const deepLines = previewGroups(deep, 'Also applied', stageTable, false)
     if (deepLines.length) {
       pl.push('[@Page 2]', '')
       pl.push(...deepLines, '')
@@ -3250,19 +3321,22 @@ function emitDefaultIni() {
  * The lines are already broken up by hand, but they still go through wrap: if a phrase ever
  * gets longer it will fold instead of running off the frame.
  */
-if (menu.root_help?.blocks?.length) {
+if (menu.root_help?.blocks?.length || rootInfo.length) {
   // The first page has to be named: without [@Name] the engine labels it with the internal
   // word "Commands" (see NOTES #34).
   const firstSection = rootLines.findIndex(l => l.startsWith('['))
   if (firstSection >= 0) rootLines.splice(firstSection, 0, `[@${safeName(menu._meta?.package_title ?? '4IFIR Wizard')}]`, '')
   rootLines.push(`[@Help]`, '')
-  for (const b of menu.root_help.blocks) {
+  for (const b of menu.root_help?.blocks ?? []) {
     rootLines.push('[Info]', ';mode=table', ';alignment=left', ';offset=10', ';spacing=4', ';gap=26')
     rootLines.push(`'${safeName(b.title)}'=''`)
     for (const s of b.lines ?? []) for (const ln of wrap(s)) rootLines.push(`''='${ln.replace(/'/g, '`')}'`)
     rootLines.push('')
     stats.infoBlocks++
   }
+  // Per-item help goes AFTER the hand-written blocks, in the same format as a section's
+  // [@Info]. The general "what is this thing" is still what the first-timer reads first.
+  for (const r of rootInfo) emitInfoBlock(r, rootLines)
 }
 
 /**

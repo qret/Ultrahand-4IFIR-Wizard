@@ -49,8 +49,149 @@ function padHexLocal(hex, lenBytes) {
   return h.length === need ? h : (h.length < need ? h + '0'.repeat(need - h.length) : h.slice(0, need))
 }
 
+
+// ============================================================================
+// ОТРИЦАТЕЛЬНЫЙ ПРОГОН: `node scripts/check-generated.mjs --проба-отказа`
+//
+// Плейбук, §28.3: инструмент доказывается тем, что ОТКАЗЫВАЕТСЯ. Правило 4 того
+// же модуля прямо говорит, что показать сторожа красным нужно на состоянии,
+// которое ломает предмет надзора, и что «проверка, написанная против конкретной
+// порчи, ловит ровно эту порчу» — поэтому пробы бьют по РАЗНЫМ классам:
+// переполнение буфера чтения, ложь в тексте, длина подписи и — главное —
+// исчезновение самого предмета надзора.
+//
+// Механика: порча вписывается в настоящий файл дерева, гейт запускается
+// отдельным процессом, файл возвращается в исходный вид в `finally` — байт
+// в байт, из памяти. Проба, которую гейт НЕ поймал, даёт КОД ВОЗВРАТА 3,
+// отличный от обычного провала (1): «отрицательный прогон не получился,
+// инструмент лжёт».
+//
+// Оговорка честная: пробы врезаются в рабочее дерево на время прогона. Если
+// процесс убить между записью и восстановлением, дерево останется грязным —
+// но оно под git, и `git checkout -- package/dist docs` вернёт всё.
+if (process.argv.includes('--проба-отказа') || process.argv.includes('--self-test')) {
+  const { writeFileSync } = await import('node:fs')
+  const A = 'a'
+  const FOOTER_FILES = iniFiles.filter(f => /^set-footer '/m.test(readFileSync(f, 'utf8')))
+  const PROBES = [
+    {
+      name: 'строка длиннее буфера чтения движка',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s + '\n;help=' + A.repeat(1100) + '\n',
+      expect: /1023/,
+    },
+    {
+      name: 'подпись, выдавливающая имя пункта',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s + "\nset-footer '" + A.repeat(28) + "'\n",
+      expect: /футер длиннее/,
+    },
+    {
+      name: 'текст обещает движок в архиве',
+      file: join(ROOT, 'docs', 'STRUCTURE.md'),
+      hurt: s => s + '\n\nНаши сборки содержат ovlmenu.ovl прямо в архиве релиза.\n',
+      expect: /обещает читателю движок/,
+    },
+    {
+      name: 'предмет надзора исчез — сторож обязан покраснеть, а не смолчать',
+      file: join(DIST, 'advanced', 'gpu', 'gpu-curve-mariko', 'package.ini'),
+      hurt: s => s.split('hex-by-custom-offset').join('write-custom-offset'),
+      expect: /ни один пункт кривой Mariko|ничего не проверив/,
+    },
+    {
+      // Ровно та порча, что прожила в дереве 552 записями: разделитель, который движок
+      // не режет. Футер несёт «0», пункт зовётся «0 — Default», галочки нет ни у кого.
+      name: 'имя пункта склеено длинным тире — курсор уедет на первую строку',
+      file: join(DIST, 'advanced', 'gpu', 'json', 'gpu_vmin_offset.json'),
+      hurt: s => s.split('0 - Default').join('0 — Default'),
+      expect: /откроется на первой строке/,
+    },
+    {
+      // Вторая беда того же сторожа: левые части совпали. Галочку получает ПЕРВЫЙ
+      // однофамилец, и курсор встаёт не на то значение, что лежит в kip.
+      name: 'два пункта с одной левой частью — галочка достанется первому',
+      file: join(DIST, 'advanced', 'gpu', 'json', 'gpu_vmin_offset.json'),
+      hurt: s => s.split('+70 mV').join('+75 mV'),
+      expect: /одну левую часть/,
+    },
+    {
+      // Единственная проба, бьющая по ОБЩЕМУ затвору, а не по личному сторожу:
+      // у проверки подписей своей проверки на пустоту нет, и до 05.09.2026 она
+      // печатала «0 checked» зелёным. Ловит её теперь только правило «ноль — красный».
+      name: 'счётчик упал в ноль — ловит только общий затвор',
+      file: FOOTER_FILES,
+      hurt: s => s.split(String.fromCharCode(10) + "set-footer '")
+                  .join(String.fromCharCode(10) + "set-caption '"),
+      expect: /ничего не проверив/,
+    },
+  ]
+  let failed = 0
+  console.log('отрицательный прогон: ' + PROBES.length + ' проб\n')
+  for (const p of PROBES) {
+    const files = Array.isArray(p.file) ? p.file : [p.file]
+    const before = files.map(f => readFileSync(f))
+    let out = ''
+    try {
+      files.forEach((f, i) => writeFileSync(f, p.hurt(before[i].toString('utf8')), 'utf8'))
+      const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], { encoding: 'utf8' })
+      out = (r.stdout ?? '') + (r.stderr ?? '')
+    } finally {
+      files.forEach((f, i) => writeFileSync(f, before[i]))
+    }
+    const caught = p.expect.test(out)
+    if (!caught) failed++
+    console.log((caught ? '  ✅ поймана  ' : '  ❌ ПРОПУЩЕНА ') + p.name)
+  }
+  const after = readFileSync(join(DIST, 'package.ini'))
+  console.log('')
+  if (failed) {
+    console.error('ОТРИЦАТЕЛЬНЫЙ ПРОГОН НЕ ПОЛУЧИЛСЯ: ' + failed + ' из ' + PROBES.length
+      + ' проб гейт не заметил. Инструмент лжёт о своей работе.')
+    process.exit(3)
+  }
+  console.log('все ' + PROBES.length + ' проб пойманы; дерево восстановлено')
+  process.exit(0)
+}
+
 const problems = []
-const ok = []
+const okRaw = []
+
+// ЗЕЛЁНАЯ СТРОКА С НУЛЁМ — ЭТО КРАСНАЯ СТРОКА (заведено 05.09.2026).
+//
+// Опыт над сторожами показал: 22 проверки из 49 не замечают пропажи своего предмета —
+// выпотроши то, что они стерегут, и прогон останется зелёным, только счётчик в строке
+// станет нулём. Затвор на пустоту стоял у 21 блока из 49, а дописывать его в остальные
+// по одному значит ошибиться там же ещё раз.
+//
+// Поэтому затвор общий и стоит на выходе: любая зелёная строка, в которой счётчик равен
+// нулю, превращается в КРИТИЧЕСКОЕ замечание. «Проверено 0 штук» — это не успех, это
+// проверка, смотрящая в пустоту, и разница между ними видна только по числу.
+//
+// Отсюда же второе требование: зелёная строка ОБЯЗАНА нести счётчик. Строка без числа
+// этим затвором не охраняется — она молчит одинаково и когда всё цело, и когда предмета
+// не стало.
+// SUBJECT GONE IS CRITICAL, NOT A WARNING (raised 05.09.2026). A verdict that says the
+// watched thing is missing, or that the check went blind, used to be IMPORTANT - and
+// IMPORTANT never failed the run, so losing the subject was quieter than finding a fault
+// in it. Seven such verdicts were raised; the IMPORTANT ones left are real findings.
+const ZERO_COUNT = /(?:^|[^\d.])0\s*(?:шт|штук|items?|offsets?|fields?|lines?|files?|checked|values?|points?|screens?|dictionaries|conditions?|series|declarations?|templates?|writes?|blocks?|pages?|rows?|sources?|entries|paths?|occurrences)/i
+const ok = {
+  push (line) {
+    if (ZERO_COUNT.test(line))
+      problems.push({ sev: 'CRITICAL', what: `проверка отчиталась зелёным, ничего не проверив: «${line}» — ноль предметов значит, что стеречь стало нечего` })
+    else {
+      // Строка без числа этим затвором не охраняется — она молчит одинаково и когда всё
+      // цело, и когда предмета не стало. 05.09.2026 таких было тринадцать из пятидесяти
+      // одной; счётчики дописаны, и правило закреплено здесь, чтобы новая проверка не
+      // завелась без числа.
+      if (!/\d/.test(line))
+        problems.push({ sev: 'IMPORTANT', what: `зелёная строка без счётчика: «${line}» — по ней нельзя отличить «всё цело» от «предмета не осталось»` })
+      okRaw.push(line)
+    }
+  },
+  get length () { return okRaw.length },
+  [Symbol.iterator] () { return okRaw[Symbol.iterator]() },
+}
 
 // ---------------------------------------------------------------- 1. declared offsets
 
@@ -190,7 +331,7 @@ if (dupTitles.length) {
     return true
   })
   const last = menuItems.at(-1)
-  if (last === '[Reboot the console]') ok.push('«Reboot the console» — последний пункт корня')
+  if (last === '[Reboot the console]') ok.push(`«Reboot the console» — последний из ${menuItems.length} пунктов корня`)
   else problems.push({ sev: 'IMPORTANT', what: `«Reboot the console» должен быть последним пунктом корня, а последний — ${last}` })
 }
 
@@ -250,7 +391,7 @@ for (const m of text.matchAll(/CUST (\d+) \{json_file_source\(\*,w\d+\)\}/g)) si
 const noFooter = [...writtenOffsets].filter(o => !bootRead.has(o) && !sideWritten.has(o))
 if (noFooter.length) {
   problems.push({ sev: 'IMPORTANT', what: `${noFooter.length} offsets are written but never read in [boot] — there will be no footer (${noFooter.slice(0, 8).join(', ')}…)` })
-} else ok.push(`every written offset is read in [boot]`)
+} else ok.push(`every written offset is read in [boot] (${writtenOffsets.size} offsets)`)
 
 /**
  * Footer paths must resolve FROM THEIR OWN FILE'S DIRECTORY.
@@ -291,7 +432,7 @@ for (const f of iniFiles) {
 }
 if (badPaths.length) {
   problems.push({ sev: 'CRITICAL', what: `${badPaths.length} paths do not resolve from their own file — the footers will be empty:\n     ${badPaths.slice(0, 5).join('\n     ')}` })
-} else ok.push(`footer paths resolve from their own file's directory`)
+} else ok.push(`footer paths resolve from their own file's directory (${iniFiles.length} files)`)
 
 // ------------------------------------------------- 8. reset writes exactly the factory set
 //
@@ -321,6 +462,10 @@ if (badPaths.length) {
     problems.push({ sev: 'CRITICAL', what: 'страница сброса service/reset.ini не найдена или в ней нет пунктов [Apply factory defaults?<ревизия>]' })
   } else {
     if (sections.length !== 2) problems.push({ sev: 'CRITICAL', what: `пунктов сброса ${sections.length}, а ревизий две` })
+    // СЧЁТ СНИМАЕМ ДО ЦИКЛА. 05.09.2026: он снимался ПОСЛЕ, поэтому отказ, найденный
+    // внутри цикла, уже входил в «норму», и зелёная строка печаталась вместе с ним:
+    // прогон говорил «все проверки пройдены», пока проверка кричала.
+    const beforeReset = problems.length
     for (const [, rev, sec] of sections) {
       const written = new Set()
       for (const m of sec.matchAll(/CUST (\d+) \{ini_file\(Fields,(\d+)\)\}/g)) {
@@ -349,7 +494,7 @@ if (badPaths.length) {
       if (extra.length) problems.push({ sev: 'CRITICAL', what: `сброс ${rev} пишет ${extra.length} смещений не своей ревизии: ${extra.slice(0, 6).join(', ')}` })
     }
     // Ниже — проверки самого файла Default.ini, они от ревизии не зависят.
-    const badApply = problems.length
+    const badApply = beforeReset
 
     // Файл обязан лежать РЯДОМ с тем, кто его читает: `./` разворачивается в каталог
     // подпакета. В корне dist/ движок его не найдёт и молча пропустит все записи.
@@ -394,7 +539,7 @@ if (badPaths.length) {
     }
   }
   if (risky.length) problems.push({ sev: 'IMPORTANT', what: `${risky.length} zero entries are narrower than their field — padding is the only thing stopping a silent partial write: ${risky.slice(0, 5).join(', ')}` })
-  else ok.push('no zero dictionary entry is narrower than its field')
+  else ok.push(`no zero dictionary entry is narrower than its field (${fields.length} fields)`)
 }
 
 // --------------------------------------------- 10. the published set can build itself
@@ -490,7 +635,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     }
   }
   if (noGap.length) problems.push({ sev: 'IMPORTANT', what: `${noGap.length} заголовков без отступа перед ними — подпись наедет на предыдущую таблицу: ${noGap.slice(0, 4).join(', ')}` })
-  else ok.push('every table heading has a gap in front of it')
+  else ok.push(`every table heading has a gap in front of it (${iniFiles.length} files)`)
 }
 
 // ------------------------------------------------- 13. метаданные карты равны содержимому
@@ -507,7 +652,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     ['single_source', meta.single_source, fields.length - both],
   ].filter(([, said, real]) => said !== undefined && said !== real)
   if (claims.length) problems.push({ sev: 'IMPORTANT', what: `_meta расходится с картой: ${claims.map(([k, s, r]) => `${k} ${s}≠${r}`).join(', ')}` })
-  else ok.push('fields.json _meta matches its own contents')
+  else ok.push(`fields.json _meta matches its own contents (${fields.length} offsets)`)
 }
 
 // ------------------------------------------- 14. имя бэкапа собирается из объявленных ключей
@@ -551,7 +696,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     }
   }
   if (bad.length) problems.push({ sev: 'CRITICAL', what: `имя бэкапа собрано неверно:\n     ${bad.slice(0, 4).join('\n     ')}` })
-  else ok.push('backup file name is built from keys declared before use')
+  else ok.push(`backup file name is built from keys declared before use (${iniFiles.length} files)`)
 }
 
 // --------------------------------------- 15. копия и восстановление несут одно и то же
@@ -562,6 +707,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // Обратное направление тоже важно: запись поля, которого нет в копии, взяла бы значение
 // из пустоты. И дубликаты: раньше восстановление писало 95 команд на 90 значений.
 {
+  let seenPairs = 0
   const bad = []
   // СОЗДАНИЕ И ПРИМЕНЕНИЕ КОПИИ ЛЕЖАТ ТЕПЕРЬ В ОДНОМ ФАЙЛЕ.
   //
@@ -597,6 +743,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       if (blocks[1] && String(writesOf(blocks[1])) !== String(writes)) {
         bad.push(`${rev}: блок для импортированных копий пишет не тот же набор`)
       }
+      seenPairs += saved.size
       const lost = [...saved].filter(o => !wrote.has(o))
       const extra = [...wrote].filter(o => !saved.has(o))
       if (lost.length) bad.push(`${rev}: сохраняется, но не восстанавливается — ${lost.join(', ')}`)
@@ -605,7 +752,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     }
   }
   if (bad.length) problems.push({ sev: 'CRITICAL', what: `копия и восстановление разошлись:\n     ${bad.join('\n     ')}` })
-  else ok.push('backup and restore carry exactly the same fields')
+  else ok.push(`backup and restore carry exactly the same fields (${seenPairs} offsets compared)`)
 }
 
 // ----------------------------------- 16. точки кривых: сетка, штатные ступени, объяснимые дыры
@@ -690,7 +837,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       if (lost.length) bad.push(`${f.offset} ${f.name}: штатной ступени нет в списке — ${lost.join(', ')} мВ`)
     }
   }
-  if (!points.length) problems.push({ sev: 'IMPORTANT', what: 'в карте не нашлось ни одной точки кривых напряжений' })
+  if (!points.length) problems.push({ sev: 'CRITICAL', what: 'в карте не нашлось ни одной точки кривых напряжений — проверка списков ослепла' })
   else if (bad.length) problems.push({ sev: 'CRITICAL', what: `списки точек кривой собраны неверно:\n     ${bad.slice(0, 6).join('\n     ')}` })
   else ok.push(`curve lists keep their grid, every gap explained and every stage voltage on offer (${points.length} points)`)
 }
@@ -712,7 +859,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       ...text.matchAll(/(\d+)\s+смещени\S*\s+блока CUST/g),
     ].map(m => Number(m[1]))
     const wrong = claims.filter(n => n !== fields.length)
-    if (!claims.length) problems.push({ sev: 'IMPORTANT', what: 'в README не нашлось утверждения о числе смещений — проверка ослепла' })
+    if (!claims.length) problems.push({ sev: 'CRITICAL', what: 'в README не нашлось утверждения о числе смещений — проверка ослепла' })
     else if (wrong.length) problems.push({ sev: 'CRITICAL', what: `README обещает ${wrong.join(' и ')} смещений, в карте ${fields.length}` })
     else ok.push(`README agrees with the map on the offset count (${fields.length}, both languages)`)
   }
@@ -750,7 +897,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   }
   // Флаг ставится ОТДЕЛЬНО от цепочки: если один файл переформулировали, а второй
   // ещё обещает, цепочка ушла бы в зелёную ветку и о первом промолчала.
-  if (reworded.length) problems.push({ sev: 'IMPORTANT', what: `${reworded.join(' и ')} говорит про состав релизного архива, но не в той форме, которую узнаёт проверка — она это обещание не подкрепляет и промолчала бы о нём` })
+  if (reworded.length) problems.push({ sev: 'CRITICAL', what: `${reworded.join(' и ')} говорит про состав релизного архива, но не в той форме, которую узнаёт проверка — она это обещание не подкрепляет и промолчала бы о нём` })
   const relPs = join(ROOT, 'scripts', 'release.ps1')
   if (absent.length) {
     problems.push({ sev: 'CRITICAL', what: `${absent.join(', ')} не найден — обещание о составе архива проверить не на чем` })
@@ -771,14 +918,25 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     else {
       // Отказ обязан срабатывать именно на ПУБЛИКАЦИИ: комплект на передачу (`-NoUpload`)
       // несёт движок намеренно и уходит из рук в руки, а не в Releases.
-      if (!/if \(Test-Path -LiteralPath \$ovlInStage\)[\s\S]{0,400}?if \(-not \$NoUpload\)[\s\S]{0,160}?throw/.test(region))
+      // 05.09.2026: у отказа появился ИМЕНОВАННЫЙ обход -WithEngine — оператор дважды
+      // переступил решение 04.09 осознанно. Сторож принимает и форму с обходом, но
+      // ТОЛЬКО именованную: `-not $NoUpload` без второго условия либо с ним. Любой
+      // другой способ пропустить движок мимо отказа по-прежнему красный.
+      if (!/if \(Test-Path -LiteralPath \$ovlInStage\)[\s\S]{0,400}?if \(-not \$NoUpload(?: -and -not \$WithEngine)?\)[\s\S]{0,160}?throw/.test(region))
         bad.push('release.ps1 не отказывает, когда движок в комплекте, а релиз уходит на GitHub')
       // Обратное требование — «движок в комплекте обязан быть» — отменено тем же решением.
+      // Обход обязан быть громким и обязан проверять тексты архива: INSTALL.txt и
+      // NOTICE.md обещают читателю обратное, и подмена этих текстов — часть пути,
+      // а не пожелание. Молчаливый -WithEngine хуже, чем его отсутствие.
+      if (/\$WithEngine/.test(ps) && !/THE ENGINE IS NOT HERE[\s\S]{0,400}?throw/.test(ps))
+        bad.push('release.ps1 знает -WithEngine, но не проверяет, что INSTALL.txt в архиве перестал обещать «движка здесь нет»')
+      if (/\$WithEngine/.test(ps) && !/no engine binary[\s\S]{0,400}?throw/.test(ps))
+        bad.push('release.ps1 знает -WithEngine, но не проверяет, что NOTICE.md в архиве перестал обещать «no engine binary»')
       if (/-not \(Test-Path -LiteralPath \$ovlInStage\)/.test(region))
         bad.push('release.ps1 всё ещё требует движок в комплекте — это отменено 04.09.2026')
     }
     if (bad.length) problems.push({ sev: 'CRITICAL', what: `${promising.join(' и ')} обещают архив без движка, а выпуск это не держит:\n     ${bad.join('\n     ')}` })
-    else ok.push(`the archive-contents promise in ${promising.join(' and ')} is backed by the release refusal`)
+    else ok.push(`the archive-contents promise in ${promising.join(' and ')} is backed by the release refusal (${promising.length} files)`)
   }
 }
 
@@ -872,7 +1030,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     const text = readFileSync(f, 'utf8')
     for (const m of text.matchAll(/set-ini-val '\.\/config\.ini' \w+ Path '([^']+)'/g)) paths.push([f, m[1]])
   }
-  if (!paths.length) problems.push({ sev: 'IMPORTANT', what: 'не нашлось ни одной строки, задающей имя копии — проверка длины ослепла' })
+  if (!paths.length) problems.push({ sev: 'CRITICAL', what: 'не нашлось ни одной строки, задающей имя копии — проверка длины ослепла' })
 
   const tooLong = []
   for (const [file, tpl] of paths) {
@@ -922,7 +1080,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     }
   }
   if (strays.length) problems.push({ sev: 'CRITICAL', what: `строка таблицы спрашивает секцию, которой в привязанном файле нет — на экране будет «Not available»: ${strays.join('; ')}` })
-  else ok.push('no table row reads a config.ini section after the binding moved to a data file')
+  else ok.push(`no table row reads a config.ini section after the binding moved to a data file (${iniFiles.length} files)`)
 }
 
 // ------------------------------------------- 22. GPU Min Voltage предлагает только ступени
@@ -942,7 +1100,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 {
   const vmin = join(DIST, 'advanced', 'gpu', 'json', 'gpu_vmin.json')
   if (!existsSync(vmin)) {
-    problems.push({ sev: 'IMPORTANT', what: 'словарь GPU Min Voltage не найден — проверка ослепла' })
+    problems.push({ sev: 'CRITICAL', what: 'словарь GPU Min Voltage не найден — проверка ослепла' })
   } else {
     const list = JSON.parse(readFileSync(vmin, 'utf8'))
     const numeric = list.filter(e => /^\s*\d/.test(String(e.name)))
@@ -952,8 +1110,14 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       problems.push({ sev: 'CRITICAL', what: 'GPU Min Voltage остался вовсе без вариантов' })
     } else {
       // Подпись обязана уметь прочитать больше, чем меню предлагает выбрать.
-      const map = JSON.parse(readFileSync(vmin.replace(/\.json$/, '.map.json'), 'utf8'))[0]
-      if (Object.keys(map).length <= list.length) {
+      // ПРОПАЖА ФАЙЛА — ЭТО ДИАГНОЗ, А НЕ ПАДЕНИЕ. 05.09.2026 опыт показал: переименуй
+      // словарь, и проверка не краснела, а роняла весь прогон стеком Node — то есть
+      // ноль проверок вместо одного внятного отказа. Худший вид затвора из возможных.
+      const mapPath = vmin.replace(/\.json$/, '.map.json')
+      const map = existsSync(mapPath) ? JSON.parse(readFileSync(mapPath, 'utf8'))[0] : null
+      if (!map) {
+        problems.push({ sev: 'CRITICAL', what: `словарь подписи GPU Min Voltage не найден: ${relative(ROOT, mapPath)}` })
+      } else if (Object.keys(map).length <= list.length) {
         problems.push({ sev: 'CRITICAL', what: 'из словаря подписи GPU Min Voltage пропали числовые значения — тюнер перестанет называть то, что уже стоит в kip' })
       } else {
         ok.push(`GPU Min Voltage offers stages only (${list.length}), still reads ${Object.keys(map).length} values`)
@@ -982,7 +1146,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   const dir = join(DIST, 'advanced', 'gpu', 'json')
   const listFile = join(dir, 'gpu_uv_mode_mariko.json')
   if (!existsSync(listFile)) {
-    problems.push({ sev: 'IMPORTANT', what: 'ступени андервольта GPU не найдены — их убрали намеренно?' })
+    problems.push({ sev: 'CRITICAL', what: 'ступени андервольта GPU не найдены — проверка ослепла; если их убрали намеренно, уберите и её' })
   } else {
     const list = JSON.parse(readFileSync(listFile, 'utf8'))
     const bad = []
@@ -1121,7 +1285,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     }
   }
   if (bad.length) problems.push({ sev: 'CRITICAL', what: `подпись адресована несуществующему пункту:\n     ${bad.slice(0, 6).join('\n     ')}` })
-  else ok.push('every footer command addresses an item that exists in the same file')
+  else ok.push(`every footer command addresses an item that exists in the same file (${iniFiles.length} files)`)
 }
 
 // ------------------- 26. Словарь НАЗВАНИЙ не сужается никогда, каким бы узким ни был выбор
@@ -1176,6 +1340,8 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       const missing = [...want].filter(h => map[h] === undefined)
       if (missing.length)
         bad.push(`${relative(ROOT, mapFile)}: словарь названий не знает ${missing.length} значений из карты полей (${missing.slice(0, 4).join(', ')})`)
+      else if (!existsSync(mapFile.replace(/\.map\.json$/, '.json')))
+        bad.push(`${relative(ROOT, mapFile)}: рядом нет списка значений — проверять сужение не с чем`)
       else if (keys.length > (JSON.parse(readFileSync(mapFile.replace(/\.map\.json$/, '.json'), 'utf8')) ?? []).length) widened++
     }
   }
@@ -1281,6 +1447,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // совпадать. Разная длина здесь означает, что в один из вариантов попало лишнее.
 {
   const bad = []
+  let seenTitles = 0
   for (const file of iniFiles) {
     const secs = readFileSync(file, 'utf8').split(/\r?\n(?=\[)/)
     const blocks = []
@@ -1312,6 +1479,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     for (const b of blocks) { if (!byTitle.has(b.title)) byTitle.set(b.title, []); byTitle.get(b.title).push(b) }
 
     for (const [title, list] of byTitle) {
+      seenTitles++
       for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
         const a = list[i], b = list[j]
         const sameConsole = a.rev === b.rev || a.rev === 'both' || b.rev === 'both'
@@ -1341,7 +1509,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     }
   }
   if (bad.length) problems.push({ sev: 'CRITICAL', what: `одноимённые блоки сводки разойдутся на экране:\n     ${bad.slice(0, 6).join('\n     ')}` })
-  else ok.push('same-named summary blocks cannot appear together and equal-length variants agree')
+  else ok.push(`same-named summary blocks cannot appear together and equal-length variants agree (${seenTitles} names)`)
 }
 
 // ------------------------------- 29. подстановка по словарю реально что-то находит
@@ -1386,6 +1554,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   }
 
   const bad = []
+  let seenLookups = 0
   for (const file of iniFiles) {
     const here = dirname(file)
     let dict = null
@@ -1408,9 +1577,15 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       const lens = keyLensOf(dict)
       if (!lens || !lens.size) continue
       // Ключ собран из подстановок; если между ними есть что-то ещё, мерить не берёмся.
-      const parts = [...use[1].matchAll(/\{(?:ini|hex)_file\([^,]+,\s*(\d+)\s*\)\}/g)]
-      const plain = use[1].replace(/\{(?:ini|hex)_file\([^,]+,\s*\d+\s*\)\}/g, '')
+      // ТРИ АРГУМЕНТА ТОЖЕ. 05.09.2026: образец был написан под двухаргументный вызов
+      // `{ini_file(Fields,N)}`, а сводка читает прошивку тремя — `{hex_file(CUST,N,3)}`.
+      // Значит ширину ключа проверка мерила только на страницах восстановления и
+      // сброса, а вторую страницу сводки не покрывала вовсе, при зелёной строке,
+      // обещающей обратное.
+      const parts = [...use[1].matchAll(/\{(?:ini|hex)_file\([^,]+,\s*(\d+)\s*(?:,\s*\d+\s*)?\)\}/g)]
+      const plain = use[1].replace(/\{(?:ini|hex)_file\([^,]+,\s*\d+\s*(?:,\s*\d+\s*)?\)\}/g, '')
       if (!parts.length || plain.trim()) continue
+      seenLookups++
       let sum = 0, known = true
       for (const m of parts) {
         const w = hexLen.get(Number(m[1]))
@@ -1425,7 +1600,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     }
   }
   if (bad.length) problems.push({ sev: 'CRITICAL', what: `подстановка по словарю промахнётся:\n     ${bad.slice(0, 8).join('\n     ')}` })
-  else ok.push('every dictionary lookup resolves: the file exists and the key width matches')
+  else ok.push(`every dictionary lookup resolves: the file exists and the key width matches (${seenLookups} lookups)`)
 }
 
 // ---------------------------- 30. источник пишет всё, что страница читает ключом
@@ -1915,7 +2090,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     else if (/^commands$/i.test(m[1].trim())) bad.push(`${rel}: имя экрана — внутреннее слово движка`)
   }
 
-  if (!screens) problems.push({ sev: 'IMPORTANT', what: 'ни одного дочернего экрана не найдено — обход package_source сломан' })
+  if (!screens) problems.push({ sev: 'CRITICAL', what: 'ни одного дочернего экрана не найдено — обход package_source сломан' })
   else if (bad.length) problems.push({ sev: 'CRITICAL', what: `экраны без имени:\n     ${bad.slice(0, 8).join('\n     ')}` })
   else ok.push(`every screen names itself (${screens} screens reachable from the root)`)
 }
@@ -2296,7 +2471,14 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   const SKIP = [/^docs[\/]NOTES\.md$/i, /^docs[\/]research[\/]/i, /^docs[\/]INSTALL-engine\.txt$/i]
   // Форма самого утверждения, а не всякое соседство: «архив НЕСЁТ движок».
   // Без глагола обладания в сеть попадали глоссарий, аудит ссылок и шаги сборки.
-  const CARRIES = /(нес[ёе]т|содержит|внутри|едет|включает|carr(y|ies|ied)|contains?|ships?|shipped|inside|bundle)/i
+  const CARRIES = /(нес[ёеу]т|содерж(ит|ат)|внутри|едет|включа(ет|ют)|carr(y|ies|ied)|contains?|ships?|shipped|inside|bundle)/i
+  // ОТРИЦАНИЕ СНИМАЕТСЯ ДО ПРОВЕРКИ. Найдено 05.09.2026: сторож ловил глагол обладания
+  // где угодно, в том числе внутри «архив НЕ несёт движок» — то есть краснел ровно на той
+  // фразе, ради которой заведён. И наоборот: форма множественного числа («сборки
+  // содержат ovlmenu.ovl») мимо словаря проходила. Отрицаемые обороты вырезаются
+  // из абзаца, и обладание ищется в остатке: абзац, где сказано и «не несёт
+  // движок», и «несёт конфигуратор», разбирается по-прежнему верно.
+  const NEGATED = /(не\s+(нес[ёеу]т|содерж(ит|ат)|включа(ет|ют)|кладётся|кладутся|едет)|больше\s+не\s+\S+|does\s+not\s+(carry|contain|ship|include)|no\s+longer\s+\S+|without)/gi
   const ARCHIVE = /(архив|релиз|комплект|поставк|release|archive|kit|[.]zip)/i
   // Комплект на передачу автору прошивки движок НЕСЁТ законно, и сборщик движка
   // законно про движок рассказывает. Предмет надзора один: ПУБЛИКУЕМЫЙ архив релиза.
@@ -2328,7 +2510,8 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     let start = 0, buf = [], heading = ''
     const flush = () => {
       const para = buf.join(' ')
-      if (buf.length && /ovlmenu/i.test(para) && CARRIES.test(para) && ARCHIVE.test(para) && !EXEMPT.test(para) && !PAST.test(para) && !HISTORY.test(para) && !HISTORY.test(heading))
+      const claim = para.replace(NEGATED, ' ')
+      if (buf.length && /ovlmenu/i.test(para) && CARRIES.test(claim) && ARCHIVE.test(para) && !EXEMPT.test(para) && !PAST.test(para) && !HISTORY.test(para) && !HISTORY.test(heading))
         bad.push(`${rel}:${start + 1} — «${para.replace(/\s+/g, ' ').trim().slice(0, 95)}…»`)
       buf = []
     }
@@ -2398,6 +2581,16 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   let files = []
   try { files = readdirSync(dir).filter(f => f.endsWith('.mjs')) } catch {}
   const bad = []
+  let ps1 = []
+  try { ps1 = readdirSync(dir).filter(f => f.endsWith('.ps1')) } catch {}
+  for (const f of ps1) {
+    // Парсер PowerShell зовём его же средствами: разбор без исполнения, ошибки в $e.
+    const src = join(dir, f).split(String.fromCharCode(92)).join('/')
+    const cmd = `$e=$null;$null=[System.Management.Automation.Language.Parser]::ParseFile('${src}',[ref]$null,[ref]$e);if($e.Count){$e[0].Message}`
+    const r = spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', cmd], { encoding: 'utf8' })
+    const out = String(r.stdout || '').trim()
+    if (out) bad.push(f + ": " + out.split(String.fromCharCode(10))[0].trim().slice(0, 90))
+  }
   for (const f of files) {
     const r = spawnSync(process.execPath, ['--check', join(dir, f)], { encoding: 'utf8' })
     if (r.status !== 0) {
@@ -2407,9 +2600,12 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   }
   if (!files.length) problems.push({ sev: 'CRITICAL', what: 'в scripts/ нет ни одного .mjs — проверка разбора смотрит в пустоту' })
   else if (bad.length) problems.push({ sev: 'CRITICAL', what: `сценарий не разбирается — запустить его нельзя:\n     ${bad.join('\n     ')}` })
-  // .ps1 сюда не входят: разобрать PowerShell из node нечем. Их парсер зовёт
-  // check-before-release.bat, и это единственное место, где они проверяются.
-  else ok.push(`every .mjs in scripts/ parses (${files.length}; .ps1 are checked by Make/github/check-before-release.bat)`)
+  // .ps1 РАЗБИРАЮТСЯ ТОЖЕ, через парсер самого PowerShell. 05.09.2026 выяснилось, что
+  // прежняя редакция обещала «их проверяет check-before-release.bat» — батник ничего
+  // подобного не делает, он лишь запускает publish.ps1 вхолостую, то есть касается одного
+  // файла из четырёх. release.ps1, make-build.ps1 и sync-fork.ps1 не разбирал НИКТО, при том
+  // что сама эта проверка заведена после того, как сломанный .mjs пролежал целый коммит.
+  else ok.push(`every script in scripts/ parses (${files.length} .mjs + ${ps1.length} .ps1)`)
 }
 
 // ---------------- 46. an offset list bound to a series must not fall behind that series
@@ -2603,20 +2799,300 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   else ok.push(`every generated line fits the engine's 1023-byte read buffer (${lines} lines checked)`)
 }
 
+// ---------------- 50. an item that writes the manual table stays behind the mode gate
+//
+// Every point of the Mariko curve writes straight into loader.kip, and every one of them
+// carries ;visibility_condition=... CUST 44 03 so it only appears while Custom Table is on.
+// In any other mode the firmware does not read that array at all, so the item would let a
+// person edit bytes that do nothing — and, worse, leave a half-written table behind for the
+// day they do switch the mode on. On 05.09.2026 an experiment stripped 31 of those 32
+// conditions and the whole gate stayed green: nothing watched them. The seeding guards
+// (37, 40) look at try: blocks, not at item visibility, and check 2 searches the package
+// as one blob, so a single surviving condition satisfied it for all of them.
+{
+  const rel = 'advanced/gpu/gpu-curve-mariko/package.ini'
+  const abs = join(DIST, 'advanced', 'gpu', 'gpu-curve-mariko', 'package.ini')
+  const GATE = /CUST 44 03/
+  if (!existsSync(abs)) {
+    problems.push({ sev: 'CRITICAL', what: `${rel} не найден — проверка затвора у точек кривой смотрит в пустоту` })
+  } else {
+    const secs = readFileSync(abs, 'utf8').split(/\r?\n(?=\[)/)
+    const writers = [], bare = []
+    for (const sec of secs) {
+      const name = (sec.match(/^\[([^\]]+)\]/) || [])[1]
+      if (!name) continue
+      if (!/^hex-by-custom-offset[^\n]*CUST (8[89]|9[26]|1[0-9][0-9]|20[048]) /m.test(sec)) continue
+      writers.push(name)
+      const vis = sec.split(/\r?\n/).filter(l => l.startsWith(';visibility_condition='))
+      if (!vis.some(l => GATE.test(l) && !l.includes('=!'))) bare.push(name)
+    }
+    if (!writers.length) problems.push({ sev: 'CRITICAL', what: 'ни один пункт кривой Mariko не пишет в kip — проверка затвора смотрит в пустоту' })
+    else if (bare.length) problems.push({ sev: 'CRITICAL', what: `пункт правит ручную таблицу без затвора по режиму — он покажется там, где прошивка её не читает:\n     ${bare.slice(0, 8).join(', ')}${bare.length > 8 ? ` …и ещё ${bare.length - 8}` : ''}` })
+    else ok.push(`every item that writes the manual curve stays behind the Custom Table gate (${writers.length} items)`)
+  }
+}
+
+// ИЗВЕСТНЫЕ ПРЕДУПРЕЖДЕНИЯ — ЯВНЫМ СПИСКОМ, И ОН ЕДИНСТВЕННЫЙ.
+//
+// Everything at IMPORTANT that is not listed here fails the run. Until 05.09.2026 the exit
+// looked at CRITICAL alone, so all 21 IMPORTANT verdicts were decoration - and the two
+// permanent ones below also killed check 49, whose silence test read "problems is empty".
+// Listed warnings are printed, never fail, and each says since when, why, and where the
+// reasoning lives. Adding a line here is a decision, not a way to make a run green.
+const KNOWN_WARNINGS = [
+  {
+    since: '30.08.2026',
+    match: /^источник не может дать часть строк предпросмотра/,
+    why: 'схема донора этих полей не содержит вовсе — значение брать неоткуда, выдумывать нельзя',
+    where: 'docs/NOTES.md №193',
+  },
+  {
+    since: '05.09.2026',
+    match: /^предложенное значение точки кривой Erista даёт лишнее совпадение сканера/,
+    why: 'модель опасности опровергнута счётом по стоковой прошивке; разбора обработчика записи 10 нет',
+    where: 'docs/IMPROVEMENTS.md U20, docs/NOTES.md №253 и №254',
+  },
+]
+const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.match.test(q.what))
+
+// ---------------------------------------------------------------- 52. help reaches the screen
+
+/**
+ * КАЖДАЯ СПРАВКА ИЗ КАРТЫ ОБЯЗАНА БЫТЬ В ПАКЕТЕ.
+ *
+ * Справку пишет человек, а собирает её в страницу `[@Info]` генератор — и делал это только
+ * для тех узлов, чей путь он умел обходить. Пункт-форвардер, свёрнутый в подпакет раздел и
+ * пункт корня в этот путь не попадали, поэтому их `help` уходил в буфер, который никто не
+ * печатал. Ни одна из проверок этого не видела: дерево валидно, смещения на месте, текста
+ * просто нет. Четыре справки так и пролежали ненапечатанными до аудита 05.09.2026.
+ *
+ * Строки в ini переносятся по ширине экрана (`wrap`), поэтому искать надо не построчно:
+ * подряд идущие `''='…'` склеиваются обратно в одну строку, и уже в ней ищется текст карты.
+ * Апостроф генератор заменяет на обратную кавычку — та же замена делается и в образце.
+ */
+{
+  const unquote = s => s.replace(/'/g, '`').replace(/\s+/g, ' ').trim()
+  // склеиваем подряд идущие текстовые строки обратно: перенос по ширине — не разрыв смысла
+  const glued = []
+  let run = []
+  for (const l of lines) {
+    const m = l.match(/^''='(.*)'$/)
+    if (m) { run.push(m[1]); continue }
+    if (run.length) { glued.push(run.join(' ')); run = [] }
+  }
+  if (run.length) glued.push(run.join(' '))
+  const hay = unquote(glued.join('\n'))
+
+  let bad = 0, checked = 0
+  for (const it of items) {
+    if (typeof it.help !== 'string' || !it.help.trim()) continue
+    checked++
+    if (hay.includes(unquote(it.help))) continue
+    bad++
+    problems.push({ sev: 'CRITICAL', what: `"${it.title ?? it.id}" declares help in menu.json, but no screen in dist prints it` })
+  }
+  if (!checked) problems.push({ sev: 'CRITICAL', what: 'ни один узел карты не объявляет help — проверка справки смотрит в пустоту' })
+  else if (!bad) ok.push(`every help line in menu.json is printed somewhere in dist (${checked} texts)`)
+}
+
+// ---------------------------------------------------------------- 53. the platform layer is still there
+//
+// WHY THIS LIVES HERE AND NOT IN merge-fields. The platform of 43 fields was set BY HAND on
+// 13.08.2026 from customize.cpp, because the donors' own marking contradicted itself. No
+// script produces it: the source is confidential and will never be in the repository. A
+// rebuild of the map silently returns those fields to "both", the ;system= filter collapses,
+// and an Erista owner is shown Mariko's curve again — the exact defect that hand-marking fixed.
+//
+// The loss detector inside merge-fields cannot catch this: it compares offsets and dictionary
+// sizes, not attributes, and the _meta counters it checks are rewritten by the same run. A
+// guard belongs where the destroyer cannot reach it. Numbers below are floors, not copies:
+// they fail on a rollback and survive honest growth.
+{
+  const withSrc = fields.filter(f => typeof f.platform_source === 'string' && f.platform_source.trim())
+  const named   = withSrc.filter(f => /^(mariko|erista)/i.test(f.platform_source))
+  const wrong   = named.filter(f => f.platform !== (/^mariko/i.test(f.platform_source) ? 'mariko' : 'erista'))
+  const mariko  = fields.filter(f => /gpu_curve_mariko/.test(f.series ?? ''))
+  const loose   = mariko.filter(f => f.platform === 'both')
+  const sysLines = lines.filter(l => l.startsWith(';system=')).length
+
+  const bad = []
+  // 37 today. A drop means the hand-made layer was rebuilt away, not that a field was renamed.
+  if (withSrc.length < 30)
+    bad.push(`полей с platform_source ${withSrc.length}, а было 37 — ручной слой платформы откатили`)
+  // The map must agree with its own trail: a symbol named mariko* cannot be an erista field.
+  for (const f of wrong)
+    bad.push(`смещение ${f.offset}: platform=${f.platform ?? 'нет'}, а platform_source начинается с «${f.platform_source.slice(0, 12)}»`)
+  // 88…208 belong to Mariko by disassembly, not by name: the symbol is declared 24 long.
+  if (!mariko.length) bad.push('ни одной точки кривой Mariko в карте — проверка платформы смотрит в пустоту')
+  else for (const f of loose)
+    bad.push(`точка кривой Mariko ${f.offset} помечена both — на Erista эти байты чужая структура`)
+  // What actually breaks. 191 today; a rollback of 33 fields takes a visible bite out of it.
+  if (sysLines < 150)
+    bad.push(`директив ;system= в пакете ${sysLines}, а было 191 — фильтр по ревизии консоли рассыпался`)
+
+  if (bad.length) problems.push({ sev: 'CRITICAL', what: `разметка по ревизии консоли откатилась:\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else ok.push(`the hand-made platform layer is intact (${withSrc.length} fields with a source, ${sysLines} ;system= lines)`)
+}
+
+// ---------------- 53. открытый список выбора встаёт на текущее значение, а не на первую строку
+//
+// ЧТО ПРОВЕРЯЕТСЯ. Открывая `;mode=option`, движок ищет пункт с ГАЛОЧКОЙ и ставит фокус
+// на него (`jumpItemValue = CHECKMARK_SYMBOL`, форк `source/main.cpp:5914`, разрешается
+// в `libtesla/include/tesla.hpp:7470`). Галочку получает пункт, чьё ИМЯ ДО ASCII `" - "`
+// равно футеру, который родитель записал в свой `config.ini` (`main.cpp:4037-4043` режет
+// имя, `main.cpp:4065` сравнивает). Не совпало — штатный откат ставит фокус на ПЕРВУЮ
+// строку (`tesla.hpp:7501`), и в ряду из 31 значения до своего человек листает шестнадцать
+// раз при каждом заходе.
+//
+// ПОЧЕМУ СТОРОЖ. Обе стороны сравнения порождаем мы сами: левую — ключ `name` словаря,
+// правую — ключ `short` (он же значение в словаре подписи). Пока их никто не сверял,
+// разошлись 552 записи в 110 словарях из 114, и это прошло все три машинные приёмки
+// молча: синтаксис безупречен, смещения на месте, значения влезают. Дефект виден только
+// на консоли и только тому, кто заметит, что курсор всегда наверху.
+//
+// ТРИ УСЛОВИЯ, И КАЖДОЕ ЛОВИТ СВОЮ БЕДУ.
+//  1. `short` равен левой части `name` — иначе галочки нет ни у кого.
+//  2. Левые части в списке уникальны — иначе галочка достанется первому однофамильцу,
+//     и курсор встанет не на то значение, что лежит в kip.
+//  3. Словарь подписи называет запись тем же текстом — это ВТОРОЙ писатель футера
+//     (`[boot]`, `set-ini-val … footer {json_file(…)}`), и он работает при открытии
+//     пакета, тогда как `set-footer` — сразу после выбора. Разойдись они, подпись
+//     менялась бы при первом касании, а курсор ломался бы через раз.
+//
+// Точки кривой третьего условия не имеют: у них подпись СЧИТАЕТСЯ из kip, словаря
+// подписи нет вовсе (проверка «curve points are computed» рядом). Там сверяются первые
+// два, а согласие счёта с `short` держит `curveShort` в генераторе.
+{
+  const rows = []          // {rel, list, name, short}
+  let sections = 0, checked = 0, entries = 0
+  const bad = []
+
+  for (const file of iniFiles) {
+    const dir = dirname(file)
+    // Секция кончается следующим `[`; внутри ищем связку «выбор + список + футер».
+    for (const sec of readFileSync(file, 'utf8').split(/\r?\n(?=\[)/)) {
+      const title = (sec.match(/^\[\*([^\]]+)]/) || [])[1]
+      if (!title || !/^;mode=option\s*$/m.test(sec)) continue
+      sections++
+      const src = sec.match(/^json_file_source\s+'([^']+)'\s+name\s*$/m)
+      // `file_source` тоже бывает `;mode=option` (выбор копии, импорт): там словаря нет
+      // и движок имя не режет вовсе — сверять нечего.
+      if (!src) continue
+      const listPath = resolve(dir, src[1])
+      const rel = relative(ROOT, listPath)
+      if (!existsSync(listPath)) { bad.push(`«${title}»: словаря ${src[1]} нет — пункт открывает пустоту`); continue }
+      // Оба писателя футера обязаны брать ОДИН ключ. `set-footer` с чем-нибудь другим —
+      // это возврат ровно той беды, ради которой ключ `short` и заводился.
+      if (!/^set-footer\s+'\{json_file_source\(\*,short\)}'\s*$/m.test(sec)) {
+        bad.push(`«${title}»: после выбора футер пишется не ключом short — он разойдётся с подписью при открытии пакета`)
+        continue
+      }
+      let list
+      try { list = JSON.parse(readFileSync(listPath, 'utf8')) } catch { bad.push(`«${title}»: словарь ${src[1]} не читается`); continue }
+      if (!Array.isArray(list) || !list.length) { bad.push(`«${title}»: словарь ${src[1]} пуст`); continue }
+      checked++
+
+      // Словарь подписи лежит рядом под тем же именем. У кривой его нет — подпись считается.
+      const mapPath = listPath.replace(/\.json$/, '.map.json')
+      const map = existsSync(mapPath) ? (JSON.parse(readFileSync(mapPath, 'utf8'))[0] ?? null) : null
+
+      const seenLeft = new Map()
+      for (const e of list) {
+        if (!e || typeof e.name !== 'string') continue
+        entries++
+        const p = e.name.indexOf(' - ')
+        const left = p === -1 ? e.name : e.name.slice(0, p)
+        if (left !== e.short) bad.push(`${rel}: «${e.name}» → движок ищет «${left}», а футер несёт «${e.short}»`)
+        else if (seenLeft.has(left)) bad.push(`${rel}: «${e.name}» и «${seenLeft.get(left)}» дают одну левую часть «${left}» — галочка достанется первой`)
+        else seenLeft.set(left, e.name)
+        // Ключ подписи обычно равен значению поля — тогда сверяем текст в текст. Но у
+        // ступеней ключ составной (значение поля + контрольная ячейка таблицы), и по
+        // одному hex запись не адресуется: пар с этим hex несколько, и они РАЗНЫЕ
+        // намеренно. Там требуем меньшего и достаточного — чтобы подпись вообще умела
+        // назвать эту запись, иначе футер не совпадёт с ней никогда.
+        if (map && typeof e.hex === 'string') {
+          if (Object.prototype.hasOwnProperty.call(map, e.hex)) {
+            if (map[e.hex] !== e.short) bad.push(`${rel}: подпись при открытии пакета зовёт ${e.hex} «${map[e.hex]}», а список — «${e.short}»`)
+          } else if (!Object.values(map).includes(e.short)) {
+            bad.push(`${rel}: «${e.short}» не встречается в словаре подписи — при открытии пакета футер назовёт запись иначе`)
+          }
+        }
+        rows.push(e)
+      }
+    }
+  }
+
+  // НОЛЬ НАЙДЕННЫХ СПИСКОВ — КРАСНЫЙ. Переименуйся ключ `json_file_source` или каталог
+  // словарей, и проверка с этого дня стерегла бы пустоту, печатая зелёную строку.
+  if (!sections || !checked || !entries) {
+    problems.push({ sev: 'CRITICAL', what: `проверка курсора в списке выбора не нашла предмета надзора (секций ${sections}, словарей ${checked}, записей ${entries}) — она смотрит в пустоту, ничего не проверив` })
+  } else if (bad.length) {
+    problems.push({ sev: 'CRITICAL', what: `список выбора откроется на первой строке, а не на текущем значении (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}${bad.length > 8 ? `\n     … и ещё ${bad.length - 8}` : ''}` })
+  } else {
+    ok.push(`the open option list lands on the current value (${checked} dictionaries, ${entries} entries, ${sections} option sections)`)
+  }
+}
+
+// ---------------- 49. the gate does not quietly lose a check
+//
+// A check whose subject disappears can vanish from this file's own count without a word:
+// on 05.09.2026 emptying one list in the dependency graph took the total from 49 to 48
+// and printed nothing at all. The number is the only thing anyone reads, and it had
+// already lied once — 75 printed against 43 real, because five ok.push calls sat inside
+// loops. A hard-coded expectation is crude, but it is the one thing that notices a guard
+// going missing. Raise it deliberately when you add a check; never to make a run green.
+{
+  const EXPECTED = 54
+  // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
+  // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
+  // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,
+  // роняла прогон, потому что 48-я не сделала ok.push. Градация серьёзности отменялась
+  // для всего, что не заложено в число. Молчание — вот настоящий признак пропажи.
+  //
+  // МОЛЧАНИЕ СЧИТАЕТСЯ ПО НОВЫМ БЕДАМ, А НЕ ПО ПУСТОМУ СПИСКУ. Два известных предупреждения
+  // горят постоянно, поэтому прежнее условие не было истинным НИКОГДА — единственный сторож
+  // против тихой пропажи проверки был мёртв с рождения. Опыт 05.09.2026: выпотрошенная 45-я
+  // дала «зелёных 50 против 51» предупреждением и код возврата 0.
+  const found = problems.filter(x => !knownWarning(x))
+  if (ok.length + 1 < EXPECTED && !found.length)
+    problems.push({ sev: 'CRITICAL', what: `проверок стало меньше, чем заявлено: ${ok.length + 1} против ${EXPECTED}, и никто ничего не нашёл — сторож исчез молча, найдите какой` })
+  else if (ok.length + 1 < EXPECTED)
+    problems.push({ sev: 'IMPORTANT', what: `зелёных строк ${ok.length + 1} против заявленных ${EXPECTED} — столько проверок промолчало, потому что нашли беду выше; если беда одна, а недостача больше, значит сторож ещё и исчез` })
+  else if (ok.length + 1 > EXPECTED)
+    problems.push({ sev: 'IMPORTANT', what: `проверок стало больше заявленного: ${ok.length + 1} против ${EXPECTED} — поднимите EXPECTED в проверке 49, если это намеренно` })
+  else ok.push(`the gate still carries all ${EXPECTED} checks`)
+}
+
 const crit = problems.filter(p => p.sev === 'CRITICAL')
 const warn = problems.filter(p => p.sev === 'IMPORTANT')
+const warnNew = warn.filter(p => !knownWarning(p))
 
 console.log(`files in package  : ${iniFiles.length}`)
 console.log(`offsets written   : ${writtenOffsets.size}`)
 console.log(`checks passed     : ${ok.length}`)
-console.log(`discrepancies     : ${crit.length} critical, ${warn.length} important`)
+console.log(`discrepancies     : ${crit.length} critical, ${warn.length} important (известных ${warn.length - warnNew.length}, новых ${warnNew.length})`)
+// Команда отрицательного прогона печатается прямо в отчёте (плейбук §28.3): читатель
+// должен иметь возможность проверить не дерево, а САМ ГЕЙТ, не заглядывая в исходник.
+console.log('проверить сам гейт : node scripts/check-generated.mjs --проба-отказа')
 console.log()
 
-for (const p of [...crit, ...warn]) console.log(`${p.sev === 'CRITICAL' ? '❌' : '⚠ '} ${p.what}`)
-
-if (!problems.length) {
-  console.log('✅ what was generated matches what was intended')
-  for (const o of ok) console.log(`   ${o}`)
+for (const p of [...crit, ...warn]) {
+  const k = knownWarning(p)
+  console.log(`${p.sev === 'CRITICAL' ? '❌' : '⚠ '} ${p.what}`)
+  if (k) console.log(`     известное с ${k.since}: ${k.why} — ${k.where}`)
 }
+if (warnNew.length) console.log(`
+❌ новых предупреждений ${warnNew.length} — их нет в списке известных, прогон отказан`)
 
-process.exit(crit.length ? 1 : 0)
+// СПИСОК ПРОЙДЕННОГО ПЕЧАТАЕТСЯ ВСЕГДА, а не только при абсолютном нуле проблем.
+// 05.09.2026: условие включало и предупреждения, а два из них у нас постоянные — значит
+// все зелёные строки с числами поднадзорных объектов были скрыты навсегда. Ровно те
+// числа, ради которых правило и заведено: молчание сторожа неотличимо от «предмета не
+// нашлось». Чем ближе дерево к порядку, тем меньше было видно.
+if (!crit.length && !warnNew.length) console.log('✅ what was generated matches what was intended')
+for (const o of ok) console.log(`   ${o}`)
+
+// НОВОЕ ПРЕДУПРЕЖДЕНИЕ РОНЯЕТ ПРОГОН НАРАВНЕ С КРИТИЧЕСКИМ. Предупреждение, о котором
+// никто не выносил решения, — это ровно то, ради чего гейт и заведён; молчаливый код 0
+// делал двадцать один приговор IMPORTANT украшением. Известные печатаются и не роняют.
+process.exit(crit.length || warnNew.length ? 1 : 0)
