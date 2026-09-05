@@ -26,6 +26,12 @@ if (!existsSync(DIST)) { console.error('no package/dist — run generate.mjs fir
 const menu = JSON.parse(readFileSync(join(ROOT, 'package', 'menu.json'), 'utf8'))
 const fields = JSON.parse(readFileSync(join(ROOT, 'package', 'fields.json'), 'utf8')).fields
 const byOffset = new Map(fields.map(f => [f.offset, f]))
+
+// THE MARIKO CURVE COMES FROM THE MAP, NOT FROM A HAND-WRITTEN RANGE. It already grew
+// once (24 points to 31) and a literal range would have dropped the new points without
+// a word. Checks 37, 40 and 50 all key on this list, and on its size.
+const CURVE_MARIKO = fields.filter(f => f.series === 'gpu_curve_mariko').map(f => f.offset).sort((a, b) => a - b)
+const curveMariko = new Set(CURVE_MARIKO)
 let deps = null
 try { deps = JSON.parse(readFileSync(join(ROOT, 'package', 'semantics-src', 'dependencies.json'), 'utf8')) } catch {}
 
@@ -132,6 +138,23 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /оставляет корневую подпись устаревшей/,
     },
     {
+      // SELF-UNDERMINING #1: a root forwarder names loader.kip only inside its own gate
+      // line. Delete the gate and, until 05.09.2026, the section left oversight with it:
+      // green run, and a foreign kip showed the whole tuner.
+      name: 'снят затвор у корневого пункта — секция обязана остаться поднадзорной',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace(/(\[\*Advanced\]\r?\n);visibility_condition=[^\r\n]*\r?\n/, '$1'),
+      expect: /трогает kip, но не закрыта затвором/,
+    },
+    {
+      // SELF-UNDERMINING #2: seeding used to be recognised by guarding the cells it writes.
+      // Strip the guards and the block stopped being seeding - 31 kip writes left unwatched.
+      name: 'у блока посева сняли сторожей — посев обязан остаться посевом',
+      file: join(DIST, 'advanced', 'gpu', 'package.ini'),
+      hurt: s => s.split(/\r?\n/).filter(l => !/^matching_hex_val_custom\s/.test(l)).join('\n'),
+      expect: /посев без сторожа режима|не начинается с проверки режима/,
+    },
+    {
       // Единственная проба, бьющая по ОБЩЕМУ затвору, а не по личному сторожу:
       // у проверки подписей своей проверки на пустоту нет, и до 05.09.2026 она
       // печатала «0 checked» зелёным. Ловит её теперь только правило «ноль — красный».
@@ -191,10 +214,17 @@ const okRaw = []
 // watched thing is missing, or that the check went blind, used to be IMPORTANT - and
 // IMPORTANT never failed the run, so losing the subject was quieter than finding a fault
 // in it. Seven such verdicts were raised; the IMPORTANT ones left are real findings.
-const ZERO_COUNT = /(?:^|[^\d.])0\s*(?:шт|штук|items?|offsets?|fields?|lines?|files?|checked|values?|points?|screens?|dictionaries|conditions?|series|declarations?|templates?|writes?|blocks?|pages?|rows?|sources?|entries|paths?|occurrences)/i
+// ANY ISOLATED ZERO, NOT A ZERO BEFORE A KNOWN WORD. The unit dictionary let five green
+// lines through - `(0)`, `(0, both languages)`, `0 names`, `0 stages, 0 cells` - because
+// their unit was missing or simply not in the list. A counter is a number, so look for the
+// number. Data quoted in «…» is not a counter: it carries labels and names of its own.
+// A zero that is not part of a bigger number: a neighbouring dot or comma counts as part
+// of the number only between digits (1,000 and 0.5 are numbers, "(0, both languages)" is a zero).
+const ZERO_COUNT = /(?<!\d)(?<!\d[.,])0(?!\d)(?![.,]\d)/
+const countable = line => line.replace(/«[^»]*»/g, '«»')
 const ok = {
   push (line) {
-    if (ZERO_COUNT.test(line))
+    if (ZERO_COUNT.test(countable(line)))
       problems.push({ sev: 'CRITICAL', what: `проверка отчиталась зелёным, ничего не проверив: «${line}» — ноль предметов значит, что стеречь стало нечего` })
     else {
       // Строка без числа этим затвором не охраняется — она молчит одинаково и когда всё
@@ -249,11 +279,31 @@ for (const m of text.matchAll(/hex-by-custom(?:-r?decimal)?-offset\s+\S+\s+CUST\
 // ---------------------------------------------------------------- 2. conditional visibility
 
 // One assertion for the whole check - see the note on check 1.
+// THE STRING FORM WAS THROWN AWAY. `if (!v?.offset) continue` dropped the second
+// visible_when in menu.json ("path_exists ./updater/newer.flag") without a word, and the
+// green line said «1 conditions» - not zero, so the zero gate stayed quiet too. A shape
+// this check does not understand is now red, not silent.
 {
   let bad = 0, checked = 0
+  const norm = s => String(s).replace(/\.\/(?:\.\.\/)*/g, './').replace(/\s+/g, ' ').trim()
+  const rawConds = lines.filter(l => /^;visibility_condition=/.test(l.trim()))
+                        .map(l => norm(l.trim().replace(/^;visibility_condition=/, '')))
   for (const it of items) {
   const v = it.visible_when
-  if (!v?.offset) continue
+  if (v == null) continue
+  if (typeof v === 'string') {
+    checked++
+    if (!rawConds.includes(norm(v))) {
+      bad++
+      problems.push({ sev: 'CRITICAL', what: `"${it.title ?? it.id}" is declared visible when \`${v}\`, but dist has no such visibility_condition` })
+    }
+    continue
+  }
+  if (typeof v !== 'object' || Array.isArray(v) || !v.offset) {
+    bad++
+    problems.push({ sev: 'CRITICAL', what: `"${it.title ?? it.id}" объявляет visible_when в форме, которой проверка не понимает: ${JSON.stringify(v)} — молча пропустить её нельзя` })
+    continue
+  }
   // СРАВНИВАЕМ И ЗНАЧЕНИЕ, А НЕ ТОЛЬКО СМЕЩЕНИЕ.
   //
   // Здесь проверялось лишь то, что где-то в пакете есть условие на нужную ячейку —
@@ -983,14 +1033,19 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   walk(DIST)
 
   const liars = []
+  let labels = 0
   for (const file of dicts) {
     let data
     try { data = JSON.parse(readFileSync(file, 'utf8')) } catch { continue }
     if (!Array.isArray(data)) continue
     for (const e of data) {
       if (!e || typeof e.name !== 'string' || typeof e.hex !== 'string') continue
-      const m = e.name.match(/^(\d+)\s*(mV|uV|MHz|kHz)\b/)
+      // FRACTIONS COUNT TOO. Integers only skipped 423 of 3129 labels, among them the
+      // 18 memory voltages written as «962.5 mV» - exactly the place where a label that
+      // names one value and writes another would never be noticed on the screen.
+      const m = e.name.match(/^(\d+(?:\.\d+)?)\s*(mV|uV|MHz|kHz)\b/)
       if (!m || e.hex.length % 2) continue
+      labels++
       const want = Number(m[1])
       let got = 0
       for (let i = e.hex.length - 2; i >= 0; i -= 2) got = got * 256 + parseInt(e.hex.slice(i, i + 2), 16)
@@ -999,8 +1054,10 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       if (!fits) liars.push(`${relative(ROOT, file)}: «${e.name}» запишет ${got}`)
     }
   }
+  // COUNT THE SUBJECT, NOT THE CONTAINER. The line used to print the number of json files,
+  // so gutting the label regexp still read «170 dictionaries» and the zero gate never fired.
   if (liars.length) problems.push({ sev: 'CRITICAL', what: `подпись словаря обещает не то, что запишет: ${liars.join('; ')}` })
-  else ok.push(`every numeric dictionary label encodes the value it names (${dicts.length} dictionaries)`)
+  else ok.push(`every numeric dictionary label encodes the value it names (${labels} labels in ${dicts.length} dictionaries)`)
 }
 
 // ------------------------------------------- 20. Длина имени копии настроек
@@ -1264,8 +1321,10 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     // FIELDS WITHOUT THE MARK ARE NAMED, NOT SKIPPED. A missing mark is not itself a defect:
     // their factory value is called `eBamatic`, which is an honest name. But skipping them in
     // silence turned 57 into "all there is", and nothing showed the difference.
+    // The list goes in «…»: it is DATA - field offsets and labels - and the digits inside
+    // it are not counters, so they must not trip the zero gate.
     const tail = unmarked.length
-      ? `; ${unmarked.length} без метки, заводское зовётся своим именем: ${unmarked.join(', ')}`
+      ? `; ${unmarked.length} без метки, заводское зовётся своим именем: «${unmarked.join(', ')}»`
       : ''
     ok.push(`the "Default" label agrees with the reset baseline (${checked} fields, ${labelled} carry the label, ${noted} excused by default_label_note${tail}), and the baseline covers every field that resets`)
   }
@@ -1826,9 +1885,16 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     // (б) пункты, пишущие в kip, обязаны быть С затвором. Не по звёздочке в имени,
     //     а по тому, что секция реально трогает kip: так проверка переживёт смену
     //     соглашения об именовании, на которой всё и держалось.
+    //
+    // THE EVIDENCE MUST NOT BE THE GUARD ITSELF. Three root forwarders name loader.kip
+    // in one place only - their own ;visibility_condition - so deleting the gate also
+    // deleted the reason to watch them, and the run stayed green. Judge on the body with
+    // the condition lines removed, and count a forwarder into a sub-page as a kip writer.
+    const bodyOf = c => c.split(/\r?\n/).filter(l => !/^\s*;visibility_condition=/.test(l)).join('\n')
     for (const c of chunks) {
       const head = (c.split(/\r?\n/)[0] ?? '').trim()
-      if (!/hex-by-custom|loader\.kip/.test(c)) continue
+      const body = bodyOf(c)
+      if (!/hex-by-custom|loader\.kip/.test(body) && !/^package_source\s/m.test(body)) continue
       if (/^\[@/.test(head)) continue                 // объявление страницы
       if (/^\[Kip version mismatch\]/.test(head)) continue
       writers32++
@@ -2060,7 +2126,9 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     const got = ['сводка', 'копия', 'футер'].map(r => `${r}: ${byRole[r]?.size ?? 0}`).join(', ')
     problems.push({ sev: 'CRITICAL', what: `подпись кривой вычисляется не во всех трёх местах (нужно по ${curveFields.length}; ${got})` })
   } else {
-    ok.push(`curve points are computed, not looked up (${seenOffsets.size} offsets × 3 places, ${computed} occurrences, ${viaDict} via dictionary)`)
+    // "none", not "0": here zero is the DESIRED state, and as a digit it would trip the
+    // zero gate exactly like a lost subject would.
+    ok.push(`curve points are computed, not looked up (${seenOffsets.size} offsets × 3 places, ${computed} occurrences, ${viaDict || 'none'} via dictionary)`)
   }
 }
 
@@ -2185,21 +2253,29 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       const offs = l => [...l.matchAll(/CUST\s+(\d+)/g)].map(m => Number(m[1]))
       const writes = body.filter(l => /^hex-by-custom-offset\s/.test(l))
       const guards = body.filter(l => /^matching_hex_val_custom\s/.test(l))
-      // посев узнаётся по тому, что блок проверяет и пишет ОДНИ И ТЕ ЖЕ ячейки;
-      // восстановление копии тоже пишет пачками, но своих записей не сторожит
-      const guarded = new Set(guards.flatMap(offs))
-      const seeding = writes.length > 1 && writes.flatMap(offs).some(o => guarded.has(o))
+      // A SEEDING BLOCK IS RECOGNISED BY WHAT IT WRITES, NEVER BY ITS OWN GUARDS. It used
+      // to be "writes cells it also checks", so stripping the guards took the block out of
+      // oversight and the run stayed green. Now: a bulk write landing wholly inside the
+      // curve series. A backup restore also writes in bulk, but far beyond the curve.
+      const written = writes.flatMap(offs)
+      const seeding = writes.length > 1 && written.every(o => curveMariko.has(o))
       if (seeding) {
         blocks++
+        const guarded = new Set(guards.flatMap(offs))
         const mode = /\sCUST 44 03$/.test(guards[0] ?? '')
-        if (!mode) bad.push(`${rel}: блок try: пишет ${writes.length} ячеек, но не начинается с проверки режима CUST 44 03`)
-        else if (guards.length <= writes.length) bad.push(`${rel}: условий ${guards.length} на ${writes.length} записей — сторож слабее, чем то, что он охраняет`)
+        if (!mode) bad.push(`${rel}:${i + 1} блок try: пишет ${writes.length} ячеек кривой, но не начинается с проверки режима CUST 44 03`)
+        else if (guards.length <= writes.length) bad.push(`${rel}:${i + 1} условий ${guards.length} на ${writes.length} записей — сторож слабее, чем то, что он охраняет`)
+        else if (!written.every(o => guarded.has(o))) bad.push(`${rel}:${i + 1} посев пишет ячейки, которых не сверял`)
       }
       i = j
     }
   }
 
-  if (bad.length) problems.push({ sev: 'CRITICAL', what: `посев без сторожа режима:\n     ${bad.slice(0, 8).join('\n     ')}` })
+  // Both entry points - the curve forwarder and the mode item - have to be there: lose one
+  // and the tally merely reads 1, while that seeding ships unguarded.
+  const SEEDING_BLOCKS = 2
+  if (blocks !== SEEDING_BLOCKS) problems.push({ sev: 'CRITICAL', what: `блоков посева ${blocks}, а точек входа ${SEEDING_BLOCKS} (форвардер кривой и пункт включения режима) — либо посев пропал, либо завёлся лишний` })
+  else if (bad.length) problems.push({ sev: 'CRITICAL', what: `посев без сторожа режима:\n     ${bad.slice(0, 8).join('\n     ')}` })
   else ok.push(`bulk kip writes stay behind the MANUAL gate (${blocks} seeding blocks checked)`)
 }
 
@@ -2394,8 +2470,10 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
         const g = ls[k].match(/^matching_hex_val_custom\s+\S+\s+CUST\s+(\d+)\s+([0-9A-F]+)$/)
         if (g) guards.push({ off: Number(g[1]), hex: g[2], at: k + 1 })
       }
+      // Same recognition rule as check 37: by the cells written, not by the guards -
+      // otherwise removing the guards removes the block from oversight.
       const guarded = new Set(guards.map(g => g.off))
-      if (writes.length > 1 && writes.some(w => guarded.has(w.off))) {
+      if (writes.length > 1 && writes.every(w => curveMariko.has(w.off))) {
         found++
         const written = new Set(writes.map(w => w.off))
         // (1) сравниваются ВСЕ ячейки, которые будут переписаны, — решение оператора
@@ -2418,7 +2496,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 
   if (!st1) problems.push({ sev: 'CRITICAL', what: 'в menu.json нет stock_tables.tables.ST1 — сверять посев не с чем' })
   else if (expect.size !== 31) problems.push({ sev: 'CRITICAL', what: `у ST1 ${expect.size} строк вместо 31 — кривая Mariko перестала совпадать с эталоном (kipVer ${meta?.kip_ver})` })
-  else if (!found) problems.push({ sev: 'CRITICAL', what: 'посев ручной таблицы не найден ни в одном файле — проверка ST1 смотрит в пустоту' })
+  else if (found !== 2) problems.push({ sev: 'CRITICAL', what: `блоков посева ручной таблицы ${found}, а точек входа две — проверка ST1 сверяет не всё, что пишет кривую` })
   else if (bad.length) problems.push({ sev: 'CRITICAL', what: `посев ручной таблицы разошёлся с ST1:\n     ${bad.slice(0, 8).join('\n     ')}` })
   else ok.push(`the manual table is seeded with a cell-for-cell copy of ST1 (${found} ${found === 1 ? 'block' : 'blocks'}, 31 points guarded and written each)`)
 }
@@ -2596,9 +2674,24 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     const listed = new Set()
     // Имена встречаются и голыми, и с путём ('scripts/generate.mjs') — берём последний сегмент.
     for (const m of ps.matchAll(/'(?:[\w.-]+\/)*([\w.-]+[.](?:mjs|ps1))'/g)) listed.add(m[1])
+    // A WHOLE DIRECTORY MAY BE DECIDED AT ONCE: 'scripts/uhlint' in $PUBLISH, 'scripts/wsl'
+    // and 'scripts/hooks' in $FORBIDDEN. Without this the recursive walk below would call
+    // every file under them undecided.
+    const listedDirs = new Set()
+    for (const m of ps.matchAll(/'scripts\/([\w.-]+)'/g)) if (!/\.(mjs|ps1)$/.test(m[1])) listedDirs.add(m[1])
+    // RECURSIVE: uhlint/index.mjs and uhlint/tables.mjs were decided by nobody, because the
+    // walk only looked at the top level of scripts/.
+    const walkScripts = (dir, prefix = '', acc = []) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        if (e.isDirectory()) walkScripts(join(dir, e.name), prefix + e.name + '/', acc)
+        else if (/\.(mjs|ps1)$/.test(e.name)) acc.push(prefix + e.name)
+      }
+      return acc
+    }
     let names = []
-    try { names = readdirSync(join(ROOT, 'scripts')).filter(f => /\.(mjs|ps1)$/.test(f)) } catch {}
-    const undecided = names.filter(f => !listed.has(f)).sort()
+    try { names = walkScripts(join(ROOT, 'scripts')) } catch {}
+    const decided = f => listed.has(f.split('/').pop()) || listedDirs.has(f.split('/')[0])
+    const undecided = names.filter(f => !decided(f)).sort()
     if (!names.length) problems.push({ sev: 'CRITICAL', what: 'в scripts/ не найдено ни одного сценария — проверка списков смотрит в пустоту' })
     else if (!listed.size) problems.push({ sev: 'CRITICAL', what: 'в publish.ps1 не разобрано ни одного имени — проверка списков смотрит в пустоту' })
     else if (undecided.length) problems.push({ sev: 'CRITICAL', what: `сценарий не назван ни в белом списке, ни в чёрном — решения по нему нет:\n     ${undecided.join('\n     ')}` })
@@ -2616,11 +2709,21 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // hides a syntax error until the day you need the script. One --check each, a second total.
 {
   const dir = join(ROOT, 'scripts')
-  let files = []
-  try { files = readdirSync(dir).filter(f => f.endsWith('.mjs')) } catch {}
+  // RECURSIVE. The flat listing never reached scripts/uhlint/index.mjs (476 lines) or
+  // uhlint/tables.mjs - and uhlint runs FIRST in publish.ps1, so a syntax error there
+  // stops publication. That is the very case this check was raised for.
+  const walkScripts = (d, prefix = '', acc = []) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (e.isDirectory()) walkScripts(join(d, e.name), prefix + e.name + '/', acc)
+      else if (/\.(mjs|ps1)$/.test(e.name)) acc.push(prefix + e.name)
+    }
+    return acc
+  }
+  let all = []
+  try { all = walkScripts(dir) } catch {}
+  const files = all.filter(f => f.endsWith('.mjs'))
   const bad = []
-  let ps1 = []
-  try { ps1 = readdirSync(dir).filter(f => f.endsWith('.ps1')) } catch {}
+  const ps1 = all.filter(f => f.endsWith('.ps1'))
   for (const f of ps1) {
     // Парсер PowerShell зовём его же средствами: разбор без исполнения, ошибки в $e.
     const src = join(dir, f).split(String.fromCharCode(92)).join('/')
@@ -2847,27 +2950,36 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // conditions and the whole gate stayed green: nothing watched them. The seeding guards
 // (37, 40) look at try: blocks, not at item visibility, and check 2 searches the package
 // as one blob, so a single surviving condition satisfied it for all of them.
+//
+// TWO HAND-WRITTEN NARROWINGS REMOVED 05.09.2026. The offsets came from a literal range
+// `CUST (8[89]|9[26]|1[0-9][0-9]|20[048])`, and the curve has already grown once (24 -> 31):
+// the next growth would have left the new points outside it in silence. And only ONE file
+// was read, while five more sections in three other files write the same cells. Now the
+// offsets come from the map, every ini is scanned, and the number of per-point items must
+// equal the number of points the map declares. Bulk writers (seeding, reset, restore) are
+// counted apart: they are legitimately ungated and are guarded by checks 36, 37 and 40.
 {
-  const rel = 'advanced/gpu/gpu-curve-mariko/package.ini'
-  const abs = join(DIST, 'advanced', 'gpu', 'gpu-curve-mariko', 'package.ini')
   const GATE = /CUST 44 03/
-  if (!existsSync(abs)) {
-    problems.push({ sev: 'CRITICAL', what: `${rel} не найден — проверка затвора у точек кривой смотрит в пустоту` })
-  } else {
-    const secs = readFileSync(abs, 'utf8').split(/\r?\n(?=\[)/)
-    const writers = [], bare = []
-    for (const sec of secs) {
+  const writers = [], bare = [], bulk = []
+  for (const file of iniFiles) {
+    const rel = relative(DIST, file).split(String.fromCharCode(92)).join('/')
+    for (const sec of readFileSync(file, 'utf8').split(/\r?\n(?=\[)/)) {
       const name = (sec.match(/^\[([^\]]+)\]/) || [])[1]
       if (!name) continue
-      if (!/^hex-by-custom-offset[^\n]*CUST (8[89]|9[26]|1[0-9][0-9]|20[048]) /m.test(sec)) continue
-      writers.push(name)
+      const hits = [...sec.matchAll(/^hex-by-custom-offset[^\n]*CUST (\d+) /gm)]
+        .map(m => Number(m[1])).filter(o => curveMariko.has(o))
+      if (!hits.length) continue
+      if (hits.length > 1) { bulk.push(`${rel} ${name}`); continue }   // seeding / reset / restore
+      writers.push(`${rel} ${name}`)
       const vis = sec.split(/\r?\n/).filter(l => l.startsWith(';visibility_condition='))
       if (!vis.some(l => GATE.test(l) && !l.includes('=!'))) bare.push(name)
     }
-    if (!writers.length) problems.push({ sev: 'CRITICAL', what: 'ни один пункт кривой Mariko не пишет в kip — проверка затвора смотрит в пустоту' })
-    else if (bare.length) problems.push({ sev: 'CRITICAL', what: `пункт правит ручную таблицу без затвора по режиму — он покажется там, где прошивка её не читает:\n     ${bare.slice(0, 8).join(', ')}${bare.length > 8 ? ` …и ещё ${bare.length - 8}` : ''}` })
-    else ok.push(`every item that writes the manual curve stays behind the Custom Table gate (${writers.length} items)`)
   }
+  if (!curveMariko.size) problems.push({ sev: 'CRITICAL', what: 'в fields.json нет серии gpu_curve_mariko — проверка затвора у точек кривой смотрит в пустоту' })
+  else if (!writers.length) problems.push({ sev: 'CRITICAL', what: 'ни один пункт кривой Mariko не пишет в kip — проверка затвора смотрит в пустоту' })
+  else if (bare.length) problems.push({ sev: 'CRITICAL', what: `пункт правит ручную таблицу без затвора по режиму — он покажется там, где прошивка её не читает:\n     ${bare.slice(0, 8).join(', ')}${bare.length > 8 ? ` …и ещё ${bare.length - 8}` : ''}` })
+  else if (writers.length !== curveMariko.size) problems.push({ sev: 'CRITICAL', what: `пунктов кривой ${writers.length}, а точек в карте ${curveMariko.size} — часть кривой правится не пунктом меню или пункт потерян` })
+  else ok.push(`every item that writes the manual curve stays behind the Custom Table gate (${writers.length} items of ${curveMariko.size} mapped points, ${bulk.length} bulk writers left to checks 36/37/40)`)
 }
 
 // ИЗВЕСТНЫЕ ПРЕДУПРЕЖДЕНИЯ — ЯВНЫМ СПИСКОМ, И ОН ЕДИНСТВЕННЫЙ.
@@ -3193,6 +3305,113 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   }
 }
 
+// ---------------- 57. the factory-reset screen mirrors the summary
+//
+// СБРОС ПОКАЗЫВАЕТ ТО ЖЕ И ТАК ЖЕ, ЧТО СВОДКА.
+//
+// Экран `Restore Factory Defaults` — это сводка, прочитанная из `Default.ini` вместо
+// живого kip. Расходиться им нельзя: человек сравнивает два экрана глазами, переводя
+// взгляд с одного на другой. Сброс ВПРАВЕ показать меньше строк — заводской снимок
+// несёт не всё, — но не вправе показать их в другом порядке, под другим заголовком
+// или с другой подписью. Ровно эти три беды и нашлись 05.09.2026, и ни один сторож
+// их не видел: оба экрана порождаются из одного набора строк, но между собой
+// не сверялись никогда.
+{
+  // «Подпоследовательность»: пропустить строку, которой нет в снимке, можно;
+  // переставить оставшиеся — нельзя.
+  const isSub = (small, big) => {
+    let j = 0
+    for (const s of small) { j = big.indexOf(s, j); if (j < 0) return false; j++ }
+    return true
+  }
+  const parseScreen = file => {
+    const out = []
+    let sec = null, sys = '', cur = null
+    for (const raw of readFileSync(join(DIST, file), 'utf8').split(/\r?\n/)) {
+      const l = raw.trim()
+      if (l.startsWith('[')) { sec = l; sys = ''; continue }
+      if (l.startsWith(';system=')) { sys = l.slice(8); continue }
+      if (!l || l.startsWith(';')) continue
+      const kv = l.match(/^'([^']*)'\s*=\s*'(.*)'$/)
+      if (sec === '[Header]' && kv) { cur = { head: kv[1], ctx: kv[2], sys, rows: [] }; out.push(cur); continue }
+      if (sec === '[Info]' && kv && cur) cur.rows.push(kv[1])
+    }
+    // заголовок без строк — это подпись страницы («What it will apply»), а не блок
+    return out.filter(b => b.rows.length)
+  }
+  const forRev = (blocks, rev) => blocks.filter(b => !b.sys || b.sys === rev)
+  const summary = parseScreen('current.ini')
+  const reset = parseScreen(join('service', 'reset.ini'))
+  let compared = 0
+  for (const rev of ['mariko', 'erista']) {
+    const S = forRev(summary, rev), R = forRev(reset, rev)
+    let i = 0
+    for (const rb of R) {
+      const at = S.findIndex((sb, k) => k >= i && sb.head === rb.head && isSub(rb.rows, sb.rows))
+      if (at < 0) {
+        problems.push({ sev: 'CRITICAL', what: `${rev}: блок «${rb.head}» на экране сброса не повторяет сводку — либо такого заголовка там нет, либо строки идут в другом порядке или названы иначе (${rb.rows.slice(0, 4).join(', ')}…)` })
+        continue
+      }
+      if (S[at].ctx !== rb.ctx)
+        problems.push({ sev: 'CRITICAL', what: `${rev}: у блока «${rb.head}» подпись справа «${rb.ctx}», а в сводке «${S[at].ctx}» — заголовки двух экранов обязаны совпадать` })
+      i = at
+      compared += rb.rows.length
+    }
+  }
+  if (!compared) problems.push({ sev: 'CRITICAL', what: 'экран сброса не дал ни одной строки для сверки со сводкой — проверка смотрит в пустоту' })
+  else ok.push(`the factory-reset screen mirrors the summary, block for block (${compared} rows compared across both revisions)`)
+}
+
+// ---------------- 58. кривые GPU в эталоне сброса, и семь общих ячеек не зовутся напряжением
+//
+// Дыра была настоящей: до 05.09.2026 сброс кривые не трогал, и на Erista андервольт
+// переживал «Apply factory defaults» — сравнения с полем 44 в её коде нет вовсе.
+// Разбор — NOTES №278, решение — DECISIONS 05.09.2026.
+//
+// Стережём две тихие вещи:
+//   1. ПОЛНОТА. Список смещений выводится из карты (`series === 'gpu_curve_*'`), а не
+//      перечисляется. Пропади вывод — эталон вернётся к 74 полям молча: роли `reset`
+//      у точек кривой нет, и полнота из проверки 24 их не видит.
+//   2. ПОКАЗ. Заводское содержимое 184…208 — не напряжение (`factory_not_a_value`),
+//      и печатать его милливольтами значит показать «786986 mV».
+{
+  const factory = JSON.parse(readFileSync(join(ROOT, 'package', 'factory-defaults.json'), 'utf8')).defaults
+  const curve = fields.filter(f => f.series === 'gpu_curve_mariko' || f.series === 'gpu_curve_erista')
+  const notAValue = new Set(fields.filter(f => f.factory_not_a_value).map(f => f.offset))
+  const bad = []
+
+  // Ноль поднадзорных — красный: серию переименовали, и сторож смотрит в пустоту.
+  if (!curve.length)
+    bad.push('ни одной точки кривой в карте — проверка эталона кривой смотрит в пустоту')
+  if (!notAValue.size)
+    bad.push('ни одного поля с factory_not_a_value — половина о показе смотрит в пустоту')
+
+  for (const f of curve) {
+    if (blacklist.has(f.offset)) continue
+    const hex = factory[String(f.offset)]
+    if (hex === undefined) { bad.push(`${f.offset} ${f.name}: точки кривой нет в эталоне — сброс её не тронет`); continue }
+    // Длина обязана равняться полю: 24-байтовая запись Erista, обрезанная до трёх байт,
+    // затёрла бы хвост записи DVFS нулями выравнивания.
+    if (hex.length !== (f.length ?? 3) * 2)
+      bad.push(`${f.offset} ${f.name}: в эталоне ${hex.length / 2} байт вместо ${f.length}`)
+  }
+  // Чёрный список в эталон попадать не должен: 170 лежит вне сетки шага 4.
+  for (const off of blacklist)
+    if (factory[String(off)] !== undefined)
+      bad.push(`${off}: смещение из чёрного списка попало в эталон сброса`)
+
+  const reset = readFileSync(join(DIST, 'service', 'reset.ini'), 'utf8')
+  for (const line of reset.split(/\r?\n/)) {
+    const m = line.match(/ini_file\(Fields,(\d+)\)/)
+    if (!m || !notAValue.has(Number(m[1]))) continue
+    if (/hex_to_decimal|mV/.test(line))
+      bad.push(`service/reset.ini: ${m[1]} печатается напряжением, хотя заводское содержимое им не является`)
+  }
+
+  if (bad.length) problems.push({ sev: 'CRITICAL', what: `эталон кривой GPU собран неверно (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else ok.push(`the GPU curves are in the factory baseline and the shared cells are not called a voltage (${curve.length} points, ${notAValue.size} cells shown as bytes)`)
+}
+
 // ---------------- 49. the gate does not quietly lose a check
 //
 // A check whose subject disappears can vanish from this file's own count without a word:
@@ -3202,7 +3421,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // loops. A hard-coded expectation is crude, but it is the one thing that notices a guard
 // going missing. Raise it deliberately when you add a check; never to make a run green.
 {
-  const EXPECTED = 56
+  const EXPECTED = 58
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,

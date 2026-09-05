@@ -1734,9 +1734,11 @@ function emitAction(item, lines) {
   //   3. where the factory value is absent from the dictionary it could not be fixed at
   //      all — the Erista GPU curve is on a 15 mV grid here and 12.5 mV in the firmware.
   //
-  // The GPU voltage curves are deliberately not in the snapshot, so reset leaves them
-  // alone: there is nowhere to take a factory value from, and inventing one is exactly
-  // what caused this in the first place.
+  // The GPU voltage curves ARE reset, since 05.09.2026, with the factory bytes read from
+  // the live kip. The snapshot does carry 31 curve points, but they are the DVFS table the
+  // Eco Mode field points at, in microvolts - the editable array holds millivolts, so that
+  // copy would be off by a thousand. On Erista the manual table applies whatever the mode
+  // is, so without this an undervolted curve survived the reset.
   // Reset reads Default.ini, exactly the way Restore reads a backup file.
   //
   // The values used to be baked into the commands, one hex literal per offset. Reading them
@@ -2570,7 +2572,7 @@ if (kipRows.length) {
     //
     // `polling` нужен только там, где источник меняется по ходу дела (выбор копии).
     // У заводского снимка файл неизменный, и опрос раз в секунду просто жёг бы батарею.
-    const { title, rev, source, chooser, apply, del, note, note2, create = null, depth = 0, only = null } = opts
+    const { title, rev, source, chooser, apply, del, note, note2, create = null, depth = 0, only = null, factory = false } = opts
     const poll = chooser ? [';polling=true'] : []
     // Подпись экрана — тем же ключом, что и у подпакетов; см. пояснение у `;subtitle=`
     // в конце `emitPackage`. Без него движок подписывал эти два экрана словом `Commands`.
@@ -2739,10 +2741,10 @@ if (kipRows.length) {
      * Поэтому цикл вынесен: он собирает блоки из ЛЮБОГО набора строк сводки и возвращает
      * готовые строки файла. Пусто — возвращает пустой массив, и страницы не будет вовсе.
      *
-     * `src` служит и пулом для поиска строки по смещению. Раньше искали по всем `kipRows`,
-     * но у `12436`, `12440` и `12448` есть двойники в рядах pMeh/sMeh: поиск по общему
-     * списку вернул бы под заголовком `pMeh 0-22` подпись `eBAMATIC Stage`. Пул страницы
-     * возвращает ту строку, которая на этой странице и стоит.
+     * Строка ищется по смещению В СВОЁМ БЛОКЕ. Раньше искали по всем `kipRows`, потом
+     * по строкам страницы — и оба пула ошибались одинаково: у шести смещений есть двойники
+     * в рядах pMeh/sMeh, и под заголовком `pMeh 0-22` вставала чужая подпись. Пул блока
+     * возвращает ту строку, которая под этим заголовком и стоит в сводке.
      *
      * `seen` тоже своё на страницу: те же три поля показываются на ОБЕИХ страницах сводки —
      * один раз по смыслу, второй раз под своим номером в аварийном ряду, — и предпросмотр
@@ -2761,7 +2763,9 @@ if (kipRows.length) {
         // разорван строками другой ревизии, и при слиянии только соседних половина RAM
         // осталась бы за бортом.
         let g = PREVIEW_GROUPS.find(x => x.name === r.group)
-        if (!g) PREVIEW_GROUPS.push(g = { name: r.group, offsets: [] })
+        // The heading context travels with the group, exactly as in emitPage: the summary
+        // prints "CPU — Speedo 1723" and the reset page has to print the same words.
+        if (!g) PREVIEW_GROUPS.push(g = { name: r.group, ctx: r.groupCtx ?? '', offsets: [] })
         if (!g.offsets.includes(r.offset)) g.offsets.push(r.offset)
       }
       // Внутри блока порядок тот же, что в сводке: там он задаётся GROUP_ORDER при выводе,
@@ -2795,14 +2799,21 @@ if (kipRows.length) {
           // возвращал его, фильтр пропускал. Первое расщепление (`44`) прошло незамеченным
           // только потому, что его второй пункт принадлежал той же ревизии, что и превью.
           .flatMap(o => {
-            const all = src.filter(r => r.offset === o)
+            // ПУЛ — СТРОКИ ЭТОГО БЛОКА, А НЕ ВСЕЙ СТРАНИЦЫ.
+            //
+            // Шесть смещений намеренно стоят в двух блоках одной страницы (`12444`
+            // в `Optimized Mode` и в `pMeh 0-22`, `12492` и `12524` — в `sMeh 0-17`).
+            // Поиск по всей странице возвращал ту строку, что встретилась раньше, и ряд
+            // pMeh печатал `VDDQ-VDD2 Voltage` на месте `pMeh 20 rVDDick`: нумерация ряда,
+            // по которой его и читают, обрывалась. Сводка в том же месте печатает номер.
+            const all = src.filter(r => r.offset === o && r.group === g.name)
             if (all.length < 2) return all
             // Ревизия задана — берём её строку, а если своей нет, общую.
             if (rev) return all.filter(r => r.platform === rev).concat(all.filter(r => (r.platform ?? 'both') === 'both')).slice(0, 1)
             // Ревизия НЕ задана (страница сброса) — нужны ОБЕ строки. Взять одну значило бы
             // показать эристовцу мариковский предел или не показать ему ничего: именно так
-            // со страницы сброса пропал `Max Voltage` для Erista. Метки `mariko:` / `erista:`
-            // расставит общий код ниже, по одной на каждую.
+            // со страницы сброса пропал `Max Voltage` для Erista. Разведёт их код ниже,
+            // по таблице на ревизию.
             return all
           })
           .filter(Boolean)
@@ -2812,22 +2823,39 @@ if (kipRows.length) {
           // строками, по одной на ревизию, и они не дубликаты друг друга.
           .filter(r => { const k = `${r.offset}|${r.platform ?? 'both'}`; return !seen.has(k) && seen.add(k) })
           .map(r => ({ ...r, map: rebase(r.map, depth), flatMap: rebase(r.flatMap, depth) }))
-          // Сортировка по платформе нужна ТОЛЬКО когда ревизия не задана: метка `mariko:`
-          // действует до следующей и не возвращается к «обеим». Превью копии всегда знает
-          // свою ревизию (`rev`), поэтому там метки не появляются вовсе и порядок остаётся
-          // тем, что задан в PREVIEW_GROUPS.
-          .sort((a, b) => rev ? 0
-            : ({ both: 0, erista: 1, mariko: 2 }[a.platform] ?? 0)
-            - ({ both: 0, erista: 1, mariko: 2 }[b.platform] ?? 0))
         if (!rows.length) continue
 
-        // A group whose rows are all one revision must carry `;system=` on its heading too,
-        // or the other console shows a caption over an empty frame: the engine filters rows,
-        // it cannot see headings. Same guard as in emitPage; it did not travel here when the
-        // grouping was rebuilt. Mixed groups keep `sys` empty and are byte-for-byte as before.
-        const rowPlats = new Set(rows.map(r => (r.platform === 'mariko' || r.platform === 'erista') ? r.platform : 'both'))
-        const onePlat = rowPlats.size === 1 ? [...rowPlats][0] : null
-        const sys = (!rev && onePlat && onePlat !== 'both') ? [`;system=${onePlat}`] : []
+        /**
+         * СМЕШАННЫЙ БЛОК ПЕЧАТАЕТСЯ ДВУМЯ ТАБЛИЦАМИ, ПО ОДНОЙ НА РЕВИЗИЮ — КАК В СВОДКЕ.
+         *
+         * Было: одна таблица с метками `erista:` / `mariko:` внутри. Метка действует
+         * до следующей и НИКОГДА не возвращается к «обеим» (utils.hpp:1319), поэтому общие
+         * строки вынуждены идти первыми, и порядок расходился со сводкой: в CPU `Speed Shift`
+         * стоял третьим вместо последнего, в GPU `Undervolt Mode` — предпоследним вместо
+         * первого. Человек сравнивает сброс со сводкой глазами, переводя взгляд с экрана
+         * на экран, и разный порядок делает это сравнение работой.
+         *
+         * `;system=` на таблице снимает ограничение целиком: внутри одной ревизии меток нет,
+         * порядок свободен и равен сводке. Цена — вторая таблица в файле, из которых
+         * читателю всегда видна ровно одна. Ровно тот же размен уже сделан в `emitPage`.
+         *
+         * Превью копии знает свою ревизию (`rev`) и печатает одну таблицу, как и раньше.
+         */
+        const platOfRow = r => (r.platform === 'mariko' || r.platform === 'erista') ? r.platform : 'both'
+        const plats = new Set(rows.map(platOfRow))
+        const onePlat = plats.size === 1 ? [...plats][0] : null
+        const tables = []
+        if (rev || onePlat) {
+          // A group whose rows are all one revision must carry `;system=` on its heading too,
+          // or the other console shows a caption over an empty frame: the engine filters rows,
+          // it cannot see headings.
+          tables.push({ sys: (!rev && onePlat !== 'both') ? [`;system=${onePlat}`] : [], rows })
+        } else {
+          for (const rv of ['mariko', 'erista']) {
+            const part = rows.filter(r => platOfRow(r) === 'both' || platOfRow(r) === rv)
+            if (part.length) tables.push({ sys: [`;system=${rv}`], rows: part })
+          }
+        }
 
         // Врезка ПЕРЕД блоком — тем же приёмом, что в сводке: там таблицы ступеней
         // печатаются внутри цикла групп, до собственных строк «GPU Voltage Table»
@@ -2835,62 +2863,67 @@ if (kipRows.length) {
         // отдельного ключа сортировки у таблиц нет.
         if (before) out.push(...before(g.name))
 
-        // Отступ ПЕРЕД заголовком, а не только между таблицами. Без него подпись группы
-        // печатается вплотную к рамке предыдущей таблицы и наезжает на неё. Ровно это
-        // уже чинили в emitPage — и я повторил ошибку, собирая группировку заново.
-        out.push('[Gap]', ';mode=table', ';background=false', ...sys, `;gap=${HEAD_GAP}`, '')
-        out.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ...sys,
-                `'${g.name}' = ''`, '')
-        out.push('[Info]', ';mode=table', ...(pollHere ? poll : []), ';spacing=0', ';gap=0', ...sys, ...source)
-        // ОБЪЯВЛЕНИЕ СЛОВАРЯ — ОДНО НА ТАБЛИЦУ, А НЕ НА СТРОКУ, и это не косметика.
-        // В нашем форке движка разобранный json кэшируется на время сборки ОДНОЙ таблицы
-        // (`JsonScope`, `utils.hpp`, коммит 215270d5). Повторное `json_file` внутри той же
-        // таблицы кэш не рушит, но лишние объявления сводят выигрыш на нет, а на второй
-        // странице строк вчетверо больше, чем на первой.
-        let lastMap = null
-        let lastPlat = null
-        for (const r of rows) {
-          // Страница, не привязанная к ревизии (заводской набор), обязана разводить
-          // платформенные строки метками — иначе на экране две строки «Frequency» подряд.
-          if (!rev) {
-            const plat = r.platform === 'mariko' || r.platform === 'erista' ? r.platform : 'both'
-            if (plat !== lastPlat) {
-              if (plat !== 'both') out.push(`${plat}:`)
-              lastPlat = plat
-              lastMap = null          // объявление словаря не переживает смену ветки
+        // Живой контекст в заголовке — только там, где он про ЭТУ консоль. На сбросе так
+        // и есть: заводские значения поедут в её kip, и «CPU — Speedo …» отвечает на тот же
+        // вопрос, что и в сводке. На странице копии он врал бы: таблица показывает файл,
+        // снятый когда угодно и где угодно, а speedo и модель памяти читаются здесь и сейчас.
+        const ctx = rev ? '' : (g.ctx ?? '')
+
+        for (const t of tables) {
+          // Отступ ПЕРЕД заголовком, а не только между таблицами. Без него подпись группы
+          // печатается вплотную к рамке предыдущей таблицы и наезжает на неё. Ровно это
+          // уже чинили в emitPage — и я повторил ошибку, собирая группировку заново.
+          out.push('[Gap]', ';mode=table', ';background=false', ...t.sys, `;gap=${HEAD_GAP}`, '')
+          out.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ...t.sys,
+                  `'${safeName(g.name)}' = '${ctx}'`, '')
+          out.push('[Info]', ';mode=table', ...(pollHere ? poll : []), ';spacing=0', ';gap=0', ...t.sys, ...source)
+          // ОБЪЯВЛЕНИЕ СЛОВАРЯ — ОДНО НА ТАБЛИЦУ, А НЕ НА СТРОКУ, и это не косметика.
+          // В нашем форке движка разобранный json кэшируется на время сборки ОДНОЙ таблицы
+          // (`JsonScope`, `utils.hpp`, коммит 215270d5). Повторное `json_file` внутри той же
+          // таблицы кэш не рушит, но лишние объявления сводят выигрыш на нет, а на второй
+          // странице строк вчетверо больше, чем на первой.
+          let lastMap = null
+          for (const r of t.rows) {
+            // Подпись — та же, что в сводке, целиком. Раньше имя группы срезалось с начала
+            // строки («Core Timings 1» → «1»), и ряд таймингов на сбросе выглядел иначе,
+            // чем тот же ряд в сводке. Заголовок повторяется, но два экрана читаются
+            // как один.
+            const label = r.title
+            // СОСТАВНОЙ КЛЮЧ И ЗДЕСЬ. У ступеней GPU подпись адресуется парой ячеек, и если
+            // предпросмотр подставит только первую, ключ не найдётся НИКОГДА — на экране
+            // встанет «null». Так и было: обе страницы «что будет применено» врали про GPU
+            // при любом значении поля, а это ровно те экраны, по которым человек решается
+            // нажать удержание.
+            //
+            // Вторая ячейка есть не во всяком источнике: в копии настроек она лежит, а в
+            // заводском наборе её нет и по замыслу быть не должно — сброс таблицу не трогает.
+            // Поэтому ключ достраивается ТОЛЬКО когда источник её содержит; иначе строка
+            // читается плоским словарём, где тот же режим назван без оглядки на таблицу.
+            const probeInSrc = r.probe && (!only || only.has(r.probe.offset))
+            const key = probeInSrc
+              ? `{ini_file(Fields,${r.offset})}{ini_file(Fields,${r.probe.offset})}`
+              : `{ini_file(Fields,${r.offset})}`
+            //
+            // Объявление идёт ПОСЛЕ выбора, а не до него. Иначе страница открывает два файла
+            // подряд и пользуется вторым: лишнее открытие на карте памяти и путаница в чтении.
+            // Точка кривой считается, а не ищется в словаре — см. `curveValue`.
+            if (isCurve(r)) {
+              // Заводское содержимое семи верхних ячеек — НЕ напряжение, и считать его
+              // милливольтами нельзя: на экране выходило «1305MHz = 786986 mV». Это
+              // строка 0 таблицы CPU Erista, и поле говорит об этом ключом
+              // `factory_not_a_value`. На странице сброса показываем сами байты.
+              const notAValue = factory && byOffset.get(r.offset)?.factory_not_a_value
+              out.push(notAValue
+                ? `'${safeName(label)}' = '{ini_file(Fields,${r.offset})} - not a voltage'`
+                : `'${safeName(label)}' = '${curveValue(r, true)}'`)
+              continue
             }
+            const mapPath = probeInSrc || !r.flatMap ? r.map : r.flatMap
+            if (mapPath !== lastMap) { out.push(`json_file '${mapPath}'`); lastMap = mapPath }
+            out.push(`'${safeName(label)}' = '{json_file(0,${key})}'`)
           }
-          // Имя группы уже в заголовке — в строке оставляем только само поле.
-          const label = r.group && r.title.startsWith(r.group)
-            ? r.title.slice(r.group.length).trim() || r.title
-            : r.title
-          // СОСТАВНОЙ КЛЮЧ И ЗДЕСЬ. У ступеней GPU подпись адресуется парой ячеек, и если
-          // предпросмотр подставит только первую, ключ не найдётся НИКОГДА — на экране
-          // встанет «null». Так и было: обе страницы «что будет применено» врали про GPU
-          // при любом значении поля, а это ровно те экраны, по которым человек решается
-          // нажать удержание.
-          //
-          // Вторая ячейка есть не во всяком источнике: в копии настроек она лежит, а в
-          // заводском наборе её нет и по замыслу быть не должно — сброс таблицу не трогает.
-          // Поэтому ключ достраивается ТОЛЬКО когда источник её содержит; иначе строка
-          // читается плоским словарём, где тот же режим назван без оглядки на таблицу.
-          const probeInSrc = r.probe && (!only || only.has(r.probe.offset))
-          const key = probeInSrc
-            ? `{ini_file(Fields,${r.offset})}{ini_file(Fields,${r.probe.offset})}`
-            : `{ini_file(Fields,${r.offset})}`
-          //
-          // Объявление идёт ПОСЛЕ выбора, а не до него. Иначе страница открывает два файла
-          // подряд и пользуется вторым: лишнее открытие на карте памяти и путаница в чтении.
-          // Точка кривой считается, а не ищется в словаре — см. `curveValue`.
-          if (isCurve(r)) {
-            out.push(`'${safeName(label)}' = '${curveValue(r, true)}'`)
-            continue
-          }
-          const mapPath = probeInSrc || !r.flatMap ? r.map : r.flatMap
-          if (mapPath !== lastMap) { out.push(`json_file '${mapPath}'`); lastMap = mapPath }
-          out.push(`'${safeName(label)}' = '{json_file(0,${key})}'`)
+          out.push('')
         }
-        out.push('')
       }
 
       // Ни одной строки не пережило фильтров — значит и заголовка быть не должно.
@@ -3256,14 +3289,20 @@ if (kipRows.length) {
     emitPreviewPage('service/reset.ini', {
       title: 'Factory Defaults', rev: null, source: src, depth: 1,
       chooser: null,
+      // `factory` tells the row printer that the source is the factory set, where the top
+      // seven curve cells are not voltages at all. Only this page has that problem.
+      factory: true,
       only: new Set(factoryOffsets),
       apply: [...applyFor('mariko'), '', ...applyFor('erista')],
       // Вторая фраза собиралась из литерала и списка непокрытых полей — и сломалась ровно
       // тогда, когда список опустел: на экране осталось «has no value for , so those keep».
       // Дыру закрыли, дописав недостающие значения в эталон из живого kip, а фраза об этом
       // не знала. Теперь предложение появляется, только если ему есть что сказать.
-      note: 'This is what the firmware ships with. The GPU voltage curves are not touched — the '
-          + 'factory snapshot does not carry them.'
+      note: 'This is what the firmware ships with, the GPU voltage curves included: their factory '
+          + 'bytes are read from the console kip, because the snapshot carries a different table. '
+          + 'The top seven Mariko cells are shown as raw bytes — at factory they hold row 0 of the '
+          + 'Erista CPU table, which is not a voltage, and the reset puts that row back on both '
+          + 'revisions.'
           + (notCovered.length
               ? ` On Erista the snapshot also has no value for ${notCovered.join(' or ')}, so those keep their current setting.`
               : ''),
@@ -3306,8 +3345,10 @@ function emitDefaultIni() {
     '; value is what goes there, little-endian.',
     ';',
     '; Source: atmosphere/kips/kip-json/Default.json from the 4IFIR distribution, verified',
-    '; against a live kip. The GPU voltage curves are deliberately absent — the snapshot',
-    '; does not carry them, and inventing a factory value is worse than leaving one alone.',
+    '; against a live kip. The GPU voltage curves come from the kip itself: the snapshot does',
+    '; carry 31 curve points, but they are the DVFS table the Eco Mode field points at, in',
+    '; microvolts, while the editable array holds millivolts - copying them would be off by a',
+    '; thousand.',
     '',
     '[Meta]',
     `revision=mariko-derived`,
