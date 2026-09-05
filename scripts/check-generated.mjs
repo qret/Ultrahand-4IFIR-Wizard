@@ -2219,7 +2219,28 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       if (t.includes('{')) continue
       checked++
       if (t.length > LIMIT) bad.push(`${rel}: футер в ${t.length} знаков — «${t}»`)
-    }
+      }
+
+      // A FOOTER BUILT FROM A DICTIONARY IS STILL A FOOTER. The loop above skips anything
+      // with a placeholder -- the footer of EVERY dictionary-backed item, and the blind spot
+      // where a 20-character label pushed the item's own name off the row on 05.09.2026.
+      // The operator found that, not this check.
+      for (const sec of readFileSync(file, 'utf8').split(/\r?\n(?=\[)/)) {
+        if (!/^set-footer '\{json_file_source\(\*,short\)\}'/m.test(sec)) continue
+        const src = sec.match(/^json_file_source '([^']+)'/m)
+        if (!src) continue
+        const dictPath = join(dirname(file), src[1].replace(/^\.\//, '').split('/').join(String.fromCharCode(92)))
+        if (!existsSync(dictPath)) continue
+        let dict = []
+        try { dict = JSON.parse(readFileSync(dictPath, 'utf8')) } catch { continue }
+        if (!Array.isArray(dict)) continue
+        for (const e of dict) {
+          if (typeof e?.short !== 'string') continue
+          checked++
+          if (e.short.length > LIMIT)
+            bad.push(`${rel}: подпись из словаря в ${e.short.length} знаков — «${e.short}»`)
+        }
+      }
   }
   const NL = String.fromCharCode(10)
   if (bad.length) problems.push({ sev: 'CRITICAL', what: 'футер длиннее ' + LIMIT + ' знаков выдавит имя пункта:' + NL + '     ' + bad.slice(0, 6).join(NL + '     ') })

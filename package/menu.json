@@ -529,7 +529,7 @@
               "values": [
                 {
                   "hex": "000000",
-                  "name": "eBamatic — Default (automatic)"
+                  "name": "eBamatic"
                 },
                 {
                   "hex": "EE0200",
@@ -911,7 +911,7 @@
               "values": [
                 {
                   "hex": "000000",
-                  "name": "eBamatic — Default (automatic)"
+                  "name": "eBamatic"
                 },
                 {
                   "hex": "520300",

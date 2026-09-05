@@ -18,8 +18,8 @@ The table is generated from the **built package** — the same files that go ont
 | eBAMATIC Stage | `pMeh 18 eBAMATIC ST` | both | 4 | 0 - Default, Stage 1 … Stage 3 |
 | Advanced → CPU → Boost Clock | `CPU Boost Clock` | both | 20 | eBAMATIC, 1400MHz … 3000MHz - S |
 | Advanced → CPU → Min Voltage | `CPU Minimal Voltage` | both | 53 | Eco ST1 - Auto — Default, Eco ST2 - Auto … 750 mV |
-| Advanced → CPU → Max Voltage | `CPU Maximum Voltage` | Mariko | 35 | eBamatic - Default (automatic), 1100 mV … 1375mV |
-| Advanced → CPU → Voltage Limit | `CPU Voltage Limit` | Erista | 22 | eBamatic (automatic), 1180mV … 1375mV |
+| Advanced → CPU → Max Voltage | `CPU Maximum Voltage` | Mariko | 35 | eBamatic, 1100 mV … 1375mV |
+| Advanced → CPU → Voltage Limit | `CPU Voltage Limit` | Erista | 22 | eBamatic, 1180mV … 1375mV |
 | Advanced → CPU → dCPUv | `dCPUv` | Mariko | 24 | eBamatic, 1 - ECO ST 1 … 890mV |
 | Advanced → CPU → Low MHz Undervolt | `Low MHz Undervolt` | Mariko | 7 | 0 - Default, lvl 1 … lvl 6 |
 | Advanced → CPU → High MHz Undervolt | `High MHz Undervolt` | Mariko | 8 | 0 - Base undervolting, lvl 1 … lvl 7 |
@@ -87,8 +87,8 @@ The table is generated from the **built package** — the same files that go ont
 | Advanced → GPU → Undervolt Mode | `GPU Undervolt Mode` | Mariko | 6 | Eco ST1 - Default, Eco ST1.5 … Custom Table |
 | Advanced → GPU → Undervolt Mode | `GPU Undervolt Mode` | Erista | 4 | Default, Eco ST1 … Eco ST3 |
 | Advanced → GPU → Min Voltage | `GPU Minimal Voltage` | both | 3 | Eco ST1 - Default, Eco ST2, Eco ST3 - lowest voltage |
-| Advanced → GPU → Max Voltage | `GPU Max Voltage` | Mariko | 92 | eBamatic - Default (automatic), 750 mV … 1200 mV |
-| Advanced → GPU → Max Voltage | `GPU Max Voltage` | Erista | 92 | eBamatic - Default (automatic), 850 mV … 1300 mV |
+| Advanced → GPU → Max Voltage | `GPU Max Voltage` | Mariko | 92 | eBamatic, 750 mV … 1200 mV |
+| Advanced → GPU → Max Voltage | `GPU Max Voltage` | Erista | 92 | eBamatic, 850 mV … 1300 mV |
 | Advanced → GPU → vMin Offset | `pMeh 19 vMINetune ST` | both | 31 | +75 mV, +70 mV … -75 mV |
 | Advanced → GPU → vMin Offset (max RAM) | `pMeh 21 gVMINDick` | both | 31 | +75 mV, +70 mV … -75 mV |
 | Advanced → RAM → Optimized Mode (1600 MHz) → Optimized Target | `sMeh 16 SYK-LOH` | both | 2 | 0, 1 - Default |
@@ -102,8 +102,8 @@ The table is generated from the **built package** — the same files that go ont
 | Advanced → RAM → Core Timings → Core Timings 6 | `Core Timings 6` | both | 15 | 1, 2 … 0 - DEBUG |
 | Advanced → RAM → Core Timings → Core Timings 7 | `Core Timings 7` | both | 11 | 1, 2 … 0 - DEBUG |
 | Advanced → RAM → Core Timings → Core Timings 8 | `Core Timings 8` | both | 13 | 1 - Safe, 2 … 0 - DEBUG |
-| Advanced → RAM → Frequency | `RAM MHz` | Mariko | 51 | eBamatic (automatic), 1600MHz - 1600 — SYK-LOH eb1 … 3309MHz - 3309 |
-| Advanced → RAM → Frequency | `RAM MHz` | Erista | 46 | eBamatic (automatic), 1600MHz - 1600 — SYK-LOH … 2649MHz |
+| Advanced → RAM → Frequency | `RAM MHz` | Mariko | 51 | eBamatic, 1600MHz - 1600 — SYK-LOH eb1 … 3309MHz - 3309 |
+| Advanced → RAM → Frequency | `RAM MHz` | Erista | 46 | eBamatic, 1600MHz - 1600 — SYK-LOH … 2649MHz |
 | Advanced → RAM → EMC Balance | `EMC Balance` | both | 6 | Default, 1 - SYK-LOH … 5 - SRT ST2 |
 | Advanced → RAM → EBA-Shift | `EBA-Shift` | both | 6 | 0, 1 - Default (ECO ST1) … 5 - LOH-C4C |
 | Advanced → RAM → Vddq | `RAM Vddq` | Mariko | 101 | 300 mV, 305 mV … 800 mV |
