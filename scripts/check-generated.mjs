@@ -2582,8 +2582,10 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 {
   const SCAN_DIRS = ['docs', 'Guides', 'Make', '.']
   // Журнал и разведка исключены осознанно: это датированные отчёты, и переписывание
-  // их убивает провенанс. INSTALL-engine.txt описывает законсервированный отдельный
-  // релиз движка, а не наш архив.
+  // их убивает провенанс. INSTALL-engine.txt НЕ законсервирован: с 05.09.2026
+  // make-build.ps1 подставляет его вместо INSTALL.txt в каждый комплект С ДВИЖКОМ.
+  // Исключён он потому, что описывает именно такой комплект, а предмет надзора здесь
+  // один — обычный публикуемый архив релиза, в котором движка нет.
   const SKIP = [/^docs[\/]NOTES\.md$/i, /^docs[\/]research[\/]/i, /^docs[\/]INSTALL-engine\.txt$/i]
   // Форма самого утверждения, а не всякое соседство: «архив НЕСЁТ движок».
   // Без глагола обладания в сеть попадали глоссарий, аудит ссылок и шаги сборки.
@@ -2999,8 +3001,8 @@ const KNOWN_WARNINGS = [
   {
     since: '05.09.2026',
     match: /^предложенное значение точки кривой Erista даёт лишнее совпадение сканера/,
-    why: 'модель опасности опровергнута счётом по стоковой прошивке; разбора обработчика записи 10 нет',
-    where: 'docs/IMPROVEMENTS.md U20, docs/NOTES.md №253 и №254',
+    why: 'в kip лежат символы pcv::erista::Patch(uintptr_t, size_t) и pcv::mariko::Patch(…) — сигнатура «адрес, размер» принадлежит патчеру отображённого модуля PCV, а не блоку CUST: пользовательская кривая туда пишется, а не сканируется',
+    where: 'docs/IMPROVEMENTS.md U20, docs/NOTES.md №253, №254 и №262',
   },
 ]
 const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.match.test(q.what))
@@ -3412,6 +3414,71 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   else ok.push(`the GPU curves are in the factory baseline and the shared cells are not called a voltage (${curve.length} points, ${notAValue.size} cells shown as bytes)`)
 }
 
+// ---------------- 51. одно значение — одна запись в словаре поля
+//
+// ПОРЯДОК СТРОК В КАРТЕ МОЛЧА РЕШАЕТ, КАКАЯ ПОДПИСЬ ПОПАДЁТ НА ЭКРАН.
+//
+// И список выбора, и карту подписи генератор собирает одним проходом по `values`,
+// схлопывая повторы по значению: побеждает ЗАПИСЬ, СТОЯЩАЯ ВЫШЕ (`emitDicts`, ключ
+// `dedup`). Значит две записи с одним значением — не безобидный повтор, а выбор подписи,
+// сделанный порядком строк. Поменяй их местами при любой будущей правке — и пункт сменит
+// имя на экране, не изменив в kip ни одного байта, и диффа с подписью в этом не будет.
+//
+// Это лежало в дереве, а не выдумано: у `12336 Speed Shift` значение `000000` стояло
+// дважды — `eBAMATIC` и `eBamatic`, наследство двух доноров. Перепись по всей карте дала
+// 16 таких пар в 12 полях, все убраны 07.09.2026 (NOTES №285); порождённое от этого
+// не изменилось ни на байт — лишние записи и так проигрывали.
+//
+// Ни один сторож их не видел: проверка 19 сверяет подпись с тем, что запись ЗАПИШЕТ,
+// внутри одной записи, а «намеренные двойники» в check-menu.mjs — про СМЕЩЕНИЯ, занятые
+// двумя пунктами, и к значениям внутри поля отношения не имеют.
+//
+// ЗАКОННЫЙ ДВОЙНИК ОДИН, И ОН ОБЪЯВЛЯЕТСЯ НЕ СПИСКОМ, А КЛЮЧОМ. Ступени андервольта GPU
+// пишут в поле режима один и тот же код и различаются ТОЛЬКО таблицей — поэтому ключ
+// здесь тот же, что у генератора: значение ПЛЮС `writes`. Других исключений нет, и
+// поимённого списка тоже нет: сегодня в карте нет ни одной пары, которую пришлось бы
+// прощать по имени.
+//
+// ГРАНИЦА НАДЗОРА. Стережём записи с ОДИНАКОВО НАПИСАННЫМ значением. Донорские `01`
+// и `010000` в одном поле — не то же самое: их генератор схлопывает НАМЕРЕННО (дополнение
+// до длины поля в `emitDicts`), карта держит обе формы у 20 полей, и это её устройство,
+// а не дефект. Тот же риск подписи там есть, но закрывается не сторожем, а прополкой
+// словарей — записано отдельно, NOTES №285.
+{
+  const norm = h => String(h ?? '').toUpperCase().replace(/[^0-9A-F]/g, '')
+  const dictKey = v => norm(v.hex) + (v.writes ? '|' + JSON.stringify(v.writes) : '')
+  const dicts = []
+  for (const f of fields) if ((f.values ?? []).length) dicts.push({ where: `${f.offset} ${f.name}`, values: f.values })
+  // Пункт меню вправе объявить свой ряд вместо ряда поля — это тоже словарь, и он
+  // порождается тем же `emitDicts`, с той же дедупликацией.
+  ;(function walk (n) {
+    if (!n || typeof n !== 'object') return
+    if (Array.isArray(n.values) && n.values.length && n.id !== undefined)
+      dicts.push({ where: `пункт «${n.id}»`, values: n.values })
+    for (const v of Object.values(n)) if (v && typeof v === 'object') walk(v)
+  })(menu)
+
+  const twins = []
+  let entries = 0
+  for (const d of dicts) {
+    const seen = new Map()
+    for (const v of d.values) {
+      entries++
+      const k = dictKey(v)
+      if (!k) continue
+      if (seen.has(k)) twins.push(`${d.where}: значение ${v.hex} объявлено дважды — «${seen.get(k)}» и «${v.name}»; на экран попадёт первое`)
+      else seen.set(k, v.name)
+    }
+  }
+  // Ноль поднадзорных — красный: словари переехали, и сторож смотрит в пустоту.
+  if (!dicts.length || !entries)
+    problems.push({ sev: 'CRITICAL', what: 'ни одного словаря значений в карте — проверка на двойников значений смотрит в пустоту' })
+  else if (twins.length)
+    problems.push({ sev: 'CRITICAL', what: `одно значение объявлено дважды (${twins.length}) — подпись выбирается порядком строк:\n     ${twins.slice(0, 8).join('\n     ')}` })
+  else
+    ok.push(`no dictionary declares the same value twice (${dicts.length} dictionaries, ${entries} entries)`)
+}
+
 // ---------------- 49. the gate does not quietly lose a check
 //
 // A check whose subject disappears can vanish from this file's own count without a word:
@@ -3421,7 +3488,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // loops. A hard-coded expectation is crude, but it is the one thing that notices a guard
 // going missing. Raise it deliberately when you add a check; never to make a run green.
 {
-  const EXPECTED = 58
+  const EXPECTED = 59
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,

@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=a060745131b7 self=960bca33a094 -->
+<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=a060745131b7 self=ff2994489b68 -->
 # If something goes wrong
 
 <!-- nav:begin -->
@@ -65,6 +65,7 @@ Cannot remember what you changed? Put the whole category back to factory; KipToo
 reset a category at once.
 
 > [!WARNING]
+<!-- spelling: ECO ST1/ST2/ST3 in this box are KipTool's labels, not ours. Do NOT fold them into our "Eco". Decided 07.09.2026. -->
 > **If the GPU stage is the problem, pick only `ECO ST1` in KipTool.**
 >
 > Not `ECO ST3`: it takes more voltage away than any other stage. If the console failed
@@ -106,7 +107,7 @@ curve lives outside the file the tuner resets — [details](09-timings.md#coolin
 
 **It hangs after ten or fifteen minutes of play.** The CPU is short of margin. Set
 `Advanced → CPU → Low MHz Undervolt` to `lvl 1`. If that does not help, try
-`Advanced → CPU → Speed Shift` at `ECO Stage 1`.
+`Advanced → CPU → Speed Shift` at `Eco Stage 1`.
 
 Erista does not have the first entry — go straight to `Speed Shift` there.
 
@@ -122,7 +123,7 @@ profile's stock clock. Lower `Advanced → RAM → Frequency` to `2400` and rebo
 The profile itself is not set here but in the 4IFIR overlay — the fix, however, is ours.
 
 **A black screen after the Nintendo logo.** With KipTool, set `Speed Shift` to `100`. That
-is the same thing as `ECO Stage 1` in the tuner: KipTool shows the number, the tuner shows
+is the same thing as `Eco Stage 1` in the tuner: KipTool shows the number, the tuner shows
 the name.
 
 **The console shuts down under load, and the charge drops suddenly.** The power

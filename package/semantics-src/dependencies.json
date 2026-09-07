@@ -697,7 +697,7 @@
         "marikoCpuUV",
         "marikoCpuHUV"
       ],
-      "name": "CPU ECO ALT-MODE",
+      "name": "CPU Eco ALT-MODE",
       "rule": "the special ECO ALT-MODE is enabled ONLY when both fields equal 0",
       "source_text": "0 ECO ALT-MODE (low=0 & high=0)",
       "scale_note": "FACT: the scale is non-linear — 1 = ECO ST1, 3 = ECO ST2, 5 = ECO ST3; 2/4/6 are intermediate manual steps. The packages expose this as a flat trackbar «Level 1…6» (Ebal/CPU.ini:40,48), losing the meaning of the anchor points.",

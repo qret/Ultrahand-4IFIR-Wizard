@@ -18,12 +18,12 @@
 | eBAMATIC Stage | `pMeh 18 eBAMATIC ST` | обе | 4 | 0 - Default, Stage 1 … Stage 3 |
 | Advanced → CPU → Boost Clock | `CPU Boost Clock` | обе | 20 | eBAMATIC, 1400MHz … 3000MHz - S |
 | Advanced → CPU → Min Voltage | `CPU Minimal Voltage` | обе | 53 | Eco ST1 - Auto — Default, Eco ST2 - Auto … 750 mV |
-| Advanced → CPU → Max Voltage | `CPU Maximum Voltage` | Mariko | 35 | eBamatic, 1100 mV … 1375mV |
-| Advanced → CPU → Voltage Limit | `CPU Voltage Limit` | Erista | 22 | eBamatic, 1180mV … 1375mV |
-| Advanced → CPU → dCPUv | `dCPUv` | Mariko | 24 | eBamatic, 1 - ECO ST 1 … 890mV |
+| Advanced → CPU → Max Voltage | `CPU Maximum Voltage` | Mariko | 35 | eBAMATIC, 1100 mV … 1375mV |
+| Advanced → CPU → Voltage Limit | `CPU Voltage Limit` | Erista | 22 | eBAMATIC, 1180mV … 1375mV |
+| Advanced → CPU → dCPUv | `dCPUv` | Mariko | 24 | eBAMATIC, 1 - Eco ST 1 … 890mV |
 | Advanced → CPU → Low MHz Undervolt | `Low MHz Undervolt` | Mariko | 7 | 0 - Default, lvl 1 … lvl 6 |
 | Advanced → CPU → High MHz Undervolt | `High MHz Undervolt` | Mariko | 8 | 0 - Base undervolting, lvl 1 … lvl 7 |
-| Advanced → CPU → Speed Shift | `Speed Shift` | обе | 8 | eBAMATIC, Auto … ECO Stage 4 |
+| Advanced → CPU → Speed Shift | `Speed Shift` | обе | 8 | eBAMATIC, Auto … Eco Stage 4 |
 | Advanced → GPU → GPU Voltage Table → 307MHz | `307MHz` | Mariko | 42 | 395 mV - Default, 400 mV … 600 mV |
 | Advanced → GPU → GPU Voltage Table → 345MHz | `345MHz` | Mariko | 41 | 400 mV, 405 mV … 600 mV |
 | Advanced → GPU → GPU Voltage Table → 384MHz | `384MHz` | Mariko | 41 | 400 mV, 405 mV … 600 mV |
@@ -87,8 +87,8 @@
 | Advanced → GPU → Undervolt Mode | `GPU Undervolt Mode` | Mariko | 6 | Eco ST1 - Default, Eco ST1.5 … Custom Table |
 | Advanced → GPU → Undervolt Mode | `GPU Undervolt Mode` | Erista | 4 | Default, Eco ST1 … Eco ST3 |
 | Advanced → GPU → Min Voltage | `GPU Minimal Voltage` | обе | 3 | Eco ST1 - Default, Eco ST2, Eco ST3 - lowest voltage |
-| Advanced → GPU → Max Voltage | `GPU Max Voltage` | Mariko | 92 | eBamatic, 750 mV … 1200 mV |
-| Advanced → GPU → Max Voltage | `GPU Max Voltage` | Erista | 92 | eBamatic, 850 mV … 1300 mV |
+| Advanced → GPU → Max Voltage | `GPU Max Voltage` | Mariko | 92 | eBAMATIC, 750 mV … 1200 mV |
+| Advanced → GPU → Max Voltage | `GPU Max Voltage` | Erista | 92 | eBAMATIC, 850 mV … 1300 mV |
 | Advanced → GPU → vMin Offset | `pMeh 19 vMINetune ST` | обе | 31 | +75 mV, +70 mV … -75 mV |
 | Advanced → GPU → vMin Offset (max RAM) | `pMeh 21 gVMINDick` | обе | 31 | +75 mV, +70 mV … -75 mV |
 | Advanced → RAM → Optimized Mode (1600 MHz) → Optimized Target | `sMeh 16 SYK-LOH` | обе | 2 | 0, 1 - Default |
@@ -96,19 +96,19 @@
 | Advanced → RAM → Optimized Mode (1600 MHz) → Efficiency Stages | `sMeh 8 E-Boost` | обе | 3 | 0 - Default, 1, 2 |
 | Advanced → RAM → Core Timings → Core Timings 1 | `Core Timings 1` | обе | 10 | 1, 2 … 0 - DEBUG |
 | Advanced → RAM → Core Timings → Core Timings 2 | `Core Timings 2` | обе | 10 | 1, 2 … 9 - ALT Logic |
-| Advanced → RAM → Core Timings → Core Timings 3 | `Core Timings 3` | обе | 11 | eBamatic, 1 … 10 - ALT Logic |
+| Advanced → RAM → Core Timings → Core Timings 3 | `Core Timings 3` | обе | 11 | eBAMATIC, 1 … 10 - ALT Logic |
 | Advanced → RAM → Core Timings → Core Timings 4 | `Core Timings 4` | обе | 10 | 1, 2 … 0 - DEBUG |
 | Advanced → RAM → Core Timings → Core Timings 5 | `Core Timings 5` | обе | 10 | 1, 2 … 0 - DEBUG |
 | Advanced → RAM → Core Timings → Core Timings 6 | `Core Timings 6` | обе | 15 | 1, 2 … 0 - DEBUG |
 | Advanced → RAM → Core Timings → Core Timings 7 | `Core Timings 7` | обе | 11 | 1, 2 … 0 - DEBUG |
 | Advanced → RAM → Core Timings → Core Timings 8 | `Core Timings 8` | обе | 13 | 1 - Safe, 2 … 0 - DEBUG |
-| Advanced → RAM → Frequency | `RAM MHz` | Mariko | 51 | eBamatic, 1600MHz - 1600 — SYK-LOH eb1 … 3309MHz - 3309 |
-| Advanced → RAM → Frequency | `RAM MHz` | Erista | 46 | eBamatic, 1600MHz - 1600 — SYK-LOH … 2649MHz |
+| Advanced → RAM → Frequency | `RAM MHz` | Mariko | 51 | eBAMATIC, 1600MHz - 1600 — SYK-LOH eb1 … 3309MHz - 3309 |
+| Advanced → RAM → Frequency | `RAM MHz` | Erista | 46 | eBAMATIC, 1600MHz - 1600 — SYK-LOH … 2649MHz |
 | Advanced → RAM → EMC Balance | `EMC Balance` | обе | 6 | Default, 1 - SYK-LOH … 5 - SRT ST2 |
-| Advanced → RAM → EBA-Shift | `EBA-Shift` | обе | 6 | 0, 1 - Default (ECO ST1) … 5 - LOH-C4C |
+| Advanced → RAM → EBA-Shift | `EBA-Shift` | обе | 6 | 0, 1 - Default (Eco ST1) … 5 - LOH-C4C |
 | Advanced → RAM → Vddq | `RAM Vddq` | Mariko | 101 | 300 mV, 305 mV … 800 mV |
 | Advanced → RAM → Vdd2 | `RAM Vdd2` | обе | 37 | 950 mV, 962.5 mV … 1400 mV |
-| Advanced → RAM → EMC DVB Mode | `EMC DVB Mode` | Mariko | 41 | eBamatic, Eco ST1 … 1150mV |
+| Advanced → RAM → EMC DVB Mode | `EMC DVB Mode` | Mariko | 41 | eBAMATIC, Eco ST1 … 1150mV |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 0 eBAS Sub-Zero | `pMeh 0 eBAS Sub-Zero` | обе | 2 | 0 - Default, 1 |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 1 divMB Supressor | `pMeh 1 divMB Supressor` | обе | 5 | 0, 1 … 4 |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 2 1333-1065-800 | `pMeh 2 1333>1065>800` | обе | 4 | 0 - Default, 1 … 3 |

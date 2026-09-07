@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/08-ram.md sha=62cba22a83c0 self=c3b7b911d516 -->
+<!-- i18n: source=Guides/ru/08-ram.md sha=62cba22a83c0 self=f2ca1122c007 -->
 # RAM
 
 <!-- nav:begin -->
@@ -29,7 +29,7 @@ directly on `Vdd2`.
 ## Frequency
 
 `Frequency` sets the memory clock. The values are labelled with a number and with the
-mode they belong to — `1862MHz — 1862 — ECO ST2 eb2`, for instance.
+mode they belong to — `1862MHz — 1862 — Eco ST2 eb2`, for instance.
 
 1. Raise the clock one step.
 2. Reboot.

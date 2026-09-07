@@ -529,7 +529,7 @@
               "values": [
                 {
                   "hex": "000000",
-                  "name": "eBamatic"
+                  "name": "eBAMATIC"
                 },
                 {
                   "hex": "EE0200",
@@ -573,7 +573,7 @@
                 },
                 {
                   "hex": "200300",
-                  "name": "800 mV — ECO ST3"
+                  "name": "800 mV — Eco ST3"
                 },
                 {
                   "hex": "250300",
@@ -673,7 +673,7 @@
                 },
                 {
                   "hex": "9D0300",
-                  "name": "925 mV — ECO ST2"
+                  "name": "925 mV — Eco ST2"
                 },
                 {
                   "hex": "A20300",
@@ -911,7 +911,7 @@
               "values": [
                 {
                   "hex": "000000",
-                  "name": "eBamatic"
+                  "name": "eBAMATIC"
                 },
                 {
                   "hex": "520300",
@@ -975,7 +975,7 @@
                 },
                 {
                   "hex": "9D0300",
-                  "name": "925 mV — ECO ST2"
+                  "name": "925 mV — Eco ST2"
                 },
                 {
                   "hex": "A20300",
@@ -1616,7 +1616,7 @@
         {
           "id": "ram",
           "title": "RAM",
-          "header_context": "{ram_vendor} {ram_model}",
+          "header_context": "{ram_vendor} {if_==({length({if_null({split({ram_model},\"-\",1)},{ram_model},{if_!null({split({ram_model},\" \",1)},{split({ram_model},\" \",1)},{split({ram_model},\"-\",1)})})})},4,{if_null({split({ram_model},\" \",1)},{slice({ram_model},{math({length({ram_model})}-7)},{length({ram_model})})},{if_null({split({ram_model},\"-\",1)},{ram_model},{if_!null({split({ram_model},\" \",1)},{split({ram_model},\" \",1)},{split({ram_model},\"-\",1)})})})},{if_null({split({ram_model},\"-\",1)},{ram_model},{if_!null({split({ram_model},\" \",1)},{split({ram_model},\" \",1)},{split({ram_model},\"-\",1)})})})}",
           "children": [
             {
               "id": "ram_mhz_mariko",

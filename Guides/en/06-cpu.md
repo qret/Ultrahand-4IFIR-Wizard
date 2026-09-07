@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/06-cpu.md sha=c8260aae8e4f self=ee95329e5dfa -->
+<!-- i18n: source=Guides/ru/06-cpu.md sha=c8260aae8e4f self=b978bde37706 -->
 # CPU
 
 <!-- nav:begin -->
@@ -110,7 +110,7 @@ says.
 | Entry | Side |
 |---|---|
 | `Sport` | adds voltage: more headroom at high clocks, more power draw |
-| `ECO Stage 1…4` | saving: the further you go, the lower the draw and the smaller the margin |
+| `Eco Stage 1…4` | saving: the further you go, the lower the draw and the smaller the margin |
 | `eBAMATIC`, `Auto` | two different automatic modes, both off this scale |
 
 The firmware accepts values from 25 to 175; the tuner offers eight named points out of
@@ -119,7 +119,7 @@ those, with no free entry.
 ### How to tune it
 
 1. Start with `eBAMATIC`.
-2. Want savings — go up a step at a time: `ECO Stage 1`, then `2`, then `3`.
+2. Want savings — go up a step at a time: `Eco Stage 1`, then `2`, then `3`.
 3. Short of stability at high clocks — the other way, towards `Sport`.
 
 > [!TIP]

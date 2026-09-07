@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=e8844d09cf06 self=c3536375f492 -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=e8844d09cf06 self=a68df3a9857f -->
 # GPU and stages
 
 <!-- nav:begin -->
@@ -96,6 +96,8 @@ mode number** and differ only in what is written into the working table.
 
 When you pick a stage, the tuner writes **both the number and the whole table**. That is
 why switching works immediately, with no intermediate steps.
+
+<!-- spelling: the ECO ST1/ST2/ST3 below are KipTool's own labels, not ours. Do NOT fold them into the package spelling "Eco": this is read with a console that will not boot, against KipTool's screen. Decided 07.09.2026. -->
 
 ## If the console will not boot because of a stage
 
@@ -200,6 +202,7 @@ Practical consequences:
   above is not about you.
 - **`Min Voltage` on Erista does not show the voltage you will get.** The firmware adds
   100 mV to whatever you pick: an entry reading "610 mV" actually gives 710.
+<!-- spelling: the ECO ST* in the bullets below are KipTool's labels, not ours. -->
 - **KipTool on Erista can edit the curve itself**, not only the mode number. Be careful
   though: from the second row on, the clock labels it shows do not match reality.
 - **KipTool shows the Erista stages shifted by one.** Its `ECO ST1` in fact lowers

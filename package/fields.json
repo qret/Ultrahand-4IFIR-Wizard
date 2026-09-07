@@ -156,10 +156,6 @@
         {
           "hex": "C0C62D",
           "name": "3000MHz - S"
-        },
-        {
-          "hex": "000000",
-          "name": "eBamatic"
         }
       ],
       "help_text": "CPU Boost Mode controls the maximum possible CPU frequency, used by system in boost mode (game loadings, tinfoil downloads, etc.)",
@@ -278,7 +274,7 @@
         },
         {
           "hex": "D8ED11",
-          "name": "1175 mV — ECO",
+          "name": "1175 mV — Eco",
           "name_ebal": "1175mV - Eco"
         },
         {
@@ -340,10 +336,6 @@
           "name": "1087.5 mV"
         },
         {
-          "hex": "E0C810",
-          "name": "1100 mV"
-        },
-        {
           "hex": "B4F910",
           "name": "1112.5 mV"
         },
@@ -362,10 +354,6 @@
         {
           "hex": "04BD11",
           "name": "1162.5 mV"
-        },
-        {
-          "hex": "D8ED11",
-          "name": "1175 mV — ECO"
         },
         {
           "hex": "AC1E12",
@@ -397,7 +385,7 @@
         },
         {
           "hex": "787413",
-          "name": "1275 mV — DEFAULT"
+          "name": "1275 mV — Default"
         },
         {
           "hex": "4CA513",
@@ -412,10 +400,6 @@
           "name": "1312.5 mV"
         },
         {
-          "hex": "C83714",
-          "name": "1325 mV"
-        },
-        {
           "hex": "9C6814",
           "name": "1337.5 mV"
         },
@@ -426,10 +410,6 @@
         {
           "hex": "44CA14",
           "name": "1362.5 mV"
-        },
-        {
-          "hex": "18FB14",
-          "name": "1375 mV — SRT"
         },
         {
           "hex": "EC2B15",
@@ -686,7 +666,7 @@
         },
         {
           "hex": "000000",
-          "name": "eBamatic"
+          "name": "eBAMATIC"
         }
       ],
       "help_text": "This menu allows you to set the maximum allowable CPU voltage. \n\nThe higher the voltage, the higher the maximum available processor frequency, but the higher the consumption. \n\nIt is recommended to increase it if there is a lack of maximum frequency for processor-intensive games.",
@@ -825,15 +805,15 @@
         },
         {
           "hex": "00771A",
-          "name": "1734 - ECO ST2"
+          "name": "1734 - Eco ST2"
         },
         {
           "hex": "006B1C",
-          "name": "1862 - ECO ST1"
+          "name": "1862 - Eco ST1"
         },
         {
           "hex": "00841C",
-          "name": "1868MHz - ECO ST1 eb3"
+          "name": "1868MHz - Eco ST1 eb3"
         },
         {
           "hex": "00B61C",
@@ -1001,7 +981,7 @@
         },
         {
           "hex": "000000",
-          "name": "eBamatic"
+          "name": "eBAMATIC"
         }
       ],
       "menu_path": {
@@ -1146,7 +1126,7 @@
       "values": [
         {
           "hex": "000000",
-          "name": "eBamatic"
+          "name": "eBAMATIC"
         },
         {
           "hex": "6A0400",
@@ -1247,10 +1227,6 @@
         {
           "hex": "5F0500",
           "name": "1375mV"
-        },
-        {
-          "hex": "000000",
-          "name": "eBamatic"
         },
         {
           "hex": "4C04",
@@ -1542,15 +1518,15 @@
         },
         {
           "hex": "00771A",
-          "name": "1734 - ECO ST3 eb1"
+          "name": "1734 - Eco ST3 eb1"
         },
         {
           "hex": "006B1C",
-          "name": "1862 - ECO ST2 eb2"
+          "name": "1862 - Eco ST2 eb2"
         },
         {
           "hex": "00781E",
-          "name": "1996 - ECO ST1 eb2"
+          "name": "1996 - Eco ST1 eb2"
         },
         {
           "hex": "008520",
@@ -1582,7 +1558,7 @@
         },
         {
           "hex": "00841C",
-          "name": "1868 - ECO ST2 eb2"
+          "name": "1868 - Eco ST2 eb2"
         },
         {
           "hex": "00011D",
@@ -1738,7 +1714,7 @@
         },
         {
           "hex": "000000",
-          "name": "eBamatic"
+          "name": "eBAMATIC"
         }
       ],
       "menu_path": {
@@ -1902,12 +1878,12 @@
       "values": [
         {
           "hex": "20A107",
-          "name": "500 mV — ECO",
+          "name": "500 mV — Eco",
           "name_ebal": "500mv"
         },
         {
           "hex": "10EB09",
-          "name": "650 mV — DEFAULT",
+          "name": "650 mV — Default",
           "name_ebal": "650mV - Default"
         },
         {
@@ -2076,10 +2052,6 @@
           "name": "495 mV"
         },
         {
-          "hex": "20A107",
-          "name": "500 mV — ECO"
-        },
-        {
           "hex": "A8B407",
           "name": "505 mV"
         },
@@ -2196,10 +2168,6 @@
           "name": "645 mV"
         },
         {
-          "hex": "10EB09",
-          "name": "650 mV — DEFAULT"
-        },
-        {
           "hex": "98FE09",
           "name": "655 mV"
         },
@@ -2234,10 +2202,6 @@
         {
           "hex": "D89A0A",
           "name": "695 mV"
-        },
-        {
-          "hex": "60AE0A",
-          "name": "700 mV — SRT"
         },
         {
           "hex": "E8C10A",
@@ -2514,10 +2478,6 @@
         {
           "hex": "050000",
           "name": "Stage3 - Max"
-        },
-        {
-          "hex": "000000",
-          "name": "Default"
         }
       ],
       "help_text": "This menu allows you to set undervolting mode for frequencies from 16XX MHz and down.\n\nThe higher the value, the more agressive undervolting is appied to the CPU.",
@@ -2741,10 +2701,6 @@
         {
           "hex": "03",
           "name": "Custom Table"
-        },
-        {
-          "hex": "000000",
-          "name": "Default"
         },
         {
           "hex": "010000",
@@ -4299,7 +4255,7 @@
       "values": [
         {
           "hex": "000000",
-          "name": "eBamatic"
+          "name": "eBAMATIC"
         },
         {
           "hex": "030000",
@@ -4460,10 +4416,6 @@
         {
           "hex": "7E0400",
           "name": "1150mV"
-        },
-        {
-          "hex": "000000",
-          "name": "eBamatic"
         },
         {
           "hex": "FA00",
@@ -5138,7 +5090,7 @@
       "values": [
         {
           "hex": "000000",
-          "name": "eBamatic",
+          "name": "eBAMATIC",
           "name_ebal": "eBamatic  - Default"
         },
         {
@@ -19667,23 +19619,19 @@
         },
         {
           "hex": "6400",
-          "name": "ECO Stage 1"
+          "name": "Eco Stage 1"
         },
         {
           "hex": "7D00",
-          "name": "ECO Stage 2"
+          "name": "Eco Stage 2"
         },
         {
           "hex": "9600",
-          "name": "ECO Stage 3"
+          "name": "Eco Stage 3"
         },
         {
           "hex": "AF00",
-          "name": "ECO Stage 4"
-        },
-        {
-          "hex": "000000",
-          "name": "eBamatic"
+          "name": "Eco Stage 4"
         },
         {
           "hex": "01",
@@ -19695,15 +19643,15 @@
         },
         {
           "hex": "64",
-          "name": "ECO ST1"
+          "name": "Eco ST1"
         },
         {
           "hex": "7D",
-          "name": "ECO ST2"
+          "name": "Eco ST2"
         },
         {
           "hex": "96",
-          "name": "ECO ST3"
+          "name": "Eco ST3"
         }
       ],
       "help_text": "Speed Shift is the secret component of 4IFIR, that allows you to open the full potential of your console.\n\nThe higher the value, the lower the consumption.",
@@ -19875,10 +19823,6 @@
         {
           "hex": "07",
           "name": "lvl 7"
-        },
-        {
-          "hex": "000000",
-          "name": "eBamatic"
         },
         {
           "hex": "010000",
@@ -20066,7 +20010,7 @@
       "values": [
         {
           "hex": "000000",
-          "name": "eBamatic",
+          "name": "eBAMATIC",
           "name_ebal": "eBamatic (automatic)"
         },
         {
@@ -20111,7 +20055,7 @@
         },
         {
           "hex": "200300",
-          "name": "800 mV — ECO ST3"
+          "name": "800 mV — Eco ST3"
         },
         {
           "hex": "250300",
@@ -20211,7 +20155,7 @@
         },
         {
           "hex": "9D0300",
-          "name": "925 mV — ECO ST2"
+          "name": "925 mV — Eco ST2"
         },
         {
           "hex": "A20300",
@@ -20645,7 +20589,7 @@
       "values": [
         {
           "hex": "000000",
-          "name": "eBamatic",
+          "name": "eBAMATIC",
           "name_ebal": "eBamatic (automatic)"
         },
         {
@@ -20730,17 +20674,17 @@
         },
         {
           "hex": "010000",
-          "name": "1 - ECO ST 1",
+          "name": "1 - Eco ST 1",
           "name_ebal": "ST 1"
         },
         {
           "hex": "020000",
-          "name": "2 - ECO ST 2",
+          "name": "2 - Eco ST 2",
           "name_ebal": "ST 2"
         },
         {
           "hex": "030000",
-          "name": "3 - ECO ST 3",
+          "name": "3 - Eco ST 3",
           "name_ebal": "ST 3"
         }
       ],
@@ -20900,7 +20844,7 @@
         },
         {
           "hex": "02",
-          "name": "2 - ECO ST1"
+          "name": "2 - Eco ST1"
         },
         {
           "hex": "03",
@@ -20921,11 +20865,6 @@
         {
           "hex": "020000",
           "name": "Stage3 - Max"
-        },
-        {
-          "hex": "000000",
-          "name": "0 - eBAMATIC",
-          "name_ebal": "eBamatic"
         }
       ],
       "menu_path": {
@@ -21269,7 +21208,7 @@
         },
         {
           "hex": "01",
-          "name": "1 - Default (ECO ST1)"
+          "name": "1 - Default (Eco ST1)"
         },
         {
           "hex": "02",
@@ -24226,10 +24165,6 @@
         {
           "hex": "030000",
           "name": "Stage3 - Max"
-        },
-        {
-          "hex": "000000",
-          "name": "Default"
         }
       ],
       "menu_path": {
@@ -24398,7 +24333,7 @@
           }
         ]
       },
-      "help_text": "pMeh 18 eBAMATIC ST - selects the eBamatic optimization level. The higher the value, the more aggressive the optimization. (Duplicate of item QuickTune > eBAMATIC > e.BAMATIC Stage)",
+      "help_text": "pMeh 18 eBAMATIC ST - selects the eBAMATIC optimization level. The higher the value, the more aggressive the optimization. (Duplicate of item QuickTune > eBAMATIC > e.BAMATIC Stage)",
       "help_source": "4IFIR Wizard Help/pMeh 18 eBAMATIC ST.txt"
     },
     {
