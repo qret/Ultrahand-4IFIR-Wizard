@@ -20,10 +20,11 @@ replaces it.
 > as they are.
 >
 > Once in a while a build **with** the engine goes out instead — the release page says so.
-> That one does carry `config/ultrahand/`, though never `overlays.ini`. And when it
+> That one does carry `config/ultrahand/`, and with it the overlay order a first install
+> should open on: 4IFIR on top, then Status Monitor, FPSLocker, InfoNX, ReverseNX. When it
 > arrives through the tuner's own `Update` entry, your `config.ini` and `overlays.ini` are
-> moved aside before it is unpacked and moved back afterwards; unpacked by hand, it brings
-> our `config.ini` with it.
+> moved aside before it is unpacked and moved back afterwards — so if you have arranged the
+> list yourself, your arrangement wins. Unpacked by hand, it brings ours with it.
 >
 > This repository is for building it yourself or understanding how it works.
 
@@ -414,10 +415,12 @@ your console. Use at your own risk.
 > ни другого: ваша комбинация вызова, тема, порядок оверлеев и звук остаются как были.
 >
 > Изредка вместо него выходит сборка **с движком** — на странице релиза это сказано.
-> Она `config/ultrahand/` везёт, но `overlays.ini` — никогда. И если она приезжает через
-> пункт `Update` в самом тюнере, ваши `config.ini` и `overlays.ini` отводятся в сторону
-> до распаковки и возвращаются после; при распаковке руками наш `config.ini` встанет
-> на место вашего.
+> Она везёт `config/ultrahand/`, а вместе с ним и порядок оверлеев, с которым должна
+> открываться первая установка: сверху 4IFIR, под ним Status Monitor, дальше FPSLocker,
+> InfoNX, ReverseNX. Если она приезжает через пункт `Update` в самом тюнере, ваши
+> `config.ini` и `overlays.ini` отводятся в сторону до распаковки и возвращаются после —
+> то есть если список выстроили вы, останется по-вашему. При распаковке руками встанет
+> наш.
 >
 > Этот репозиторий — для тех, кто хочет собрать всё сам или понять, как оно устроено.
 

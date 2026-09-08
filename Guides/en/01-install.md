@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/01-install.md sha=9d35faf1ba31 self=852fb4b52bbc -->
+<!-- i18n: source=Guides/ru/01-install.md sha=9d35faf1ba31 self=365114d4383b -->
 # Installation
 
 <!-- nav:begin -->
@@ -48,9 +48,10 @@ Inside the ordinary archive there is one folder of settings —
 > **Once in a while a build with the engine goes out instead** — the release page says
 > so. That one brings the engine itself and `config\ultrahand\` with it: otherwise someone
 > installing from scratch would get neither our key combination, nor the language, nor
-> the sound switch. Your own settings still stay yours: the update moves `config.ini`
-> and `overlays.ini` aside before unpacking and moves them back after, and `overlays.ini`
-> is not in that archive at all. What is replaced is our own material — languages,
+> the sound switch, nor the overlay order — 4IFIR on top, then Status Monitor, FPSLocker,
+> InfoNX, ReverseNX. Your own settings still stay yours: the update moves `config.ini`
+> and `overlays.ini` aside before unpacking and moves them back after, so if you have
+> arranged the list yourself, your arrangement wins. What is replaced is our own material — languages,
 > themes, wallpapers, images and the sound set that is playing; the sound set goes back
 > from the engine's settings.
 >

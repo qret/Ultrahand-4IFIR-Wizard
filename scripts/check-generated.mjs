@@ -3604,53 +3604,131 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
     ok.push(`the updater stashes overlay settings and puts them back (${kept56} files, ${branches56} branches each, ${proofs56} proofs)`)
 }
 
-// ---------------- 7. выпуск отказывается выпускать архив с overlays.ini
+// ---------------- 7. набор первой установки везёт порядок оверлеев, и это требование безусловно
 //
-// ЧТО СТЕРЕЖЁМ. `config/ultrahand/overlays.ini` в архив не кладётся с 08.09.2026.
-// Причина не в том, что файл «пользовательский» — config.ini тоже пользовательский
-// и едет намеренно, чтобы чистая установка получила нашу комбинацию клавиш. Причина
-// в необратимости: ключи `mode_args` и `mode_labels` движок только ЧИТАЕТ (main.cpp:2226,
-// 2248, 2250, 2378), а заводя секцию нового оверлея, создаёт семь других ключей и этих
-// двух среди них нет (main.cpp:6794-6800). В 4IFIR они есть у Status-Monitor-Overlay.ovl —
-// шесть режимов с подписями; наш файл на 156 байт стёр бы их так, что вернуть можно
-// только переустановкой прошивки. Ни движок, ни мы их не восстановим.
+// ЧТО СТЕРЕЖЁМ. `config/ultrahand/overlays.ini` — ЕДИНСТВЕННЫЙ носитель порядка оверлеев
+// на экране. Нет файла — движок строит список сам, всем ставит `priority=20`
+// (main.cpp:6794-6800) и выстраивает по алфавиту из NACP. Поэтому у комплекта, который
+// несёт `config/ultrahand/` (то есть у набора первой установки, собираемого с движком),
+// этот файл обязан быть.
+//
+// ПОЧЕМУ ТРЕБОВАНИЕ, А НЕ ЗАПРЕТ. До 08.09.2026 под этим номером стоял ОБРАТНЫЙ сторож:
+// файл не должен ехать никогда. Довод был — `mode_args`/`mode_labels` у
+// Status-Monitor-Overlay.ovl движок только ЧИТАЕТ (main.cpp:2226, 2248, 2250, 2378),
+// а наш файл сотрёт их безвозвратно. Первая половина довода верна: записи этих ключей
+// в движке нет ни одной. Вторая ЛОЖНА, и это выяснилось только на четвёртой проверке:
+// оба списка значений ВМЕСТЕ С ИМЕНЕМ СВОЕЙ СЕКЦИИ лежат внутри самого
+// Status-Monitor-Overlay.ovl (смещения ~1088368 и ~1203904 в двух его версиях). Держать
+// значения в себе нужно, только чтобы их ПИСАТЬ — оверлей прописывает их себе сам.
+// КЛАСС ОШИБКИ: СТОРОЖА ПОСТАВИЛИ НА НЕПРОВЕРЕННУЮ ПОЛОВИНУ ДОВОДА, и он полсуток
+// стерёг ровно то, чего делать было не надо.
+//
+// ПОЧЕМУ ПРОПАЖУ ФАЙЛА ОБЯЗАН ЛОВИТЬ СКРИПТ. Она не ломает ничего громко: комплект
+// соберётся, поставится и запустится — и покажет чужой порядок. 08.09.2026 это
+// обнаружилось единственным способом, каким такое и обнаруживается: человек поставил
+// набор на новую карту и увидел глазами. Второй раз так узнавать нельзя.
 //
 // ПОЧЕМУ ПРОВЕРКА СМОТРИТ В ТЕКСТ СКРИПТА. Архива у гейта нет и быть не может: гейт
 // гоняют на пакете, а комплект собирается отдельно и позже. Зато отказ — это текст,
 // и его исчезновение видно. Форма та же, что у проверки 18.
 //
-// И ОТКАЗ ОБЯЗАН БЫТЬ БЕЗУСЛОВНЫМ. У соседнего отказа (движок в архиве) есть именованный
-// обход `-WithEngine`, разрешённый оператором на разовый выпуск. Здесь обхода нет и не
-// предполагается: разовость касалась движка, а не чужих подписей режимов. Поэтому
-// проверяем не только наличие `throw`, но и то, что условие у него ровно одно.
+// И ТРЕБОВАНИЕ ОБЯЗАНО БЫТЬ БЕЗУСЛОВНЫМ — внутри своей ветви. Внешнее условие про наличие
+// каталога это не ключ, а адресат: комплект без движка его не несёт вовсе (make-build.ps1,
+// ветвь `-PackageOnly`) и порядка оверлеев не требует. А сам отказ внутри обязан висеть
+// на одном условии — отсутствии файла; любой `-and`/`-or` рядом с ним есть тот самый
+// ключ, которого здесь быть не должно.
 {
   const relPs7 = join(ROOT, 'scripts', 'release.ps1')
   const REQUIRED7 = [
     ['путь до overlays.ini в стейдже не назван — проверять нечего',
       /\$overlaysInStage\s*=\s*Join-Path\s+\$stage\s+'config\\ultrahand\\overlays\.ini'/],
-    ['отказа по собранному комплекту нет — overlays.ini уедет в релиз молча',
-      /if\s*\(Test-Path -LiteralPath \$overlaysInStage\)\s*\{[\s\S]{0,800}?throw/],
+    ['отказа по собранному комплекту нет — набор первой установки уедет без порядка оверлеев молча',
+      /if\s*\(-not \(Test-Path -LiteralPath \$overlaysInStage\)\)\s*\{[\s\S]{0,900}?throw/],
+    ['отказ не привязан к наличию config\\ultrahand — он сработал бы и на комплекте без движка, где этого каталога нет намеренно',
+      /if\s*\(Test-Path -LiteralPath \(Join-Path \$stage 'config\\ultrahand'\)\)\s*\{/],
   ]
   let bad7 = 0, have7 = 0
   if (!existsSync(relPs7)) {
     // Выпускающий скрипт в публикацию не входит; у постороннего дерева второй стороны нет.
     // Пропуск назван вслух, а не выдан за проверку — так же, как в проверке 18.
-    ok.push('the overlays.ini release refusal is unreadable here — scripts/release.ps1 is withheld from publication (1 side missing)')
+    ok.push('the first-install kit requirement is unreadable here — scripts/release.ps1 is withheld from publication (1 side missing)')
   } else {
     const ps7 = readFileSync(relPs7, 'utf8')
     for (const [what, re] of REQUIRED7) {
       if (re.test(ps7)) have7++
       else { bad7++; problems.push({ sev: 'CRITICAL', what: `release.ps1: ${what}` }) }
     }
-    // Условие отказа читается целиком и обязано быть ровно одно: любой `-and`/`-or`
-    // рядом с ним — это тот самый ключ, которого здесь быть не должно.
+    // Условие самого отказа читается целиком и обязано быть ровно одно.
     const at7 = ps7.indexOf('$overlaysInStage =')
-    const guard7 = at7 < 0 ? null : ps7.slice(at7).match(/\bif\s*\(([^\r\n]+?)\)\s*\{/)
+    const guard7 = at7 < 0 ? null : ps7.slice(at7).match(/\bif\s*\(-not \(([^\r\n]+?)\)\)\s*\{/)
     if (guard7 && guard7[1].trim() !== 'Test-Path -LiteralPath $overlaysInStage') {
       bad7++
-      problems.push({ sev: 'CRITICAL', what: `отказ по overlays.ini обусловлен «${guard7[1].trim()}» — он обязан быть безусловным: ключа, разрешающего этот файл в архиве, не предусмотрено` })
+      problems.push({ sev: 'CRITICAL', what: `отказ по overlays.ini обусловлен «${guard7[1].trim()}» — он обязан висеть на одном условии: ключа, разрешающего выпустить набор первой установки без порядка оверлеев, не предусмотрено` })
     }
-    if (!bad7) ok.push(`the release refuses any archive carrying config/ultrahand/overlays.ini (${have7} clauses, no switch lifts it)`)
+    if (!bad7) ok.push(`the release refuses a first-install kit with no overlay order in it (${have7} clauses, no switch lifts it)`)
+  }
+}
+
+// ---------------- 59. порядок оверлеев объявлен один раз и не несёт чужих ключей
+//
+// ЧТО СТЕРЕЖЁМ, ПЕРВОЕ: САМ ПОРЯДОК. Он записан в `config/ultrahand/overlays.ini` и
+// больше нигде — второго списка приоритетов в дереве нет. Значит и сверять его не с чем:
+// сторож несёт эталон в себе. Порядок задан оператором словами — «4IFIR NextGen, под ним
+// Status Monitor, дальше FPS Locker, InfoNX, ReverseNX; остальные как получится» — и
+// именно эти пять имён, именно в этом порядке, тут и проверяются. Правка файла без правки
+// этой строки означает, что порядок поменяли, не заметив.
+//
+// ЧТО СТЕРЕЖЁМ, ВТОРОЕ: ЧУЖИЕ КЛЮЧИ. Файл распаковывается в корень карты и ложится
+// ЦЕЛИКОМ, поверх того, что там было. Пока в нём только `priority`, потеря невелика:
+// остальные ключи движок пересоздаёт сам теми же значениями (main.cpp:6794-6800).
+// Но стоит попасть в него ключу, которого движок НЕ пишет, — и мы начинаем раздавать
+// чужое как своё. Так уже случалось в этом проекте: файл с живой карты попадает в
+// репозиторий вместе с `mode_args`, `mode_labels`, `star=true`, `custom_name`. Список
+// разрешённого — ровно те семь ключей, которые движок заводит сам.
+//
+// ПОЧЕМУ НЕ СВЕРЯЕТСЯ С ЖИВОЙ КАРТОЙ. `4r 04092026` — снимок обжитой карты, а не эталон
+// поставки: рядом лежат `fuse.ini` (калибровка конкретной консоли), `theme.ini`,
+// `RELEASE.ini`. В самой сборке 4IFIR каталога `config/ultrahand` нет вовсе. Сверять наш
+// файл с чужим снимком значило бы объявить эталоном чью-то настройку.
+{
+  const ordPath = join(ROOT, 'config', 'ultrahand', 'overlays.ini')
+  // Порядок, заданный оператором. Первый столбец — имя файла оверлея, второй — приоритет.
+  const ORDER59 = [
+    ['4IFIR.ovl', 1],
+    ['Status-Monitor-Overlay.ovl', 2],
+    ['FPSLocker.ovl', 3],
+    ['InfoNX-ovl.ovl', 4],
+    ['ReverseNX-RT-ovl.ovl', 5],
+  ]
+  // Семь ключей, которые движок заводит сам (main.cpp:6794-6800). Всё, чего здесь нет,
+  // движок только читает, а значит мы бы это раздавали, а не восстанавливали.
+  const ENGINE_KEYS59 = ['priority', 'star', 'hide', 'use_launch_args', 'launch_args', 'custom_name', 'custom_version']
+  let bad59 = 0
+  const fail59 = what => { bad59++; problems.push({ sev: 'CRITICAL', what }) }
+  if (!existsSync(ordPath)) {
+    fail59('нет config/ultrahand/overlays.ini — порядок оверлеев задать больше негде, набор первой установки покажет алфавитный')
+  } else {
+    const txt59 = readFileSync(ordPath, 'utf8')
+    const sections59 = []
+    let cur59 = null
+    for (const raw of txt59.split(/\r?\n/)) {
+      const line = raw.trim()
+      if (!line || line.startsWith(';')) continue
+      const m = line.match(/^\[(.+)\]$/)
+      if (m) { cur59 = { name: m[1], keys: new Map() }; sections59.push(cur59); continue }
+      const kv = line.match(/^([^=]+)=(.*)$/)
+      if (kv && cur59) cur59.keys.set(kv[1].trim(), kv[2].trim())
+    }
+    if (!sections59.length) fail59('config/ultrahand/overlays.ini не содержит ни одной секции — порядок оверлеев пуст')
+    const got59 = sections59.map(x => `${x.name}=${x.keys.get('priority')}`).join(', ')
+    const want59 = ORDER59.map(([n, pr]) => `${n}=${pr}`).join(', ')
+    if (got59 !== want59)
+      fail59(`порядок оверлеев в config/ultrahand/overlays.ini разошёлся с заданным: «${got59}» вместо «${want59}» — если порядок поменяли намеренно, поправьте эталон в проверке 59`)
+    for (const sec of sections59)
+      for (const k of sec.keys.keys())
+        if (!ENGINE_KEYS59.includes(k))
+          fail59(`config/ultrahand/overlays.ini, секция [${sec.name}]: ключ «${k}» движок не пишет никогда — он приехал с чужой карты, и мы бы раздавали его как свой`)
+    if (!bad59) ok.push(`the shipped overlay order says what the operator asked (${sections59.length} sections, priorities ${ORDER59.map(x => x[1]).join('-')}, no keys the engine never writes)`)
   }
 }
 
@@ -3663,7 +3741,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // loops. A hard-coded expectation is crude, but it is the one thing that notices a guard
 // going missing. Raise it deliberately when you add a check; never to make a run green.
 {
-  const EXPECTED = 61
+  const EXPECTED = 62
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,
