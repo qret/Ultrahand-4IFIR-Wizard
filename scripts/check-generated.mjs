@@ -3479,6 +3479,181 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
     ok.push(`no dictionary declares the same value twice (${dicts.length} dictionaries, ${entries} entries)`)
 }
 
+// ---------------- 56. обновление отводит настройки оверлея в сторону и возвращает их
+//
+// ЧТО СТЕРЕЖЁМ. Цепочка обновления распаковывает архив В КОРЕНЬ КАРТЫ, а `unzip`
+// затирает безусловно: ни фильтра, ни пропуска существующего, ни третьего аргумента
+// у него нет. Всё, что архив несёт по живым путям движка, ложится поверх настроенного
+// человеком. Под ударом ровно две вещи, которых больше неоткуда взять:
+// `config/ultrahand/config.ini` — комбинация клавиш, тема, язык, звук — и
+// `config/ultrahand/overlays.ini` — порядок, звёзды и скрытые оверлеи. Языки, звуки,
+// темы и картинки сюда НЕ входят намеренно: это наша поставка, её обновлять и надо.
+//
+// ЧТО УЖЕ СЛУЧИЛОСЬ. Механизм спасения был — восемь команд `.keep` копировали настройки
+// в сторону перед распаковкой и возвращали после. 04.09.2026 их вырезали с доводом
+// «архив больше не несёт `config/ultrahand/`, спасать нечего». Довод был верен три дня:
+// 07.09.2026 вышел релиз с движком, архив снова привёз 41 файл по тем же путям, а защиты
+// уже не было. КЛАСС ОШИБКИ: ЗАЩИТУ СНЯЛИ, ПОТОМУ ЧТО ИСЧЕЗ ПРЕДМЕТ, И НЕ ВЕРНУЛИ,
+// КОГДА ПРЕДМЕТ ВЕРНУЛСЯ. Разбор — `docs/NOTES.md`, решение — `docs/DECISIONS.md`.
+//
+// ПОЧЕМУ ПРОВЕРКА НЕ СМОТРИТ В АРХИВ. Состав архива решается НА СБОРКЕ — ключом
+// `-WithEngine`, который оператор разрешает отдельно на каждый выпуск. Гейт смотрит
+// на ПАКЕТ, и пакет обязан быть готов к худшему составу, а не к сегодняшнему: отведение
+// ничего не стоит, когда затирать нечего, а условное поведение — ровно та развилка,
+// на которой мы и погорели. Поэтому проверка требует отведения ВСЕГДА и безусловно.
+//
+// 08.09.2026 `overlays.ini` перестал ездить в архиве (проверка 7), и вопрос «убрать ли
+// его отсюда» встал ровно в той же форме, что 04.09: предмета не стало — снять защиту.
+// НЕ СНИМАЕМ. Довод тот же, что абзацем выше: состав архива решается ключом на сборке,
+// а этот список — про то, что цепочка обязана уметь. Отвод лишнего файла стоит двух
+// команд и не стоит ничего на карте, где файла в архиве нет.
+//
+// ПОЧЕМУ КАЖДЫЙ ШАГ ДОКАЗЫВАЕТСЯ ОТДЕЛЬНО. `copy`, `move` и `delete` об ошибке
+// не сообщают вовсе (`path_funcs.cpp`: возвращают void и молча выходят по неудачному
+// `stat`), поэтому «отвели» подтверждается только `path_exists` на отводе. А «вернули»
+// на живом пути не подтверждается ничем — файл там лежит в любом случае, его только что
+// положила распаковка; отсюда возврат через `move` и `!path_exists` на опустевшем отводе.
+{
+  // Список поднадзорного объявлен здесь и пуст быть не может: пустой список сделал бы
+  // проверку зелёной ровно в том случае, ради которого она и заведена.
+  const USER_SETTINGS = [
+    ['/config/ultrahand/config.ini', 'комбинация клавиш, тема, язык, звук'],
+    ['/config/ultrahand/overlays.ini', 'порядок, звёзды и скрытые оверлеи'],
+  ]
+  let bad56 = 0, kept56 = 0, proofs56 = 0, branches56 = 0
+  const fail56 = what => { bad56++; problems.push({ sev: 'CRITICAL', what }) }
+  // Разбор строки на команду и аргументы: пути в пакете стоят в одинарных кавычках,
+  // но не все — `delete /config/...zip` написан без них.
+  const argsOf = line => (line.match(/'[^']*'|\S+/g) ?? []).map(a => a.replace(/^'|'$/g, ''))
+  const rootIni56 = join(DIST, 'package.ini')
+  if (!USER_SETTINGS.length) {
+    fail56('список настроек оверлея пуст — проверке на отведение нечего стеречь')
+  } else if (!existsSync(rootIni56)) {
+    fail56('нет package.ini — цепочку обновления проверить не на чем')
+  } else {
+    const chunks56 = readFileSync(rootIni56, 'utf8').split(/^(?=\[)/m).filter(c => c.trim())
+    const upd = chunks56.find(c => /^\[Update\b/.test(c.split(/\r?\n/)[0] ?? '') && /^unzip\s/m.test(c))
+    if (!upd) {
+      fail56('в корне нет пункта обновления с распаковкой — предмет надзора исчез, а не исправился')
+    } else {
+      // Блоки `try:` — это ветви: первая ставит обновление, вторая откатывает.
+      // Возврат обязан быть в ОБЕИХ: откат возвращает пакет уже после того, как
+      // распаковка успела затереть настройки.
+      const blocks = [[]]
+      for (const raw of upd.split(/\r?\n/).slice(1)) {
+        const l = raw.trim()
+        if (l === 'try:') blocks.push([])
+        else if (l) blocks[blocks.length - 1].push(l)
+      }
+      const main = blocks[1] ?? []
+      const rollback = blocks[2] ?? []
+      const unzipAt = main.findIndex(l => /^unzip\s/.test(l))
+      if (unzipAt < 0) {
+        fail56('в первой ветви обновления нет распаковки — проверять отведение не от чего')
+      } else {
+        for (const [live, what] of USER_SETTINGS) {
+          // (а) отвод ДО распаковки: команда, читающая живой путь и кладущая копию в сторону.
+          const stashAt = main.findIndex((l, i) => {
+            const a = argsOf(l)
+            return i < unzipAt && (a[0] === 'copy' || a[0] === 'move') && a[1] === live && a[2] && a[2] !== live
+          })
+          if (stashAt < 0) {
+            fail56(`обновление не отводит «${live}» в сторону перед распаковкой — ${what} будут затёрты архивом без следа`)
+            continue
+          }
+          const side = argsOf(main[stashAt])[2]
+          if (side.startsWith('/switch/.packages/')) {
+            fail56(`«${live}» отводится в «${side}» — это каталог пакета, его же и переносит обновление; отвод обязан лежать вне зоны работ`)
+            continue
+          }
+          // (б) отвод ДОКАЗАН: `copy` молчит об ошибке, значит копия проверяется явно.
+          const stashProved = main.some((l, i) => i > stashAt && i < unzipAt && /^path_exists\s/.test(l) && argsOf(l)[1] === side)
+          if (!stashProved) {
+            fail56(`отвод «${live}» ничем не подтверждён — copy об ошибке не сообщает, нужен path_exists на «${side}» до распаковки`)
+            continue
+          }
+          proofs56++
+          // (в) и (г) возврат ПОСЛЕ распаковки, в обеих ветвях, и он тоже доказан.
+          let branchesFor = 0
+          for (const [name, block, after] of [['своей', main, unzipAt], ['откатной', rollback, -1]]) {
+            const backAt = block.findIndex((l, i) => {
+              const a = argsOf(l)
+              return i > after && (a[0] === 'copy' || a[0] === 'move') && a[1] === side && a[2] === live
+            })
+            if (backAt < 0) {
+              fail56(`в ${name} ветви обновления «${live}» не возвращается из «${side}» — ${what} останутся нашими поставочными`)
+              continue
+            }
+            // Доказательство возврата — на ОТВОДЕ, а не на живом пути: живой путь
+            // существует в любом случае, его только что заполнила распаковка.
+            const backProved = block.some((l, i) => i > backAt && /^!path_exists\s/.test(l) && argsOf(l)[1] === side)
+            if (!backProved) {
+              fail56(`возврат «${live}» в ${name} ветви ничем не подтверждён — нужен !path_exists на опустевшем «${side}», проверка живого пути не доказывает ничего`)
+              continue
+            }
+            proofs56++
+            branchesFor++
+          }
+          if (branchesFor === 2) kept56++
+          branches56 = Math.max(branches56, branchesFor)
+        }
+      }
+    }
+  }
+  if (!bad56)
+    ok.push(`the updater stashes overlay settings and puts them back (${kept56} files, ${branches56} branches each, ${proofs56} proofs)`)
+}
+
+// ---------------- 7. выпуск отказывается выпускать архив с overlays.ini
+//
+// ЧТО СТЕРЕЖЁМ. `config/ultrahand/overlays.ini` в архив не кладётся с 08.09.2026.
+// Причина не в том, что файл «пользовательский» — config.ini тоже пользовательский
+// и едет намеренно, чтобы чистая установка получила нашу комбинацию клавиш. Причина
+// в необратимости: ключи `mode_args` и `mode_labels` движок только ЧИТАЕТ (main.cpp:2226,
+// 2248, 2250, 2378), а заводя секцию нового оверлея, создаёт семь других ключей и этих
+// двух среди них нет (main.cpp:6794-6800). В 4IFIR они есть у Status-Monitor-Overlay.ovl —
+// шесть режимов с подписями; наш файл на 156 байт стёр бы их так, что вернуть можно
+// только переустановкой прошивки. Ни движок, ни мы их не восстановим.
+//
+// ПОЧЕМУ ПРОВЕРКА СМОТРИТ В ТЕКСТ СКРИПТА. Архива у гейта нет и быть не может: гейт
+// гоняют на пакете, а комплект собирается отдельно и позже. Зато отказ — это текст,
+// и его исчезновение видно. Форма та же, что у проверки 18.
+//
+// И ОТКАЗ ОБЯЗАН БЫТЬ БЕЗУСЛОВНЫМ. У соседнего отказа (движок в архиве) есть именованный
+// обход `-WithEngine`, разрешённый оператором на разовый выпуск. Здесь обхода нет и не
+// предполагается: разовость касалась движка, а не чужих подписей режимов. Поэтому
+// проверяем не только наличие `throw`, но и то, что условие у него ровно одно.
+{
+  const relPs7 = join(ROOT, 'scripts', 'release.ps1')
+  const REQUIRED7 = [
+    ['путь до overlays.ini в стейдже не назван — проверять нечего',
+      /\$overlaysInStage\s*=\s*Join-Path\s+\$stage\s+'config\\ultrahand\\overlays\.ini'/],
+    ['отказа по собранному комплекту нет — overlays.ini уедет в релиз молча',
+      /if\s*\(Test-Path -LiteralPath \$overlaysInStage\)\s*\{[\s\S]{0,800}?throw/],
+  ]
+  let bad7 = 0, have7 = 0
+  if (!existsSync(relPs7)) {
+    // Выпускающий скрипт в публикацию не входит; у постороннего дерева второй стороны нет.
+    // Пропуск назван вслух, а не выдан за проверку — так же, как в проверке 18.
+    ok.push('the overlays.ini release refusal is unreadable here — scripts/release.ps1 is withheld from publication (1 side missing)')
+  } else {
+    const ps7 = readFileSync(relPs7, 'utf8')
+    for (const [what, re] of REQUIRED7) {
+      if (re.test(ps7)) have7++
+      else { bad7++; problems.push({ sev: 'CRITICAL', what: `release.ps1: ${what}` }) }
+    }
+    // Условие отказа читается целиком и обязано быть ровно одно: любой `-and`/`-or`
+    // рядом с ним — это тот самый ключ, которого здесь быть не должно.
+    const at7 = ps7.indexOf('$overlaysInStage =')
+    const guard7 = at7 < 0 ? null : ps7.slice(at7).match(/\bif\s*\(([^\r\n]+?)\)\s*\{/)
+    if (guard7 && guard7[1].trim() !== 'Test-Path -LiteralPath $overlaysInStage') {
+      bad7++
+      problems.push({ sev: 'CRITICAL', what: `отказ по overlays.ini обусловлен «${guard7[1].trim()}» — он обязан быть безусловным: ключа, разрешающего этот файл в архиве, не предусмотрено` })
+    }
+    if (!bad7) ok.push(`the release refuses any archive carrying config/ultrahand/overlays.ini (${have7} clauses, no switch lifts it)`)
+  }
+}
+
 // ---------------- 49. the gate does not quietly lose a check
 //
 // A check whose subject disappears can vanish from this file's own count without a word:
@@ -3488,7 +3663,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // loops. A hard-coded expectation is crude, but it is the one thing that notices a guard
 // going missing. Raise it deliberately when you add a check; never to make a run green.
 {
-  const EXPECTED = 59
+  const EXPECTED = 61
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,

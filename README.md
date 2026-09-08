@@ -15,9 +15,15 @@ replaces it.
 > `switch/.packages/4IFIR Wizard/`.
 >
 > **The engine is not in it.** Ultrahand is maintained by the author of the firmware and
-> comes with the 4IFIR build, along with its `config/ultrahand/`. Our archive neither
-> carries nor replaces it, so your key combination, theme, overlay order and sounds
-> stay as they are.
+> comes with the 4IFIR build, along with its `config/ultrahand/`. The ordinary release
+> archive carries neither, so your key combination, theme, overlay order and sounds stay
+> as they are.
+>
+> Once in a while a build **with** the engine goes out instead — the release page says so.
+> That one does carry `config/ultrahand/`, though never `overlays.ini`. And when it
+> arrives through the tuner's own `Update` entry, your `config.ini` and `overlays.ini` are
+> moved aside before it is unpacked and moved back afterwards; unpacked by hand, it brings
+> our `config.ini` with it.
 >
 > This repository is for building it yourself or understanding how it works.
 
@@ -35,8 +41,14 @@ Open the overlay with the same key combination that opened Uberhand: **`L` + `R`
 (D-pad Up). It is set by `key_combo` in `config/ultrahand/config.ini` and can be changed
 there or from the overlay's own settings.
 
-If that key is missing from the config, the engine falls back to its own default,
-`ZL` + `ZR` + `▼` — which is *not* what 4IFIR ships, so do not go looking for it there.
+If that key is missing from `config/ultrahand/config.ini`, the engine does **not** jump
+straight to a default: it looks in `config/tesla/config.ini` and copies the combination
+from there, and on a 4IFIR card that is `L` + `R` + `▲` already. Only when neither file
+holds one does the built-in `ZL` + `ZR` + `▼` apply — which does not happen on a
+ready-made build, so do not go looking for it there.
+
+The sync also runs the other way: if the two files disagree, the engine rewrites
+`config/tesla/config.ini` from `config/ultrahand/config.ini`.
 
 **Before changing anything:** go to `Service` → `Backup manager` → `Create backup`. It takes a second and
 saves an evening. Backups land in `atmosphere/kips/.bak/<revision>/` as plain ini files
@@ -294,10 +306,12 @@ SD card root
 ```
 
 **If the combination is missing, take `config/ultrahand/config.ini` from this
-repository.** A 4IFIR build already has one; a card you assembled yourself may not, and
-then the engine falls back to its own default, `ZL + ZR + ▼`, rather than the `L + R + ▲`
-this README promises. The file is short and every line in it is commented — it pins the
-key combination and keeps other overlays able to have their own.
+repository.** A 4IFIR build already has one; a card you assembled yourself may not. The
+engine then takes the combination from `config/tesla/config.ini`, and falls back to the
+built-in `ZL + ZR + ▼` only when that file has none either — neither outcome is
+guaranteed to be the `L + R + ▲` this README promises. The file is short and every line
+in it is commented — it pins the key combination and keeps other overlays able to have
+their own.
 
 Do **not** copy `fuse.ini` from someone else's card — it holds calibration constants
 specific to one console and is generated for yours on first run.
@@ -396,8 +410,14 @@ your console. Use at your own risk.
 > `switch/.packages/4IFIR Wizard/`.
 >
 > **Движка в нём нет.** Ultrahand ведёт автор прошивки, и он приходит вместе со сборкой
-> 4IFIR — вместе со своим `config/ultrahand/`. Наш архив его не несёт и не заменяет:
-> ваша комбинация вызова, тема, порядок оверлеев и звук остаются как были.
+> 4IFIR — вместе со своим `config/ultrahand/`. Обычный архив релиза не несёт ни того,
+> ни другого: ваша комбинация вызова, тема, порядок оверлеев и звук остаются как были.
+>
+> Изредка вместо него выходит сборка **с движком** — на странице релиза это сказано.
+> Она `config/ultrahand/` везёт, но `overlays.ini` — никогда. И если она приезжает через
+> пункт `Update` в самом тюнере, ваши `config.ini` и `overlays.ini` отводятся в сторону
+> до распаковки и возвращаются после; при распаковке руками наш `config.ini` встанет
+> на место вашего.
 >
 > Этот репозиторий — для тех, кто хочет собрать всё сам или понять, как оно устроено.
 
@@ -415,8 +435,14 @@ your console. Use at your own risk.
 (крестовина вверх). Задаётся ключом `key_combo` в `config/ultrahand/config.ini`,
 меняется там же или из настроек самого оверлея.
 
-Если этого ключа в конфиге нет, движок берёт своё умолчание — `ZL` + `ZR` + `▼`.
-В поставке 4IFIR так не бывает, так что искать эту комбинацию там не стоит.
+Если этого ключа в `config/ultrahand/config.ini` нет, движок **не** прыгает сразу
+к умолчанию: он смотрит в `config/tesla/config.ini` и копирует комбинацию оттуда,
+а на карте 4IFIR там уже `L` + `R` + `▲`. Зашитое `ZL` + `ZR` + `▼` срабатывает, только
+если ключа нет ни в одном из двух файлов, — в готовой сборке так не бывает, так что
+искать эту комбинацию там не стоит.
+
+Синхронизация работает и в обратную сторону: если файлы разошлись, движок перепишет
+`config/tesla/config.ini` из `config/ultrahand/config.ini`.
 
 **Прежде чем что-то менять:** зайдите в `Service` → `Backup manager` → `Create backup`. Занимает секунду,
 экономит вечер. Бэкапы кладутся в `atmosphere/kips/.bak/<ревизия>/` обычными ini-файлами,
@@ -673,9 +699,10 @@ tail -c 4 ovlmenu.ovl          # ULTR  — подпись Ultrahand, допис�
 
 **Если комбинации нет, возьмите `config/ultrahand/config.ini` из этого репозитория.**
 В сборке 4IFIR он уже есть; на карте, собранной руками, его может не быть — и тогда
-движок возьмёт своё умолчание `ZL + ZR + ▼`, а не обещанную этим же README комбинацию
-`L + R + ▲`. Файл короткий, каждая строка прокомментирована: он закрепляет комбинацию,
-оставляет другим оверлеям возможность иметь свои.
+движок возьмёт комбинацию из `config/tesla/config.ini`, а к зашитой `ZL + ZR + ▼`
+скатится, только если и там её нет. Ни то, ни другое не обязано совпасть с обещанной
+этим же README комбинацией `L + R + ▲`. Файл короткий, каждая строка прокомментирована:
+он закрепляет комбинацию, оставляет другим оверлеям возможность иметь свои.
 
 **Не копируйте** `fuse.ini` с чужой карты — там калибровочные константы конкретной
 консоли, для вашей он создаётся при первом запуске.
