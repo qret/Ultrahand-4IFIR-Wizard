@@ -102,9 +102,9 @@
 | Advanced → RAM → Core Timings → Core Timings 6 | `Core Timings 6` | обе | 15 | 1, 2 … 0 - DEBUG |
 | Advanced → RAM → Core Timings → Core Timings 7 | `Core Timings 7` | обе | 11 | 1, 2 … 0 - DEBUG |
 | Advanced → RAM → Core Timings → Core Timings 8 | `Core Timings 8` | обе | 13 | 1 - Safe, 2 … 0 - DEBUG |
-| Advanced → RAM → Frequency | `RAM MHz` | Mariko | 51 | eBAMATIC, 1600MHz - 1600 — SYK-LOH eb1 … 3309MHz - 3309 |
-| Advanced → RAM → Frequency | `RAM MHz` | Erista | 46 | eBAMATIC, 1600MHz - 1600 — SYK-LOH … 2649MHz |
-| Advanced → RAM → EMC Balance | `EMC Balance` | обе | 6 | Default, 1 - SYK-LOH … 5 - SRT ST2 |
+| Advanced → RAM → Frequency | `RAM MHz` | Mariko | 51 | eBAMATIC, 1600MHz - SYK-LOH eb1 … 3309MHz |
+| Advanced → RAM → Frequency | `RAM MHz` | Erista | 46 | eBAMATIC, 1600MHz - SYK-LOH … 2649MHz |
+| Advanced → RAM → EMC Balance | `EMC Balance` | обе | 6 | eBAMATIC, 1 … 5 |
 | Advanced → RAM → EBA-Shift | `EBA-Shift` | обе | 6 | 0, 1 - Default (Eco ST1) … 5 - LOH-C4C |
 | Advanced → RAM → Vddq | `RAM Vddq` | Mariko | 101 | 300 mV, 305 mV … 800 mV |
 | Advanced → RAM → Vdd2 | `RAM Vdd2` | обе | 37 | 950 mV, 962.5 mV … 1400 mV |

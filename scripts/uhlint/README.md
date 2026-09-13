@@ -8,10 +8,15 @@ ever reaches the console.
 Neither engine reports an error:
 
 - Ultrahand silently ignores commands it does not know — the dispatcher is a
-  `switch (commandName[0])` with no `default` branch (`utils.hpp:5648-5655`), and an unknown
-  `;` directive is treated as a comment.
+  `switch (commandName[0])` with no `default` branch (in `processCommand`:
+  `Ultrahand-fork/source/utils.hpp:4898`, the switch closing at `:5871`; in the author's tree
+  `source/utils.hpp:4896`), and an unknown `;` directive is treated as a
+  comment (`// Treat it as a comment and skip it`, fork `source/main.cpp:5272-5274`, author's
+  tree `:5267-5269`).
 - Uberhand silently ignores **failed writes to the kip**: `hexEditCustOffset` never checks the
-  result and always returns success (`hex_funcs.hpp:372`).
+  result and always returns success (`hex_funcs.hpp:372` — that is *Uberhand's* header, a
+  foreign tree; no Uberhand sources are checked out locally, so this one address
+  could not be re-verified on 08.09.2026).
 
 For an overlay that edits CPU voltages, "it silently did nothing" is not a cosmetic problem.
 A half-applied overclock profile is more dangerous than one that was never applied.

@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/06-cpu.md sha=c8260aae8e4f self=b978bde37706 -->
+<!-- i18n: source=Guides/ru/06-cpu.md sha=c8260aae8e4f self=6de23fbf0b82 -->
 # CPU
 
 <!-- nav:begin -->
@@ -109,12 +109,14 @@ says.
 
 | Entry | Side |
 |---|---|
+| `25` | the far end of the scale towards headroom; labelled with the bare number |
 | `Sport` | adds voltage: more headroom at high clocks, more power draw |
 | `Eco Stage 1…4` | saving: the further you go, the lower the draw and the smaller the margin |
 | `eBAMATIC`, `Auto` | two different automatic modes, both off this scale |
 
-The firmware accepts values from 25 to 175; the tuner offers eight named points out of
-those, with no free entry.
+The firmware accepts values from 25 to 175. The tuner gives eight entries: six of them sit
+on that scale (`25`, `Sport`, `Eco Stage 1…4`), while `eBAMATIC` and `Auto` are off it.
+There is no free entry.
 
 ### How to tune it
 

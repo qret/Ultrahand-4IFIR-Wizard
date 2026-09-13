@@ -63,6 +63,14 @@ const KIP_OK = `matching_hex_val_custom ${KIP} CUST 4 ${KIPVER_HEX}`
 const HOLD_A = ''
 
 /**
+ * Rebuild the current page after an action, cursor kept on the item that ran it.
+ * Plain `refresh` rebuilds with the cursor at the top; `refresh-to` sets the jump target
+ * first (fork source/utils.hpp:5825-5840, upstream :5342-5357). Contains-match on the label
+ * without the `?rev` tag and the hold glyph, so the glyph byte cannot spoil the match.
+ */
+const rebuildOn = head => `refresh-to '${head.split('?')[0].replace(HOLD_A, '').trim()}' '' false`
+
+/**
  * УСЛОВИЕ ВИДИМОСТИ ИЗ КАРТЫ МЕНЮ. Один ключ `visible_when`, две формы записи:
  *
  *   { offset, value }  — проверка байта в kip, как было всегда;
@@ -73,7 +81,9 @@ const HOLD_A = ''
  *
  * Почему признак ФАЙЛОМ, а не сравнением прямо в условии: движок раскрывает внутри
  * `;visibility_condition=` только общие подстановки вроде `{package_version}`,
- * а `{ini_file(...)}` — нет (`utils.hpp:5832`). Сравнить две версии в самом условии
+ * а `{ini_file(...)}` — нет (`evaluateMenuCondition()`, единственная подстановка в нём —
+ * `replacePlaceholdersInArg(condition, generalPlaceholders)`; форк `source/utils.hpp:6020-6022`,
+ * у автора прошивки — `:6018-6020`). Сравнить две версии в самом условии
  * невозможно, поэтому сравнивает команда, а условие лишь смотрит на её результат.
  */
 const visCond = v =>
@@ -300,7 +310,9 @@ function withMagnitude(name, hex, field) {
     if (mv < 300 || mv > 1600) return name        // voltages here live in the 300…1600 mV band
     return `${Math.round(mv * 10) / 10}mV — ${name}`
   }
-  const mhz = Math.round(n / 1000)
+  // Truncated, not rounded: the Magician page (`{math(x/1000,true)}`), sys-clk and EMC Magician
+  // all drop the fraction, so 1868800 kHz is 1868MHz on every screen (decision 13.09.2026).
+  const mhz = Math.trunc(n / 1000)
   if (mhz < 100 || mhz > 4000) return name         // clocks are hundreds and thousands of MHz
   return `${mhz}MHz — ${name}`
 }
@@ -334,11 +346,17 @@ function shortLabel(name) {
  * ИМЯ В СПИСКЕ ВЫБОРА НАЧИНАЕТСЯ С ТОГО, ЧТО СТОИТ В ФУТЕРЕ. ЭТО КУРСОР, А НЕ ОФОРМЛЕНИЕ.
  *
  * Открывая `;mode=option`, движок ставит фокус не «на позицию», а на пункт с ГАЛОЧКОЙ
- * (`jumpItemValue = CHECKMARK_SYMBOL`, форк `main.cpp:5914`), а галочку получает пункт,
- * чьё имя равно футеру родителя (`main.cpp:4065`). Имя при этом режется по ASCII `" - "`:
- * слева пункт, справа пояснение (`main.cpp:4037-4043`). Не совпало — штатный откат ставит
- * фокус на первую строку (`tesla.hpp:7501`), и в ряду из 31 значения человек листает
- * шестнадцать раз при каждом заходе.
+ * (`jumpItemValue = CHECKMARK_SYMBOL` под `commandMode == OPTION_STR || … SLOT_STR`,
+ * форк `source/main.cpp:5808`, у автора прошивки — `:5803`), а галочку
+ * получает пункт, чьё имя равно футеру родителя (`if (selectedFooterDict[specifiedFooterKey]
+ * == itemName)`, форк `main.cpp:3958`, у автора `:3953`). Имя при этом режется по ASCII
+ * `" - "`: слева пункт, справа пояснение (`pos = selectedItem.find(" - ")` … `itemName =
+ * selectedItem.substr(0, pos)`, форк `main.cpp:3931-3936`, у автора `:3926-3931`).
+ * Не совпало — штатный откат ставит фокус на первую строку (`// FALLBACK: If no match
+ * found, focus first item instead` в `List::resolveJumpImmediately()`,
+ * `lib/libultrahand/libtesla/include/tesla.hpp:7502` — ЧИТАНО В ПОДМОДУЛЕ С НАЛОЖЕННЫМИ
+ * `patches/*.patch`, в чистом `HEAD` то же место `:7466`, у автора `:7626`),
+ * и в ряду из 31 значения человек листает шестнадцать раз при каждом заходе.
  *
  * Футер — это `short` (см. врезку у `set-footer` ниже), поэтому `short` обязан идти
  * ПЕРВЫМ, а всё остальное уезжает вправо через ASCII-разделитель. Раньше имя склеивалось
@@ -352,6 +370,10 @@ function shortLabel(name) {
 function engineName(name, short, dropFirst = false) {
   const parts = String(name).split(' — ').map(p => p.trim()).filter(Boolean)
   const rest = dropFirst ? parts.slice(1) : parts.filter(p => p !== short)
+  // Same rule as `dropFirst`: when `short` is a magnitude computed from hex, a bare donor
+  // number right after it names that value again (RAM MHz: "1600MHz - 1600 — SYK-LOH").
+  // On screen the right column then squeezed the row name down to "1…".
+  if (/^\d+(\.\d+)?(MHz|mV|kHz)$/.test(short) && /^\d+(\.\d+)?$/.test(rest[0] ?? '')) rest.shift()
   return rest.length ? `${short} - ${rest.join(' — ')}` : short
 }
 
@@ -805,8 +827,12 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
   // element at index 0, not a field of an object. A plain object is not read here at all —
   // which is why every footer in the menu used to be empty ("...").
   // ПРОЧЕРК ВМЕСТО «NOT AVAILABLE». Если значения для строки нет, движок сперва ищет
-  // в словаре запасной ключ `null` и подставляет его текст; не найдя — печатает `null`,
-  // а таблица превращает это в `Not available` (`utils.hpp:2511-2517`, `:1372`).
+  // в словаре запасной ключ `null` и подставляет его текст; не найдя — печатает `null`
+  // (`cJSON_GetObjectItemCaseSensitive(fallbackScope, NULL_STR.c_str())` в
+  // `replaceJsonPlaceholder`, форк `source/utils.hpp:2563-2570`, у автора прошивки —
+  // `:2561-2568`), а таблица превращает это в `Not available`
+  // (`infoText = (infoTextRaw.find(NULL_STR) != std::string::npos) ? UNAVAILABLE_SELECTION
+  // : infoTextRaw;`, `utils.hpp:1418` в обоих деревьях).
   //
   // Строка без значения — не поломка, а норма в одном месте: копия, импортированная из
   // старого визарда, части полей не несёт, потому что их не было в его формате. На экране
@@ -858,6 +884,22 @@ let lastBootMap = null
  * its own section.
  */
 const allBoot = []
+/**
+ * One-shot footers ("saved …", "restored", "up to date") and the backup choice must not
+ * outlive a reboot or a new visit: [boot] clears them on every entry (operator, 13.09.2026).
+ * Keys are `dir|section`; `dir` is the package-relative folder whose config.ini the item writes.
+ */
+const oneShotFooters = new Map()
+const oneShotFooter = (dir, section) => { oneShotFooters.set(`${dir}|${section}`, { dir, section }) }
+const oneShotChoice = new Map()
+// Keys the delete button clears; boot clears the same set, so "nothing chosen" looks alike.
+const RESTORE_CHOICE_KEYS = ['Path', 'Name', 'Old']
+// Path of the backup being created: Create backup forgets it after each press, and [boot]
+// clears it on entry too, so a stale one never points the "not saved" delete at an old backup.
+const oneShotBackupPath = new Set()
+const forgetBackupPath = cfg => `set-ini-val ${cfg} Backup Path ''`
+// A literal footer; one read from the kip is re-seeded by [boot] and is not one-shot.
+const isOneShotFooter = l => /^set-footer '/.test(l) && !/\{(json_file|hex_file)/.test(l)
 /**
  * Rows of the "Current Settings" summary page — what is in loader.kip right now.
  *
@@ -1055,7 +1097,9 @@ function emitItem(item, lines) {
   lines.push(`[*${title}]`)
   lines.push(';mode=option')
   // Console revision. The engine hides items belonging to the other platform by itself
-  // (main.cpp:5480), so Erista fields are invisible on Mariko and vice versa. The platform
+  // (`if (commandSystem == ERISTA_STR && !usingErista) skipSystem = true;` and the Mariko
+  // twin below it -- fork source/main.cpp:5411-5414, author's fork :5406-5409),
+  // so Erista fields are invisible on Mariko and vice versa. The platform
   // comes from the field map, where it was filled in from the field NAME in customize.cpp:
   // mariko*, erista*, common*. Ebal's own tagging is no good here — it contradicts itself:
   // 12 is tagged mariko there even though it is commonCpuBoostClock, shared by both revisions.
@@ -1088,7 +1132,10 @@ function emitItem(item, lines) {
    * points as they lie in a stock kip - bytes of another structure read as voltages.
    *
    * The first guard reads CUST 44 back after the line above wrote it: hexSumCache keeps
-   * the file offset of the CUST anchor, not the bytes (hex_funcs.cpp:501-540), so the
+   * the file offset of the CUST anchor, not the bytes (`parseHexDataAtCustomOffset`,
+   * `hexSumCache[cacheKey] = ult::to_string(hexSum)` -- libultra/source/hex_funcs.cpp:525-558,
+   * READ IN THE SUBMODULE WITH patches/*.patch APPLIED; the same place is :493-526 in the
+   * clean HEAD. libultra is line-for-line identical in the firmware author's fork), so the
    * read sees the fresh value. `try:` drops the rest of the section once a block succeeds,
    * so the footer has to stand in both branches.
    */
@@ -1117,9 +1164,13 @@ function emitItem(item, lines) {
   // The footer shown when the package opens — from THE SAME offset and THE SAME dictionary.
   //
   // Paths here are relative to the PACKAGE ROOT, not to the section directory: the engine
-  // runs `boot_package.ini` only for the top-level package (main.cpp:7381, 8144) and does
-  // not run the boot file of a sub-package entered through `package_source`. Item state,
-  // however, is read from the `config.ini` sitting NEXT TO its package.ini (main.cpp:6258),
+  // runs `boot_package.ini` only for the top-level package (Ultrahand-fork/source/main.cpp:7314
+  // and :8082, both `isFile(packageFilePath + BOOT_PACKAGE_FILENAME)`; in
+  // the firmware author's fork the same two lines are :7313 and :8084 -- the shift is NOT
+  // constant) and does not run the boot file of a sub-package entered through
+  // `package_source`. Item state, however, is read from the `config.ini` sitting NEXT TO
+  // its package.ini (`packageConfigIniPath = packagePath + CONFIG_FILENAME`,
+  // fork main.cpp:6189, author's fork :6184),
   // so the target file is the config.ini of that very subdirectory.
   // declaring the same dictionary twice in a row is one more file open at startup
   //
@@ -1208,6 +1259,8 @@ function emitItem(item, lines) {
  * ревизии заполняются в одном цикле.
  */
 const backupCreate = {}
+// Section name of each revision's create item; [boot] clears its footer by this very name.
+const backupCreateHead = {}
 
 /**
  * BACKUP AND RESTORE.
@@ -1258,7 +1311,10 @@ function emitBackup(item, lines) {
     // какая копия к чему относится, не открыв каждую.
     //
     // Частота стоит первой намеренно: движок сортирует список бэкапов лексикографически
-    // по имени файла (`main.cpp:3862-3864`), значит копии группируются по частоте. Это
+    // по имени файла (`std::sort(selectedItemsList…) { return getNameFromPath(a) <
+    // getNameFromPath(b); }` — ветка `else` под `sourceType == FILE_STR`, форк
+    // `source/main.cpp:3771-3773`, у автора прошивки — `:3766-3768`),
+    // значит копии группируются по частоте. Это
     // работает только потому, что все частоты в словарях четырёхзначные (1600…3309):
     // будь среди них трёхзначная, «928» встала бы после «2707». Метка времени идёт
     // в конец в виде `дд-мм-гг-ччммсс` — внутри одной группы порядок хронологический,
@@ -1305,7 +1361,8 @@ function emitBackup(item, lines) {
     // Он не фильтр, а различитель имён: движок его при отрисовке срезает, зато
     // две секции `Create backup` в двух файлах остаются различимы — и по нему же
     // ищут секцию проверки (`check-generated.mjs` №14, `verify-import.mjs`).
-    mk.push(`[${title}?${rev}]`)
+    backupCreateHead[rev] = `${title}?${rev}`
+    mk.push(`[${backupCreateHead[rev]}]`)
     // `;mini=true` УБРАН 01.09.2026: строка была вдвое ниже соседней.
     //
     // Директива задаёт компактную строку — сорок пикселей вместо семидесяти.
@@ -1340,7 +1397,9 @@ function emitBackup(item, lines) {
     // Разложено по шагам, а не собрано в одно выражение, СПЕЦИАЛЬНО. Вложенное
     // `{if_==(…,{math(…,true)}…)}` зависело бы от того, что внутренние подстановки
     // раскрываются раньше внешней: парсер `if_` режет аргументы по запятым
-    // (`utils.hpp:3209-3241`), и запятая внутри `{math(…,true)}` его бы развалила,
+    // (лямбды `parse2` и `parse3`, `inner.find(',')` / `inner.rfind(',')` — форк
+    // `source/utils.hpp:3370-3435`, у автора прошивки — `:3368-3433`),
+    // и запятая внутри `{math(…,true)}` его бы развалила,
     // раскройся она позже. Промежуточные значения в `config.ini` эту зависимость
     // убирают совсем и вдобавок видны глазами, если что-то пойдёт не так.
     const raw = f => `{hex_to_decimal({hex_to_rhex({hex_file(CUST,${f.offset},${f.length ?? 3})})})}`
@@ -1378,7 +1437,43 @@ function emitBackup(item, lines) {
     // разбор про `notify` (`emitImport` ниже, `NOTES` №114) касается секций-селекторов
     // `;mode=option`, где итог уезжает на пункт-родитель. Здесь пункт обычный, и на
     // новой странице он остаётся таким же — поведение переезда не меняет.
-    mk.push(`set-footer 'saved {timestamp("%d.%m %H:%M")}'`)
+    // No date (operator, 13.09.2026): "saved 13.09 20:03" cut the name to "Create backu".
+    // The rebuild shows the footer at once instead of after leaving the page.
+    //
+    // "saved" is earned by a read-back (operator, 13.09.2026: "not saved" on failure). The writes
+    // report nothing: set-ini-val is void and a failed fopen is silent (libultra setIniFile), and
+    // a missing kip only turns values into `null`. So the passport and every field are compared
+    // with the kip; the first fully successful try-block ends the section, any miss falls through.
+    const readBack = [...mine.map(f => [f.offset, f.length ?? 3]), ...sideSet(rev).map(f => [f.offset, f.length])]
+    mk.push('try:')
+    mk.push(`matching_ini_val ${path} Meta revision ${rev}`)
+    mk.push(`matching_ini_val ${path} Meta kipver ${KIPVER}`)
+    mk.push(`matching_ini_val ${path} Meta fields ${backupFieldCount(rev)}`)
+    // an unreadable kip reads `null` on both sides of the comparison
+    mk.push(`!matching_ini_val ${path} Fields ${readBack[0][0]} null`)
+    for (const [off, len] of readBack) mk.push(`matching_ini_val ${path} Fields ${off} '{hex_file(CUST,${off},${len})}'`)
+    // The path lives only for one press: a stale one left by an unwritable config.ini
+    // must never point the delete below at an older, good backup.
+    const forget = forgetBackupPath(`'./config.ini'`)
+    mk.push(`set-footer 'saved'`)
+    mk.push(forget)
+    mk.push(rebuildOn(backupCreateHead[rev]))
+    // A half-written backup is deleted (operator, 13.09.2026), else Choose backup offers it.
+    // `delete` never fails a block and wipes a folder if the path ends in `/`, so the path is
+    // proven first: under this revision's .bak (slice past the end reads `null`), existing,
+    // and not the chosen backup (a clash with an existing name is left alone).
+    mk.push('try:')
+    mk.push(`matching_ini_val './config.ini' Backup Path '${dir}/{slice(${path},${dir.length + 1},512)}'`)
+    mk.push(`!matching_ini_val './config.ini' Restore Path '${path}'`)
+    mk.push(`!matching_ini_val './config.ini' Restore Path 'sdmc:${path}'`)
+    mk.push(`path_exists ${path}`)
+    mk.push(`delete ${path}`)
+    mk.push(forget)
+    mk.push(`set-footer 'not saved'`)
+    mk.push(rebuildOn(backupCreateHead[rev]))
+    mk.push('try:')
+    mk.push(`set-footer 'not saved'`)
+    mk.push(rebuildOn(backupCreateHead[rev]))
     mk.push('')
     backupCreate[rev] = mk
     stats.backupFields = (stats.backupFields ?? 0) + mine.length
@@ -1448,7 +1543,9 @@ function emitImport(lines, rev, dir) {
   // ЗАЩИТА ОТ ОТСУТСТВУЮЩЕЙ ЗАПИСИ. Если ключа в файле нет, `json_file` возвращает
   // литерал `null`. Без обёртки он дополнился бы нулями до «NULL00» — а это уже не
   // сентинел, и восстановление записало бы его в kip как hex. Поэтому: нет значения —
-  // остаётся ровно `null`, и запись пропускается (`handleHexByCustom`, utils.hpp:4560).
+  // остаётся ровно `null`, и запись пропускается (`handleHexByCustom`, вся работа под
+  // `if (hexDataReplacement != NULL_STR)` — форк source/utils.hpp:4761-4762,
+  // author's fork :4759-4760).
   //
   // СРАВНИВАЕТСЯ КУСОК СЕНТИНЕЛА, А НЕ ЦЕЛОЕ СЛОВО. Для элемента ряда `expr` — это уже
   // вырезка, и на пропавшем ключе она даёт не `null`, а его начало: `slice('null',0,2)`
@@ -1657,7 +1754,9 @@ function emitImport(lines, rev, dir) {
   // ОТВЕТ ЧЕЛОВЕКУ — ЭКРАННЫМ СООБЩЕНИЕМ, А НЕ ПОДПИСЬЮ ПУНКТА.
   //
   // Подпись через `set-footer` садится НЕ туда, где человек её ждёт: движок пишет её
-  // на РОДИТЕЛЬСКИЙ пункт меню (`main.cpp:565-590`), а не на строку файла, где шла
+  // на РОДИТЕЛЬСКИЙ пункт меню (`handleInterpreterCompletion()`, ветка
+  // `lastCommandMode == OPTION_STR || … SLOT_STR` → `lastSelectedListItem->setValue(…)`;
+  // `main.cpp:565-590` — одинаково в форке и у автора прошивки), а не на строку файла, где шла
   // работа. На экране это выглядело как «done» рядом с названием раздела.
   //
   // `notify` рисует сообщение поверх открытого списка — в тот момент и на том экране,
@@ -1770,7 +1869,9 @@ function emitAction(item, lines) {
   if (!cmds.length && !item.note) return
 
   // Значок удержания дописывается к имени сам, для любого пункта с `hold` из карты меню.
-  lines.push(`[${title}${item.hold ? ' ' + HOLD_A : ''}]`)
+  const head = `${title}${item.hold ? ' ' + HOLD_A : ''}`
+  if (cmds.some(isOneShotFooter)) oneShotFooter(currentDir, head)
+  lines.push(`[${head}]`)
   // Условие видимости у пункта С КОМАНДАМИ раньше не поддерживалось вовсе: `visible_when`
   // читался только у пунктов-настроек. Пункт установки обновления без этого не спрятать.
   const vc = visCond(item.visible_when)
@@ -1950,11 +2051,18 @@ function emitPackage(node, dirPath, depth = 0) {
        * THE SECTION'S FOOTERS GO HERE, not into a shared [boot].
        *
        * The engine runs the commands of a forwarder section BEFORE moving into the sub-package
-       * (`main.cpp:5784`: `interpretAndExecuteCommands(...)` in the key handler). That is how
+       * (`interpretAndExecuteCommands(std::move(getSourceReplacement(commands, keyName, i,
+       * packagePath)), packagePath, keyName)` in the KEY_A handler under
+       * `if (commandMode == FORWARDER_STR)` -- fork source/main.cpp:5715 (the `if` at :5703),
+       * author's fork :5710 (the `if` at :5698)). That is how
        * `exec SystemSettings` works in Ebal's Tools item.
        *
        * What this buys us. Every `set-ini-val` re-reads and rewrites the whole file
-       * (`ini_funcs.cpp:736,859`), and all 120 footers used to run when the package opened —
+       * (`setIniFile()`: `fopen(fileToEdit.c_str(), "r")` then, after `// Write to the file
+       * again`, `fopen(fileToEdit.c_str(), "w")` -- libultra/source/ini_funcs.cpp:737 and
+       * :859-864, READ IN THE SUBMODULE WITH patches/*.patch APPLIED; the clean HEAD has the
+       * same two places one line earlier, :736 and :858-863), and all 120 footers used to run
+       * when the package opened —
        * before the first screen appeared. Now startup only does what the first screen shows,
        * and a section's footers are read the moment you enter it: the cost is proportional to
        * what the reader actually opened.
@@ -1984,7 +2092,9 @@ function emitPackage(node, dirPath, depth = 0) {
        * Paths are relative to THIS PACKAGE'S DIRECTORY, not to the root.
        *
        * Forwarder commands run with the `packagePath` of the file the forwarder lives in
-       * (`main.cpp:5784`). For top-level sections that is the package root, and the path
+       * (the same `interpretAndExecuteCommands(…, packagePath, keyName)` under
+       * `if (commandMode == FORWARDER_STR)` -- fork source/main.cpp:5715,
+       * author's fork :5710). For top-level sections that is the package root, and the path
        * `./advanced/ram/json/x.json` resolves correctly. But a forwarder inside
        * `advanced/ram/package.ini` already runs from `advanced/ram/`, and the same path turns
        * into `advanced/ram/advanced/ram/...` — no such file, empty footer. That is exactly
@@ -2017,8 +2127,10 @@ function emitPackage(node, dirPath, depth = 0) {
    *
    * All 31 points of the voltage table are hidden until the undervolt mode is set to Custom
    * Table. That works correctly but looks broken: you open the section and see nothing, not
-   * even a word. The engine can negate a condition (`!matching_hex_val_custom`,
-   * `utils.hpp:5805`) — so we show the hint exactly when the list itself is hidden.
+   * even a word. The engine can negate a condition (`if (commandName ==
+   * "!matching_hex_val_custom")` in `processCommand`'s `case '!':` — fork
+   * `source/utils.hpp:5833-5840`, у автора прошивки — `:5831-5838`)
+   * — so we show the hint exactly when the list itself is hidden.
    */
   if (node.visible_when?.offset != null && lines.length) {
     const v = node.visible_when
@@ -2093,7 +2205,9 @@ for (const s of menu.sections) {
  * Re-seed the ROOT item footers after a block writes the kip. Sections get theirs rewritten
  * by the forwarder above them on every entry; the root has no forwarder, so its footer kept
  * the pre-change value for the rest of the session. Reading back right after the write is
- * safe: hexSumCache holds the CUST anchor offset, not the bytes (hex_funcs.cpp:501-540).
+ * safe: hexSumCache holds the CUST anchor offset, not the bytes (`parseHexDataAtCustomOffset`,
+ * libultra/source/hex_funcs.cpp:525-558 with patches/*.patch applied, :493-526 in the clean
+ * HEAD; identical in the firmware author's fork).
  * `up` is how many levels the writing file sits below the package root.
  */
 const rootFooterAgain = (up = 1) => rootBoot.length
@@ -2163,7 +2277,9 @@ if (kipRows.length) {
 
   /**
    * A `mariko:` / `erista:` label stays in force until the next label and never falls back to
-   * "both revisions" (utils.hpp:1319). So rows inside a group are ordered by platform: shared
+   * "both revisions" (`if (name == "erista:") { inErista = true; inMariko = false; continue; }`
+   * and its `mariko:` twin, in `buildTableDrawerLines` -- source/utils.hpp:1485-1494, the same
+   * line numbers in the fork and in the firmware author's fork). So rows inside a group are ordered by platform: shared
    * first, then Erista, then Mariko — each label is written once.
    */
   /**
@@ -2330,7 +2446,10 @@ if (kipRows.length) {
         // СМЕШАННАЯ ГРУППА ПЕЧАТАЕТСЯ ДВУМЯ ТАБЛИЦАМИ, ПО ОДНОЙ НА РЕВИЗИЮ.
         //
         // Иначе порядок строк не наш, а движка: метка `mariko:` действует до следующей
-        // метки и НИКОГДА не возвращается к «обеим» (utils.hpp:1319), поэтому все общие
+        // метки и НИКОГДА не возвращается к «обеим» (`if (name == "mariko:") { inErista =
+        // false; inMariko = true; continue; }` в `buildTableDrawerLines`,
+        // `source/utils.hpp:1485-1494` — одинаково в форке и у автора прошивки),
+        // поэтому все общие
         // строки вынуждены идти первыми. Пока таблица была одна, «Frequency» не могла
         // стоять первой — она платформенная, а общие лезли вперёд.
         //
@@ -2487,6 +2606,123 @@ if (kipRows.length) {
     return [...rest.slice(0, after + 1), ...curve, ...rest.slice(after + 1)]
   })()
 
+  /**
+   * THIRD PAGE: EMC Magician timings from /config/4IFIR/emc_timings.ini (MAGICIAN-PAGE.md §9).
+   * Every section carries `engine_feature pages`: the author's engine reads that as false, so the
+   * marker is not a marker there and nothing of the page is drawn. A toggles MC; Y steps current
+   * timings -> profile pages -> current timings (;page_view_source= in the marker, fork 71cc8f43).
+   * Tables hide themselves through `;skip_null` when their row text still holds `null`.
+   */
+  function emitMagicianPage(kl) {
+    const EMC = '/config/4IFIR/emc_timings.ini'
+    const TIMINGS = ['RP', 'RCD', 'RC', 'RAS', 'R2P', 'W2P', 'W2R', 'R2W', 'RFC', 'FAW', 'RRD', 'RCDW']
+    // Profile slots on one page of the "all saved" view, and the page size the marker hands the
+    // engine. Y pages through the file; a slot past the end draws nothing, gap included.
+    const SLOTS = 8
+    const vc = c => `;visibility_condition=${c}`
+    const FEAT = vc('engine_feature pages')
+    const kipIs = (off, hex, neg = false) => vc(`${neg ? '!' : ''}matching_hex_val_custom ${KIP} CUST ${off} ${hex}`)
+    const num = off => `{hex_to_decimal({hex_to_rhex({hex_file(CUST,${off},3)})})}`
+    const EBAL = num(12352)
+    const CL = `{math(${EBAL}*2+8,true)}`
+    const MHZ = off => `{math(${num(off)}/1000,true)}`
+    const L = i => `{list(${i})}`
+    const ini = (sec, key) => `{ini_file(${sec},${key})}`
+    // First value found among the timing keys, or `null` — "does this section hold any of them".
+    const anyKey = (sec, prefix) => TIMINGS.reduceRight((acc, t) => `{if_null(${ini(sec, prefix + t)},${acc})}`, 'null')
+    // The value, or "value · MC" while A is on and the MC key exists.
+    const cell = (v, mc) => `{if_==({page_mc},1,{if_null(${mc},${v},${v} · ${mc})},${v})}`
+    // The engine splits if_* arguments at commas, so prose inside them must have none.
+    const bare = s => { if (s.includes(',')) throw new Error(`Magician note carries a comma: ${s}`); return s }
+    const hasFile = s => `{if_null({ini_file(0)},null,${s})}`
+    const INI = `ini_file '${EMC}'`
+
+    // A gap that leaves with its block: one blank row, null once `alive` is null, so ;skip_null
+    // drops the whole table. Header tables ignore ;gap= (forced to 17), hence a table of its own.
+    // 16 px row + ;gap = HEAD_GAP. The directive goes last: the engine reads it in the same pass,
+    // and check 12 wants a directive right above [Header].
+    const gap = (conds, alive) => kl.push('[Gap]', ';mode=table', ';background=false', ';skip_null=true', ...conds,
+                                          INI, `'{if_null(${alive},null,)}'=''`, `;gap=${HEAD_GAP - 16}`, '')
+    const header = (conds, src, label, value) =>
+      kl.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ';skip_null=true',
+              ...conds, ...src, `'${label}' = '${value}'`, '')
+    const info = (conds, src, rows) =>
+      kl.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ';skip_null=true', ...conds, ...src, ...rows, '')
+    const note = (conds, src, rows, skip = true) =>
+      kl.push('[Note]', ';mode=table', ';background=false', ';alignment=left', ';offset=10', ';spacing=4', ';gap=0',
+              ...(skip ? [';skip_null=true'] : []), ...conds, ...src, ...rows.map(r => `''='${r}'`), '')
+
+    const EMPTY = wrap('Nothing saved yet. Timings you save in EMC Magician show up here.').map(bare)
+    const EBAMATIC = wrap('eBAMATIC picks the RAM clock at boot. Press Y to see every saved profile.').map(bare)
+
+    // The engine counts the file's sections and cycles Y over 1 + pages views.
+    kl.push('[@Magician]', FEAT, ';page_toggle', `;page_view_source=${EMC},${SLOTS}`, '')
+
+    // ---- view "current timings"
+    const cur = [FEAT, vc('!page_flag view')]
+    note(cur, [], [`A MC {if_==({page_mc},1,on,off)} · Y profiles`], false)
+    note(cur, [INI], EMPTY.map(l => `{if_null({ini_file(0)},${l},null)}`))
+    for (const [rev, off] of [['mariko', 32], ['erista', 24]]) {
+      const sys = `;system=${rev}`
+      // eBAMATIC is "clock is zero OR eBAL is zero"; conditions only AND, so two disjoint tables.
+      note([...cur, sys, kipIs(off, '000000')], [INI], EBAMATIC.map(hasFile))
+      note([...cur, sys, kipIs(off, '000000', true), kipIs(12352, '000000')], [INI], EBAMATIC.map(hasFile))
+
+      // 1600 (state E): operator's rule, only with sMeh 8 E-Boost = 02 and a pinned eBAL.
+      // list: 0 = [1600CL..], 1 = the S section (old format keeps e keys there), 2 = eBAL.
+      const eConds = [...cur, sys, kipIs(12492, '02'), kipIs(12352, '000000', true)]
+      const eSrc = [`hex_file '${KIP}'`, INI, `list '[1600CL${CL},${MHZ(off)}CL${CL},${EBAL}]'`]
+      gap(eConds, '{ini_file(0)}')
+      // A second list line reads the first one: 3 = any e key in [1600CL..] or null.
+      header(eConds, [...eSrc, `list '[${L(0)},${L(1)},${L(2)},${anyKey(L(0), 'e')}]'`], '1600 MHz',
+             hasFile(`eBAL ${L(2)}{if_==(${L(3)},null,{if_null(${anyKey(L(1), 'e')}, · not saved, · old format)},)}`))
+      info(eConds, eSrc, TIMINGS.map(t => {
+        const v = `{if_null(${ini(L(0), 'e' + t)},{if_null(${ini(L(1), 'e' + t)},Auto)})}`
+        const mc = `{if_null(${ini(L(0), 'ae' + t)},${ini(L(1), 'ae' + t)})}`
+        return `'${t}' = '${hasFile(cell(v, mc))}'`
+      }))
+
+      // State S: the RAM clock from the kip, kHz little-endian.
+      const sConds = [...cur, sys, kipIs(off, '000000', true), kipIs(12352, '000000', true)]
+      const sSrc = [`hex_file '${KIP}'`, INI, `list '[${MHZ(off)}CL${CL},${MHZ(off)},${EBAL}]'`]
+      gap(sConds, '{ini_file(0)}')
+      header(sConds, sSrc, `${L(1)} MHz`,
+             hasFile(`eBAL ${L(2)}{if_null(${anyKey(L(0), 's')}, · not saved,)}`))
+      info(sConds, sSrc, TIMINGS.map(t =>
+        `'${t}' = '${hasFile(cell(`{if_null(${ini(L(0), 's' + t)},Auto)}`, ini(L(0), 'as' + t)))}'`))
+    }
+
+    // ---- view "all saved profiles", natural order of section names, SLOTS per page
+    const all = [FEAT, vc('page_flag view')]
+    // Range row drops out on an empty file (total 0); the hint says where Y goes next.
+    note(all, [], [
+      `{if_==({page_view_total},0,null,${bare('Profiles {page_view_from}-{page_view_to} of {page_view_total}')})}`,
+      `A MC {if_==({page_mc},1,on,off)} · Y {if_==({page_view},{page_view_pages},current timings,next page)}`,
+    ])
+    note(all, [INI], EMPTY.map(l => `{if_null({ini_file(0)},${l},null)}`))
+    for (let k = 0; k < SLOTS; k++) {
+      // The k-th section of this page, read once into a list line of its own: the next list
+      // line refers to it six times. Past the end it is null, and so is everything built on it.
+      const hit = `{ini_file_sorted({math({page_view_first}+${k},true)})}`
+      const sec = L(0)
+      const mhz = `{split(${sec},CL,0)}`
+      // list: 0 section, 1 MHz, 2 key prefix by clock, 3 eBAL, 4 "Auto" or null past the end,
+      // 5 prefix of old-format e keys inside an S section (null for an E section).
+      const src = [INI, `list '[${hit}]'`, `list '[${sec},${mhz},{if_<(${mhz},1612,e,s)},{math({split(${sec},CL,1)}/2-4,true)},`
+                        + `{if_null(${sec},null,Auto)},{if_<(${mhz},1612,null,e)}]'`]
+      gap(all, hit)
+      header(all, src, `${L(1)} MHz`, `{if_null(${L(4)},null,eBAL ${L(3)})}`)
+      const main = TIMINGS.map(t =>
+        `'${t}' = '${cell(`{if_null(${ini(L(0), L(2) + t)},${L(4)})}`, ini(L(0), `a${L(2)}${t}`))}'`)
+      // Old format: a second list line adds 6 = Auto if the section holds any e key, else null.
+      // A missing e key then reads Auto, and the e block goes only when there is no e key at all.
+      const oldSrc = [...src, `list '[${[0, 1, 2, 3, 4, 5].map(L).join(',')},{if_null(${anyKey(L(0), L(5))},null,Auto)}]'`]
+      const old = TIMINGS.map(t =>
+        `'${t}' = '${cell(`{if_null(${ini(L(0), L(5) + t)},${L(6)})}`, ini(L(0), `a${L(5)}${t}`))}'`)
+      info(all, oldSrc, [...main, `'E state' = '{if_null(${L(6)},null,old format)}'`, ...old])
+    }
+  }
+
   // Подпись экрана — см. пояснение у `;subtitle=` в конце `emitPackage`.
   const kl = [`;subtitle='Current Settings'`, '', `[@Current]`, '']
   emitPage(kl, main)
@@ -2503,6 +2739,7 @@ if (kipRows.length) {
     kl.push('[@Page 2]', '')
     emitPage(kl, deep)
   }
+  emitMagicianPage(kl)
   write('current.ini', kl.join('\n'))
 
   /**
@@ -2515,11 +2752,16 @@ if (kipRows.length) {
    * Как это держится:
    *   1. `set-ini-val './config.ini' Restore Path '{file_source}'` — выбор запоминается;
    *   2. `refresh-return` заставляет движок пересобрать родительскую страницу при возврате
-   *      (`main.cpp:4374`, действует ТОЛЬКО в списке выбора) — иначе таблица осталась бы
-   *      старой, движок вернул бы прежний объект экрана;
+   *      (`if (refreshReturnAfter.exchange(false, …) && !returnContextStack.empty())` в
+   *      `SelectionOverlay`, форк `source/main.cpp:4285-4309`, у автора прошивки —
+   *      `:4280-4304`; действует ТОЛЬКО в списке выбора) — иначе
+   *      таблица осталась бы старой, движок вернул бы прежний объект экрана;
    *   3. `ini_file './config.ini'` затем `ini_file '{ini_file(Restore,Path)}'` — плейсхолдер
-   *      в аргументе разрешается ДО того, как аргумент станет новым путём (`utils.hpp:1322`
-   *      против `:1354`), поэтому вторая строка перепривязывает чтение к выбранному файлу;
+   *      в аргументе разрешается ДО того, как аргумент станет новым путём: в
+   *      `buildTableDrawerLines` сперва `applyPlaceholderReplacements(cmd, hexPath, iniPath, …)`
+   *      (`utils.hpp:1499-1505`), и только потом `else if (cmd[0] == INI_FILE_STR …) { iniPath
+   *      = cmd[1]; }` (`utils.hpp:1532-1535`) — оба номера одинаковы в форке и у автора;
+   *      поэтому вторая строка перепривязывает чтение к выбранному файлу;
    *   4. значения совпадают с форматом бэкапа бит в бит, поэтому идут те же словари.
    *
    * ЭТОТ БЛОК ОПИСЫВАЕТ ОТМЕНЁННОЕ УСТРОЙСТВО. Оставлен как история решения, но по нему
@@ -2550,8 +2792,10 @@ if (kipRows.length) {
    *
    * ПОЧЕМУ НЕ `refresh-return`. Первая версия строилась на нём: он заставляет движок
    * пересобрать страницу при возврате из списка выбора. На консоли это не сработало —
-   * `main.cpp:4374` вместе с пересборкой делает `swapTo<PackageMenu>(SwapDepth(2))`
-   * и ставит `inSubPackageMenu = false`, то есть возвращает на два уровня вверх и как
+   * ветка `refreshReturnAfter` в `SelectionOverlay` (форк `source/main.cpp:4285-4309`,
+   * у автора прошивки — `:4280-4304`) вместе с пересборкой делает
+   * `tsl::swapTo<PackageMenu>(SwapDepth(2), …)` (форк `:4299-4307`)
+   * и ставит `inSubPackageMenu = false` (форк `:4294`), то есть возвращает на два уровня вверх и как
    * в обычный пакет. У Ebal список лежит в пакете верхнего уровня и попадает куда надо,
    * а наша страница — подпакет внутри Service, и человека выбрасывало мимо неё.
    *
@@ -2572,7 +2816,7 @@ if (kipRows.length) {
     //
     // `polling` нужен только там, где источник меняется по ходу дела (выбор копии).
     // У заводского снимка файл неизменный, и опрос раз в секунду просто жёг бы батарею.
-    const { title, rev, source, chooser, apply, del, note, note2, create = null, depth = 0, only = null, factory = false } = opts
+    const { title, rev, source, chooser, apply, del, note, note2, hint = null, create = null, depth = 0, only = null, factory = false } = opts
     const poll = chooser ? [';polling=true'] : []
     // Подпись экрана — тем же ключом, что и у подпакетов; см. пояснение у `;subtitle=`
     // в конце `emitPackage`. Без него движок подписывал эти два экрана словом `Commands`.
@@ -2619,20 +2863,32 @@ if (kipRows.length) {
     //
     // Было: имя стояло справа на самом пункте выбора (`set-footer`), а `;grouping=split`
     // кладёт подпись и значение в ОДНУ строку. Ширину делит движок: футер резервирует
-    // своё место, имени пункта достаётся остаток (`tesla.hpp:9491-9493`). Имя копии
-    // длинное всегда — частота, режим и метка времени, — поэтому подпись обречена: на
-    // снимке оператора от слова `Backup` осталось `Bac`.
+    // своё место, имени пункта достаётся остаток (`ListItem::calculateWidths()`:
+    // `const s32 available = getWidth() - valueReservedWidth(renderer);` —
+    // `lib/libultrahand/libtesla/include/tesla.hpp:9540-9555`, ЧИТАНО В ПОДМОДУЛЕ
+    // С НАЛОЖЕННЫМИ `patches/*.patch`; у автора прошивки — `:9654-9669`).
+    // Имя копии длинное всегда — частота, режим и метка времени, — поэтому подпись
+    // обречена: на снимке оператора от слова `Backup` осталось `Bac`.
     //
     // Стало: заголовок своей строкой, имя своей, прижатое влево. Целиком помещается:
-    // строке таблицы отведено 346 пикселей (`utils.hpp:1637-1644`), а имя копии занимает
-    // около 260 даже с пометкой `imp`.
+    // строке таблицы отведено ~344 пикселя (`const size_t xMax = tsl::cfg::FramebufferWidth
+    // - 95 -1;` в `buildTableDrawerLines`, `utils.hpp:1389`, при штатных 448 —
+    // `DefaultFramebufferWidth` в `libultra/source/tsl_utils.cpp:65` — это 352, а в
+    // `tsl::wrapText` уходит `xMax - 8`, `utils.hpp:1420-1422`; номера одинаковы в форке
+    // и у автора), а имя копии занимает около 260 даже с пометкой `imp`.
     //
     // БЕГУЩЕЙ СТРОКИ ЗДЕСЬ НЕТ, И ЭТО НАДО ЗНАТЬ. Прокрутка текста живёт только у
-    // пунктов-строк и только пока пункт выделен (`tesla.hpp:9548`); таблицы рисуют
-    // текст одним вызовом без смещения (`utils.hpp:1701-1712`), а при переполнении
+    // пунктов-строк и только пока пункт выделен (`ListItem::drawTruncatedText()` —
+    // вся ветка со `m_scrollOffset` под `if (m_focused)`, `tesla.hpp:9571-9590`
+    // в подмодуле с заплатами, у автора `:9685-9704`); таблицы рисуют
+    // текст одним вызовом без смещения (`renderer->drawStringWithColoredSections(
+    // cacheExpSec[i], …, baseX, yPos, 16, …)` в лямбде `TableDrawer`,
+    // `utils.hpp:1751-1761`, у автора `:1751-1760`), а при переполнении
     // молча обрезают — `wrappingMode` по умолчанию `none`. Флаг `isScrollableTable`
-    // (`main.cpp:4790`) к тексту отношения не имеет: он говорит списку, что элемент
-    // нефокусируемый. Я на него сослался и ошибся, проверка поймала.
+    // (`bool isScrollableTable;` — форк `main.cpp:4658`, у автора `:4653`; сброс в `true`
+    // форк `:4708`, у автора `:4703`; в `false` форк `:5434`, у автора `:5429`)
+    // к тексту отношения не имеет: он говорит списку,
+    // что элемент нефокусируемый. Я на него сослался и ошибся, проверка поймала.
     //
     // Значит имя, переехав с пункта в таблицу, потеряло способность прокручиваться.
     // Разменяно сознательно: на пункте оно эту способность имело, но там же и съедало
@@ -2829,7 +3085,9 @@ if (kipRows.length) {
          * СМЕШАННЫЙ БЛОК ПЕЧАТАЕТСЯ ДВУМЯ ТАБЛИЦАМИ, ПО ОДНОЙ НА РЕВИЗИЮ — КАК В СВОДКЕ.
          *
          * Было: одна таблица с метками `erista:` / `mariko:` внутри. Метка действует
-         * до следующей и НИКОГДА не возвращается к «обеим» (utils.hpp:1319), поэтому общие
+         * до следующей и НИКОГДА не возвращается к «обеим» (`if (name == "erista:")` /
+         * `if (name == "mariko:")` в `buildTableDrawerLines`, `source/utils.hpp:1485-1494`
+         * — одинаково в форке и у автора прошивки), поэтому общие
          * строки вынуждены идти первыми, и порядок расходился со сводкой: в CPU `Speed Shift`
          * стоял третьим вместо последнего, в GPU `Undervolt Mode` — предпоследним вместо
          * первого. Человек сравнивает сброс со сводкой глазами, переводя взгляд с экрана
@@ -2948,6 +3206,20 @@ if (kipRows.length) {
       pl.push('')
     }
 
+    /**
+     * One row that prints only while the chosen backup matches `hint.when` in `Meta kipver`.
+     * Polled with an empty else-branch, like the red block: choosing a backup does not rebuild
+     * the page (`back` only pops the list), so a section condition would see a stale choice.
+     * No gap of its own - when silent it costs one blank row, not a paragraph.
+     */
+    if (hint && chooser) {
+      if (/[,()]/.test(hint.text) || hint.text.length > 40)
+        throw new Error(`preview hint must fit one row with no commas or brackets: ${hint.text}`)
+      pl.push('[Info]', ';mode=table', ';background=false', ';alignment=left',
+              ';offset=10', ';spacing=0', ';gap=0', ';polling=true', ...source,
+              `''='{if_==({ini_file(Meta,kipver)},${hint.when},${hint.text},)}'`, '')
+    }
+
     // Отступ ПЕРЕД кнопкой, а не только перед заметкой.
     //
     // Подсветка выделенного пункта рисуется выше его строки и накрывала последнюю строку
@@ -3055,8 +3327,15 @@ if (kipRows.length) {
     // Привязка объявляется в каждой таблице: она не переживает границу секции.
     const src = [`ini_file './config.ini'`, `ini_file '{ini_file(Restore,Path)}'`]
     const mine = kipRows.filter(r => (r.platform ?? 'both') === 'both' || r.platform === rev)
+    const page = `service/restore-${rev}.ini`
+    const pageDir = page.slice(0, page.lastIndexOf('/'))
+    const applyHead = `Apply this backup ${HOLD_A}`
+    oneShotFooter(pageDir, backupCreateHead[rev])
+    oneShotFooter(pageDir, applyHead)
+    oneShotChoice.set(pageDir, RESTORE_CHOICE_KEYS)
+    oneShotBackupPath.add(pageDir)
 
-    emitPreviewPage(`service/restore-${rev}.ini`, {
+    emitPreviewPage(page, {
       title: 'Backup manager', rev, source: src, depth: 1,
       // Готовые строки пункта создания копии — их собрал `emitBackup` при обходе меню.
       // Пути внутри переезд переживают: `./config.ini` разворачивается в каталог
@@ -3075,7 +3354,10 @@ if (kipRows.length) {
         // от `Backup` осталось `Bac`, дальше сразу имя файла.
         //
         // Ширину делит сам движок: футер резервирует своё место, а имени пункта
-        // достаётся остаток (`tesla.hpp:9491-9493`). Имя копии длинное всегда — оно
+        // достаётся остаток (`ListItem::calculateWidths()`: `const s32 available =
+        // getWidth() - valueReservedWidth(renderer);` — `tesla.hpp:9540-9555` в подмодуле
+        // с наложенными `patches/*.patch`, у автора прошивки —
+        // `:9654-9669`). Имя копии длинное всегда — оно
         // собрано из частоты, режима и метки времени, — так что подпись обречена.
         //
         // Теперь пункт зовёт выбрать, а выбранное показано отдельной таблицей ниже:
@@ -3098,7 +3380,9 @@ if (kipRows.length) {
          * It is the only thing that tells a copy made before the curve grew from 24 points
          * to 31 from a current one: `Meta kipver` did not change, so the gate lets the old
          * file through and the seven missing cells are simply never written - the engine
-         * skips an empty substitution without a word (`handleHexByCustom`, utils.hpp:4724).
+         * skips an empty substitution without a word (`handleHexByCustom`, everything sits
+         * under `if (hexDataReplacement != NULL_STR)` -- fork source/utils.hpp:4761-4762,
+         * author's fork :4759-4760).
          *
          * Worked out here in steps rather than in the row that shows it. The engine can
          * only compare for equality, and an unselected backup reads as `null`, which would
@@ -3115,28 +3399,35 @@ if (kipRows.length) {
         `set-ini-val './config.ini' Restore Want '{if_==({ini_file(Meta,kipver)},imported,${IMPORT_FIELD_COUNT[rev] ?? backupFieldCount(rev)},${backupFieldCount(rev)})}'`,
         `ini_file './config.ini'`,
         `set-ini-val './config.ini' Restore Old '{if_==({ini_file(Restore,Have)},{ini_file(Restore,Want)},no,yes)}'`,
-        // `back` последней строкой: в Ultrahand она не прерывает секцию, остаток
-        // выполнится (`docs/MIGRATION.md` §3, конфликт 3).
+        // Rebuild the page on return (operator, 13.09.2026): "Older backup" and anything else
+        // gated on the choice is current at once, cursor back on this item (SelectionOverlay
+        // handleInput, fork source/main.cpp:4364-4387). `back` does not stop the section
+        // (`docs/MIGRATION.md` §3, conflict 3).
+        'refresh-return',
         'back',
       ],
       apply: [
-        `[Apply this backup ${HOLD_A}]`,
+        `[${applyHead}]`,
         // ПУНКТ ВИДЕН ВСЕГДА, И ЭТО НАМЕРЕННО.
         //
         // Раньше он прятался условием `!matching_ini_val ./config.ini Restore Path`.
         // Условие видимости вычисляется ОДИН РАЗ, когда страница строится
-        // (`main.cpp:5341-5352`), а выбор копии происходит позже: `back` из списка
+        // (`if (!skipVisibility && !evaluateMenuCondition(conditionStr, packagePath))
+        // skipVisibility = true;` в разборе `;visibility_condition=`, форк
+        // `source/main.cpp:5261-5267`, у автора прошивки — `:5256-5262`),
+        // а выбор копии происходит позже: `back` из списка
         // снимает оверлей со стека, но нижележащую страницу заново не строит
-        // (`tesla.hpp:14336`). То есть на первом заходе человек выбирал файл, видел
+        // (`Overlay::goBack()`: `this->m_guiStack.pop()` в цикле и ничего больше —
+        // `lib/libultrahand/libtesla/include/tesla.hpp:14399-14432` в подмодуле
+        // с наложенными `patches/*.patch`, у автора `:14563-14596`).
+        // То есть на первом заходе человек выбирал файл, видел
         // его содержимое — и кнопки применения не было. Она появлялась, только если
         // выйти со страницы и зайти снова. Выглядело как «предпросмотр есть, применить нечем».
         //
-        // Перерисовку можно было бы попросить командой `refresh`, но её поведение
-        // на этой глубине вложенности проверяется только на консоли, а `refresh-return`
-        // мы уже так теряли (журнал №68). Поэтому опираемся на то, что доказуемо
-        // по коду: без выбранного файла предикат `matching_ini_val` не пройдёт, а
-        // `handleHexByCustom` пропускает запись при `NULL_STR` (`utils.hpp:4560`).
-        // Нажатие без выбора не делает ничего и говорит об этом.
+        // The choice now rebuilds the page (`refresh-return` in the chooser), yet the item stays
+        // unconditional: that command once failed on the console (NOTES 68), and a missed
+        // rebuild must not hide Apply. With nothing chosen `matching_ini_val` fails and
+        // `handleHexByCustom` skips a `NULL_STR` write (fork source/utils.hpp:4761-4762).
         ';hold=true',
         // ЩИТ ПО ВЕРСИИ РАСКЛАДКИ. Копия хранит смещения — то есть позиции в структуре
         // блока CUST. Изменится структура в новой прошивке, и те же числа станут указывать
@@ -3144,7 +3435,10 @@ if (kipRows.length) {
         // в загрузчик. Поэтому сверяем паспорт.
         //
         // Механика — блоки `try:`. Первый ПОЛНОСТЬЮ успешный блок обрывает секцию
-        // (`utils.hpp:3866-3880`), поэтому запасной блок с сообщением идёт вторым и
+        // (`if (commandName == "try:") { if (inTrySection && commandSuccess.load(…)) {
+        // commands = {}; … return true; } … }` в `interpretAndExecuteCommands` — форк
+        // `source/utils.hpp:4068-4082`, у автора прошивки — `:4066-4080`),
+        // поэтому запасной блок с сообщением идёт вторым и
         // отработает только если предикат не прошёл. Запись в kip своим итогом
         // `commandSuccess` не трогает (`handleHexByCustom` возвращает void), так что
         // девяносто команд внутри блока цепочку не порвут.
@@ -3166,6 +3460,7 @@ if (kipRows.length) {
         // NO re-seed of the root footer written by hand here or in the import branch below:
         // `reseedRootFooters` adds it to every try-block that writes a root-footer offset.
         `set-footer 'restored'`,
+        rebuildOn(applyHead),
         // ВТОРОЙ БЛОК — ДЛЯ ИМПОРТИРОВАННЫХ КОПИЙ, НО КНОПКА ОДНА.
         //
         // У копии из старого визарда версии раскладки нет: старый формат её не хранил,
@@ -3178,9 +3473,6 @@ if (kipRows.length) {
         // выдавливает имя пункта. Строка «restored from an imported copy» съедала
         // кнопку целиком — на экране оставалась одна скобка. Причина живёт в примечании,
         // футер отвечает только «что стало».
-        //
-        // Предупреждение про неизвестную версию осталось, но в примечании под сводкой:
-        // его читают до нажатия, а не выбирают между кнопками вслепую.
         'try:',
         `!matching_ini_val {ini_file(Restore,Path)} Meta revision ${rev === 'mariko' ? 'erista' : 'mariko'}`,
         `matching_ini_val {ini_file(Restore,Path)} Meta kipver imported`,
@@ -3188,8 +3480,10 @@ if (kipRows.length) {
         ...backupSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
         ...sideSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
         `set-footer 'restored (import)'`,
+        rebuildOn(applyHead),
         'try:',
         `set-footer 'not applied'`,
+        rebuildOn(applyHead),
       ],
       // УДАЛЕНИЕ ЧИСТИТ ОБА КЛЮЧА, а не одно имя: `config.ini` переживает выход из
       // оверлея и перезагрузку, так что выбор прошлого раза встречал бы человека уже
@@ -3205,34 +3499,22 @@ if (kipRows.length) {
         'try:',
         `path_exists {ini_file(Restore,Path)}`,
         `delete {ini_file(Restore,Path)}`,
-        `set-ini-val './config.ini' Restore Path ''`,
-        `set-ini-val './config.ini' Restore Name ''`,
-        // Флаг «копия старая» стирается вместе с выбором: иначе предупреждение осталось бы
-        // висеть после удаления файла, которого оно касалось.
-        `set-ini-val './config.ini' Restore Old ''`,
+        // Path, Name and the "old copy" flag (else the warning outlives the file). [boot]
+        // clears the same list on every entry, so both "nothing chosen" states match.
+        ...RESTORE_CHOICE_KEYS.map(k => `set-ini-val './config.ini' Restore ${k} ''`),
         `notify 'Done - Deleted' 22 4000`,
+        // the choice is gone: rebuild so nothing gated on it outlives the file
+        rebuildOn(`Delete this backup ${HOLD_A}`),
         'try:',
         `notify 'Pick a backup first' 22 4000`,
       ],
-      // ПРИМЕЧАНИЕ РАЗНОЕ ПО РЕВИЗИЯМ, и не ради красоты. Копия старого визарда на Erista
-      // снималась двумя шаблонами, в которых шести полей нет вовсе (`NOTES` №193), — их
-      // строки покажут `Not available` и останутся как есть.
+      // No explanatory note under the summary: removed at the operator's word 13.09.2026
+      // (it took a screen of space). The red mismatch text is separate and stays.
       //
-      // Одно из них молчать не имеет права. Кривая GPU переносится вся, 29 ячеек, а поле 44
-      // — нет; на Erista оно не выбирает таблицу, а СДВИГАЕТ эту самую кривую на 12,5 мВ
-      // за единицу. То есть человек получает чужую кривую под своим текущим сдвигом,
-      // и узнать об этом ему неоткуда: обе части выглядят применёнными.
-      note: 'Values above are read from the selected file, not from the kip. Hold A on Apply to write them. '
-          + 'A copy imported from the old Wizard shows "imported" as its kip layout: that format never '
-          + 'stored one. It was taken on this console, so the values are yours - but if the firmware has '
-          + 'been updated since, check the summary above before applying.'
-          + (rev === 'erista'
-              ? ' On Erista that old format did not store the GPU undervolt mode, the voltage floors, '
-                + 'the boost clock or Speed Shift: those rows read "Not available" and keep their current '
-                + 'values. The GPU curve is restored in full, and on Erista the undervolt mode shifts that '
-                + 'curve - so set the mode yourself afterwards, or the restored curve sits under whatever '
-                + 'shift is in the kip now.'
-              : ''),
+      // One hint came back, Erista only (operator, 13.09.2026): the old Wizard format there
+      // has no GPU undervolt mode, and on Erista that field shifts the restored curve.
+      // Mariko imports carry the mode. NOTES 304.
+      hint: rev === 'erista' ? { when: 'imported', text: 'Imported: set GPU undervolt mode by hand' } : null,
     })
   }
 
@@ -3257,8 +3539,11 @@ if (kipRows.length) {
     // в `docs/FACTS.md` и в `_meta` самого эталона, а комментарий, повторяющий число,
     // устаревает молча.
     const bothOnReset = new Set(fieldsDoc.fields.filter(f => f.factory_reset_both).map(f => f.offset))
+    const resetPage = 'service/reset.ini'
+    const resetHead = rev => `Apply factory defaults ${HOLD_A}?${rev}`
+    for (const rev of ['mariko', 'erista']) oneShotFooter(resetPage.slice(0, resetPage.lastIndexOf('/')), resetHead(rev))
     const applyFor = rev => [
-      `[Apply factory defaults ${HOLD_A}?${rev}]`, ';hold=true', `;system=${rev}`,
+      `[${resetHead(rev)}]`, ';hold=true', `;system=${rev}`,
       ...src,
       /**
        * СБРОС ФИЛЬТРУЕТСЯ ПО РЕВИЗИИ — И У ЭТОГО ЕСТЬ ОДНО ИСКЛЮЧЕНИЕ.
@@ -3279,6 +3564,7 @@ if (kipRows.length) {
       ...factoryOffsets.filter(o => platOf(o) === 'both' || platOf(o) === rev || bothOnReset.has(o))
         .map(o => `hex-by-custom-offset ${KIP} CUST ${o} {ini_file(Fields,${o})}`),
       `set-footer 'restored'`,
+      rebuildOn(resetHead(rev)),
     ]
 
     const notCovered = fieldsDoc.fields
@@ -3286,7 +3572,7 @@ if (kipRows.length) {
       .filter(f => !factoryOffsets.includes(f.offset))
       .map(f => f.name)
 
-    emitPreviewPage('service/reset.ini', {
+    emitPreviewPage(resetPage, {
       title: 'Factory Defaults', rev: null, source: src, depth: 1,
       chooser: null,
       // `factory` tells the row printer that the source is the factory set, where the top
@@ -3361,7 +3647,11 @@ function emitDefaultIni() {
   // ИМЯ ПОЛЯ — ОТДЕЛЬНОЙ СТРОКОЙ, НЕ ХВОСТОМ ЗНАЧЕНИЯ.
   //
   // Движок при чтении ini обрезает у значения только пробелы и табуляции, а дальше берёт
-  // всё до конца строки (`libultra/source/ini_funcs.cpp:601-605`). Точку с запятой он
+  // всё до конца строки (`// Trim value` → `while (val_start < end && (*val_start == ' ' ||
+  // *val_start == '\t')) ++val_start;` → `value.assign(val_start, end);` —
+  // `libultra/source/ini_funcs.cpp:601-605`, ЧИТАНО В ПОДМОДУЛЕ С НАЛОЖЕННЫМИ
+  // `patches/*.patch`; в чистом `HEAD` это `:600-604`, у автора те же `:601-605`).
+  // Точку с запятой он
   // комментарием НЕ считает. Строка `12=000000   ; CPU Boost Clock` вернулась бы целиком,
   // а `hexEditByOffset` проверяет только чётность длины и пишет len/2 байт — то есть
   // тринадцать байт вместо трёх, прямо в loader.kip.
@@ -3415,7 +3705,9 @@ if (menu.root_help?.blocks?.length || rootInfo.length) {
  *
  * Приём взят у оригинала. В Uberhand это возможность движка: пакет объявляет `;kipVer=27`
  * в заголовке, движок читает `CUST+4` из живого kip и при несовпадении подменяет всё меню
- * одной надписью «Kip version mismatch» (`Uberhand-src/source/main.cpp:954-968`). Коммит
+ * одной надписью «Kip version mismatch» (`Uberhand-src/source/main.cpp:954-968` — адрес
+ * в ЧУЖОМ дереве, локальных исходников Uberhand нет, проверить нечем; 08.09.2026
+ * проверено, что такого дерева на диске не лежит). Коммит
  * `9567886` в репозитории 4IFIR — ровно такое обновление: `;kipVer=26` -> `27` в двух файлах.
  *
  * Ultrahand директиву `;kipVer` не знает и молча проигнорирует её как неизвестную. Поэтому
@@ -3501,6 +3793,14 @@ write('package.ini', rootLines.join('\n'))
 
 // A single boot file for the whole package: root items first, then every section.
 const boot = [...rootBoot, '', ...allBoot]
+// One-shot state is cleared on entry. `remove-ini-key` (upstream too) leaves no `set-ini-val
+// './config.ini'` line behind, which checks 54/55 would read as a root footer to re-seed.
+const cfgAt = dir => `'./${dir ? dir + '/' : ''}config.ini'`
+const oneShotClear = [
+  ...[...oneShotFooters.values()].map(({ dir, section }) => `remove-ini-key ${cfgAt(dir)} '${section}' footer`),
+  ...[...oneShotChoice].flatMap(([dir, keys]) => keys.map(k => `set-ini-val ${cfgAt(dir)} Restore ${k} ''`)),
+  ...[...oneShotBackupPath].map(dir => forgetBackupPath(cfgAt(dir))),
+]
 if (boot.some(l => l.startsWith('set-ini-val'))) {
   write('boot_package.ini', [
     '[boot]',
@@ -3508,6 +3808,8 @@ if (boot.some(l => l.startsWith('set-ini-val'))) {
     `hex_file '${KIP}'`,
     '',
     ...boot,
+    '',
+    ...oneShotClear,
     '',
   ].join('\n'))
   stats.bootFiles = 1
@@ -3549,7 +3851,10 @@ function reseedRootFooters () {
 
     const closeBlock = () => {
       if (writes) {
-        // At the root the item's own `set-footer` already wrote that very key (utils.hpp:5477),
+        // At the root the item's own `set-footer` already wrote that very key
+        // (`if (cmdSize >= 2 && commandName == "set-footer") { … setIniFileValue((packagePath
+        // + CONFIG_FILENAME), selectedCommand, FOOTER_STR, desiredValue); }` -- fork
+        // source/utils.hpp:5689-5696, author's fork :5687-5694),
         // so its line is dropped; a SECOND root item on the same byte still gets its own.
         const self = header.replace(/^\[\*?/, '').replace(/\]$/, '')
         const want = up === 0

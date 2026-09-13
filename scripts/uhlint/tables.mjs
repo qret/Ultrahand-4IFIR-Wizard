@@ -35,7 +35,11 @@ export const ULT_COMMANDS = new Set([
 
 /** List-source directives (handled by the UI while the section is parsed). */
 // Четыре имени, которые движок считает КОПИРОВАНИЕМ. Всё остальное, начинающееся
-// с `mirror_` или `mirror-`, он выполняет как удаление (`utils.hpp:4234`, `4995`).
+// с `mirror_` или `mirror-`, он выполняет как удаление
+// (`(commandName == "mirror-copy" || … == "mirror_cp") ? "copy" : "delete"` — форк
+// `source/utils.hpp:4436-4437`, у автора прошивки — `:4434-4435`;
+// диспетчеризация по префиксу — `commandName.compare(0, 7, "mirror_") == 0`,
+// форк `:5210`, у автора `:5208`).
 export const MIRROR_COPY = new Set(['mirror-copy', 'mirror-cp', 'mirror_copy', 'mirror_cp'])
 
 export const ULT_SOURCES = new Set([
@@ -43,7 +47,10 @@ export const ULT_SOURCES = new Set([
   'json_source', 'json_file_source', 'filter', 'package_source',
 ])
 
-/** `;` directives Ultrahand knows about (main.cpp:99-150). */
+/** `;` directives Ultrahand knows about: `commandModes` at source/main.cpp:99 and the
+ *  `constexpr std::string_view *_PATTERN = ";…="` block from :102 (`SYSTEM_PATTERN`) to
+ *  :150 (`ON_EVERY_TICK_PATTERN`) -- so main.cpp:99-150, the same lines in the fork and in
+ *  the firmware author's fork (the two trees start to diverge only at :1095). */
 export const ULT_DIRECTIVES = new Set([
   // package header
   'title', 'display_title', 'version', 'creator', 'about', 'credits', 'color',
@@ -57,6 +64,10 @@ export const ULT_DIRECTIVES = new Set([
   'polling', 'scrollable', 'top_pivot', 'bottom_pivot', 'background', 'bg_color', 'border',
   'header_indent', 'alignment', 'wrapping_mode', 'wrapping_indent', 'start_gap', 'end_gap',
   'gap', 'offset', 'spacing', 'info_text_color', 'section_text_color',
+  // our fork only (branch magician-page3): drop a table row that resolves to null;
+  // A/Y page flags on a page marker; the ini and page size the Y view pages over.
+  // The author's engine reads all three as comments.
+  'skip_null', 'page_toggle', 'page_view_source',
   // trackbars
   'min_value', 'max_value', 'steps', 'units', 'unlocked', 'on_every_tick',
 ])

@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/10-profiles.md sha=0ed436441ffd self=910cd7f9dba4 -->
+<!-- i18n: source=Guides/ru/10-profiles.md sha=82f39c4b7083 self=f42e8ae66a62 -->
 # Profiles, backups and reset
 
 <!-- nav:begin -->
@@ -27,7 +27,8 @@ nothing of your own set up, it is all you need.
 **`Service → Backup manager`** holds everything about copies on one page: create, pick,
 see what is inside, apply or delete.
 
-The first item, **`Create backup`**, stores your current overclock settings in a file.
+The first item is **`Choose backup`**, for picking a copy you already made. The second,
+**`Create backup`**, stores your current overclock settings in a file.
 
 A backup is not a firmware image, it is a list of values. That means it:
 
@@ -80,6 +81,9 @@ values substituted in.
 > The old profile format for Erista is thinner than the Mariko one: six settings are
 > simply not in it. Those lines will be blank on an imported Erista copy — there is
 > nowhere to take the values from, and we will not invent them.
+>
+> The GPU undervolt mode is not carried over either: on Erista, set it by hand after
+> applying such a copy — the tuner reminds you with a line on the copy's screen.
 
 ## About ready-made presets
 

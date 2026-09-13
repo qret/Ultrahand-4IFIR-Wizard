@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/04-overlay.md sha=dcb0d87b7ab3 self=ad116a921cc2 -->
+<!-- i18n: source=Guides/ru/04-overlay.md sha=dcb0d87b7ab3 self=3d8f267282ce -->
 # The 4IFIR overlay: where clocks are set
 
 <!-- nav:begin -->
@@ -16,7 +16,7 @@ the overlay decides **which clock** to set.
 
 ## How to open it
 
-Hold **`L` + `R` + `↑`** to open the overlay menu — it is called **Uberhand**. Pick 4IFIR
+Hold **`L` + `R` + `↑`** to open the overlay menu — it is called **Ultrahand**. Pick 4IFIR
 from the list; it is labelled **`4IFIR Nextgen`** there.
 
 It works on top of a running game, so there is no need to close anything. That is the

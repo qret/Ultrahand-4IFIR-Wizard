@@ -63,8 +63,8 @@ function padHexLocal(hex, lenBytes) {
 // же модуля прямо говорит, что показать сторожа красным нужно на состоянии,
 // которое ломает предмет надзора, и что «проверка, написанная против конкретной
 // порчи, ловит ровно эту порчу» — поэтому пробы бьют по РАЗНЫМ классам:
-// переполнение буфера чтения, ложь в тексте, длина подписи и — главное —
-// исчезновение самого предмета надзора.
+// переполнение буфера чтения, ложь в тексте, длина подписи, чужой ключ в файле,
+// который мы раздаём, и — главное — исчезновение самого предмета надзора.
 //
 // Механика: порча вписывается в настоящий файл дерева, гейт запускается
 // отдельным процессом, файл возвращается в исходный вид в `finally` — байт
@@ -164,11 +164,230 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
                   .join(String.fromCharCode(10) + "set-caption '"),
       expect: /ничего не проверив/,
     },
+    {
+      // Заведена 08.09.2026. Проверку 59 до этого дня показывали красной РАЗОВОЙ ручной
+      // порчей, а в DECISIONS это было записано как «проверена отрицательным прогоном» —
+      // читалось как постоянное покрытие, которого не было. Порча ровно того класса,
+      // который уже случался: файл с живой карты попадает в репозиторий вместе с ключом,
+      // которого движок НЕ ПИШЕТ НИКОГДА, и мы начинаем раздавать чужую настройку как
+      // свою. Значение взято настоящее — `mode_labels` живой карты неизданной сборки 4IFIR.
+      name: 'в порядок оверлеев попал ключ, которого движок не пишет',
+      file: join(ROOT, 'config', 'ultrahand', 'overlays.ini'),
+      hurt: s => s.replace(/(priority=2)(\r?\n)/,
+                           '$1$2mode_labels=(Mini, Micro, 4Foundry, FPS Graph, FPS Counter, Game Resolutions)$2'),
+      expect: /движок не пишет никогда/,
+    },
+    {
+      // Заведена 08.09.2026 — у проверки 7 постоянной пробы не было, и её показывали
+      // красной только руками. Порча ровно того класса, против которого она написана:
+      // рядом с отказом появляется ВТОРОЕ условие, то есть ключ «выпустить набор первой
+      // установки без порядка оверлеев». Отказ при этом остаётся на месте и выглядит целым.
+      //
+      // ЦЕНА ПОРЧИ ВЫПУСКАЮЩЕГО СКРИПТА НАЗВАНА ВСЛУХ. release.ps1 гейт не запускает —
+      // он читает его как ТЕКСТ (проверки 7, 42), поэтому испорченный скрипт за время
+      // пробы не выполняется ни разу. Файл возвращается побайтово из буфера в `finally`,
+      // BOM переживает это вместе с остальными байтами. Убитый между записью и
+      // восстановлением процесс оставит его грязным — как и любую другую пробу;
+      // лечится `git checkout -- scripts/release.ps1`.
+      name: 'у отказа по порядку оверлеев появилось второе условие — ключ, которого быть не должно',
+      file: join(ROOT, 'scripts', 'release.ps1'),
+      hurt: s => s.replace('if (-not (Test-Path -LiteralPath $overlaysInStage))',
+                           'if (-not (Test-Path -LiteralPath $overlaysInStage) -and -not $SkipOverlayOrder)'),
+      expect: /обязан висеть на одном условии/,
+    },
+    {
+      // Check 19, second half: the donor number comes back into the right column of the RAM
+      // frequency list and squeezes the row name to "1…" (operator's photo 13.09.2026).
+      name: 'частота в строке списка названа дважды — имя слева станет многоточием',
+      file: join(DIST, 'advanced', 'ram', 'json', 'ram_mhz_mariko.json'),
+      hurt: s => s.split('"1600MHz - SYK-LOH eb1"').join('"1600MHz - 1600 — SYK-LOH eb1"'),
+      expect: /названо в строке списка дважды/,
+    },
+    {
+      // Check 62: one table of the Magician page loses engine_feature pages, so the author's
+      // engine would draw it (and `!page_flag view` is true there).
+      name: 'таблица третьей страницы потеряла engine_feature pages',
+      file: join(DIST, 'current.ini'),
+      hurt: s => {
+        const at = s.indexOf('[@Magician]')
+        const line = '\n;visibility_condition=engine_feature pages'
+        const j = s.indexOf(line, s.indexOf('\n[Info]', at))
+        return at < 0 || j < 0 ? s : s.slice(0, j) + s.slice(j + line.length)
+      },
+      expect: /третья страница Current видна не только нашему движку/,
+    },
+    {
+      // Check 62, paging: the marker loses ;page_view_source, Y is back to one fixed page.
+      name: 'маркер третьей страницы потерял ;page_view_source',
+      file: join(DIST, 'current.ini'),
+      hurt: s => s.split(/\r?\n/).filter(l => !l.startsWith(';page_view_source=')).join('\n'),
+      expect: /Y не листает профили/,
+    },
+    {
+      // Check 62, paging: one slot reads a fixed index again and repeats on every page.
+      name: 'слот профиля читает секцию мимо {page_view_first}',
+      file: join(DIST, 'current.ini'),
+      hurt: s => s.split('{ini_file_sorted({math({page_view_first}+1,true)})}').join('{ini_file_sorted(1)}'),
+      expect: /мимо \{page_view_first\}/,
+    },
+    {
+      // Check 62, paging: page size in the marker no longer matches the slots.
+      name: 'размер страницы в маркере разошёлся с числом слотов',
+      file: join(DIST, 'current.ini'),
+      hurt: s => s.replace(/^(;page_view_source=[^\r\n]*,)(\d+)/m, (_, a, n) => a + (Number(n) + 1)),
+      expect: /слоты не покрывают страницу/,
+    },
+    {
+      // Check 63: the boot line clearing one footer is gone - "saved …" survives the reboot.
+      name: 'из [boot] пропала очистка разовой подписи',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split('\n').filter(l => !/^remove-ini-key .*'Create backup\?mariko' footer\r?$/.test(l)).join('\n'),
+      expect: /разовая подпись переживёт вход/,
+    },
+    {
+      // Check 63, second half: the chosen backup is no longer reset on entry.
+      name: 'из [boot] пропал сброс выбранной копии',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split('\n').filter(l => !/^set-ini-val .* Restore Path ''\r?$/.test(l)).join('\n'),
+      expect: /выбор копии переживёт вход/,
+    },
+    {
+      // Check 63, third part: the path of the backup being created is no longer cleared on entry.
+      name: 'из [boot] пропала очистка пути создаваемой копии',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split('\n').filter(l => !/^set-ini-val .* Backup Path ''\r?$/.test(l)).join('\n'),
+      expect: /путь создаваемой копии переживёт вход/,
+    },
+    {
+      // Check 39 (6): the Erista import hint loses its empty else-branch and prints for every backup.
+      name: 'подсказка про режим андервольта печатается для любой копии',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace(/(\{if_==\(\{ini_file\(Meta,kipver\)\},imported,[^,']*),\)\}'/, '$1,Imported)}\''),
+      expect: /печатается не только для импортированной копии/,
+    },
+    {
+      // Check 39 (6): the hint turns up on Mariko, where the import does carry the mode.
+      name: 'подсказка про режим андервольта попала на Mariko',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s + "\n[Info]\n;mode=table\n;polling=true\n''='{if_==({ini_file(Meta,kipver)},imported,Imported: set GPU undervolt mode by hand,)}'\n",
+      expect: /подсказка про режим андервольта на Mariko/,
+    },
+    {
+      // Check 39 (6): the hint is gated on the section, which reads a stale choice.
+      name: 'подсказка про режим андервольта закрыта условием секции вместо опроса',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => {
+        // the table row, not the chooser's `Restore Want` line that carries the same test
+        const at = s.indexOf("''='{if_==({ini_file(Meta,kipver)},imported,")
+        const head = s.lastIndexOf('[Info]', at)
+        const j = s.indexOf(';polling=true', head)
+        return at < 0 || head < 0 || j < 0 || j > at ? s
+          : s.slice(0, j) + ';visibility_condition=matching_ini_val ./config.ini Restore Path x' + s.slice(j + ';polling=true'.length)
+      },
+      expect: /не опрашивается или закрыта условием секции/,
+    },
+    {
+      // Check 51: one value declared twice at two hex lengths, `02` and `020000`.
+      name: 'одно значение объявлено дважды разной длиной hex',
+      file: join(ROOT, 'package', 'fields.json'),
+      hurt: s => {
+        const doc = JSON.parse(s)
+        doc.fields.find(f => f.offset === 44)?.values.push({ hex: '020000', name: 'Stage3 - Max' })
+        return JSON.stringify(doc, null, 2) + '\n'
+      },
+      expect: /одно значение объявлено дважды/,
+    },
+    {
+      // Check 19: a RAM frequency rounded up instead of truncated (decision 13.09.2026).
+      name: 'частота RAM в списке округлена вверх, а не усечена',
+      file: join(DIST, 'advanced', 'ram', 'json', 'ram_mhz_mariko.json'),
+      hurt: s => s.split('"1900MHz"').join('"1901MHz"'),
+      expect: /подпись словаря обещает не то/,
+    },
+    {
+      // Check 64: "restored" is set, but the page is no longer rebuilt after it.
+      name: 'после «restored» пропала перестройка страницы',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(/\nrefresh-to 'Apply this backup'[^\n]*/, ''),
+      expect: /нет перестройки страницы/,
+    },
+    {
+      // Check 64: the backup chooser returns with a plain `back`, the page stays stale.
+      name: 'выбор копии возвращается без перестройки',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.split('\nrefresh-return\n').join('\n'),
+      expect: /выбор копии возвращается без перестройки/,
+    },
+    {
+      // Check 64: refresh-to names another item, the cursor would jump away.
+      name: 'refresh-to ставит курсор на чужой пункт',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.replace("refresh-to 'Apply factory defaults'", "refresh-to 'Choose backup'"),
+      expect: /ставит курсор не на свой пункт/,
+    },
+    {
+      // Check 64, Create backup: the "not saved" branch is gone, a failed write says nothing.
+      name: 'у Create backup пропал исход «not saved»',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(/\ntry:\nset-footer 'not saved'\nrefresh-to 'Create backup'[^\n]*/, ''),
+      expect: /без исхода «not saved»/,
+    },
+    {
+      // Check 64, Create backup: "not saved" is set, but the page is not rebuilt after it.
+      name: 'после «not saved» пропала перестройка страницы',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace(/(\nset-footer 'not saved')\nrefresh-to [^\n]*/, '$1'),
+      expect: /нет перестройки страницы/,
+    },
+    {
+      // Check 64, Create backup: one field is written but not read back before "saved".
+      name: '«saved» не сверяет одно поле копии',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(/\nmatching_ini_val \{ini_file\(Backup,Path\)\} Fields 12 [^\n]*/, ''),
+      expect: /«saved» не сверяет/,
+    },
+    {
+      // Check 64, Create backup: the null guard is gone, a missing kip still reads as saved.
+      name: '«saved» без защиты от нечитаемого kip',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace(/\n!matching_ini_val \{ini_file\(Backup,Path\)\} Fields \d+ null/, ''),
+      expect: /kip не читался/,
+    },
+    {
+      // Check 64, Create backup: the half-written backup is no longer deleted.
+      name: 'недописанная копия не удаляется',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(/\ndelete \{ini_file\(Backup,Path\)\}/, ''),
+      expect: /недописанная копия не удаляется/,
+    },
+    {
+      // Check 64, Create backup: the delete guard no longer pins the path under .bak/<revision>.
+      name: 'удаление копии с путём вне .bak',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace("'/atmosphere/kips/.bak/erista/{slice(", "'/atmosphere/kips/{slice("),
+      expect: /удаление без доказательства/,
+    },
+    {
+      // Check 64, Create backup: "saved" keeps the path, a later failure could delete a good backup.
+      name: 'после «saved» путь копии не забыт',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace("\nset-footer 'saved'\nset-ini-val './config.ini' Backup Path ''", "\nset-footer 'saved'"),
+      expect: /путь копии не забыт/,
+    },
   ]
-  let failed = 0
+  let failed = 0, skipped = 0
   console.log('отрицательный прогон: ' + PROBES.length + ' проб\n')
   for (const p of PROBES) {
     const files = Array.isArray(p.file) ? p.file : [p.file]
+    // ПРОБА БЕЗ СВОЕГО ФАЙЛА ПРОПУСКАЕТСЯ ВСЛУХ, А НЕ ПАДАЕТ НА ЧТЕНИИ. Заведено
+    // 08.09.2026 вместе с пробой проверки 7: её предмет — текст `scripts/release.ps1`,
+    // который в публикацию не входит ($FORBIDDEN в publish.ps1:61).
+    const missing = files.filter(f => !existsSync(f))
+    if (missing.length) {
+      skipped++
+      console.log('  ⏭ пропущена  ' + p.name + ' — в этом дереве нет ' + missing.map(f => relative(ROOT, f)).join(', '))
+      continue
+    }
     const before = files.map(f => readFileSync(f))
     let out = ''
     try {
@@ -189,7 +408,8 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       + ' проб гейт не заметил. Инструмент лжёт о своей работе.')
     process.exit(3)
   }
-  console.log('все ' + PROBES.length + ' проб пойманы; дерево восстановлено')
+  console.log('все ' + (PROBES.length - skipped) + ' проб пойманы'
+    + (skipped ? ', ' + skipped + ' пропущено — файлов нет в этом дереве' : '') + '; дерево восстановлено')
   process.exit(0)
 }
 
@@ -406,7 +626,11 @@ if (dupTitles.length) {
  * ВИДЖЕТ СУЖАЕТ ШАПКУ ВТРОЕ — И ЭТО ЗАМЕЧАЕТСЯ ТОЛЬКО НА КОНСОЛИ.
  *
  * Директива `;show_widget=true` включает часы и датчики в шапке, а заодно урезает бокс
- * под название и подпись с 408 пикселей до 214 (`tesla.hpp:6770`, константа приколочена).
+ * под название и подпись с 408 пикселей до 214 (`s.maxW = widgetDrawn ? 214 :
+ * (tsl::cfg::FramebufferWidth - 40);` в `calcScrollWidth()` — константа приколочена;
+ * `lib/libultrahand/libtesla/include/tesla.hpp:6806`, ЧИТАНО В ПОДМОДУЛЕ С НАЛОЖЕННЫМИ
+ * `patches/*.patch`, у автора прошивки — `:6944`; 408 — это те самые
+ * `FramebufferWidth - 40` при штатных 448, `libultra/source/tsl_utils.cpp:65`).
  * Что не влезло — уезжает бегущей строкой; обрезки многоточием в шапке нет.
  *
  * Замерено по фотографиям экрана:
@@ -464,7 +688,10 @@ if (noFooter.length) {
  * Footer paths must resolve FROM THEIR OWN FILE'S DIRECTORY.
  *
  * Forwarder commands run with the `packagePath` of the file the forwarder lives in
- * (`main.cpp:5784`). A forwarder in `advanced/ram/package.ini` runs from `advanced/ram/`, not
+ * (`interpretAndExecuteCommands(std::move(getSourceReplacement(commands, keyName, i,
+ * packagePath)), packagePath, keyName)` in the KEY_A handler under
+ * `if (commandMode == FORWARDER_STR)` -- fork source/main.cpp:5715,
+ * author's fork :5710). A forwarder in `advanced/ram/package.ini` runs from `advanced/ram/`, not
  * from the package root — so the path `./advanced/ram/core-timings/config.ini` written in that
  * file turns into `advanced/ram/advanced/ram/…`, there is no such file, and the footer stays
  * empty.
@@ -575,7 +802,10 @@ if (badPaths.length) {
         if (m) def.set(Number(m[1]), m[2].toUpperCase())
       }
       // Значение обязано быть ЧИСТЫМ hex. Движок обрезает у значения только пробелы
-      // и табуляции (ini_funcs.cpp:601-605), точку с запятой комментарием не считает —
+      // и табуляции (`// Trim value` → `while (val_start < end && (*val_start == ' ' ||
+      // *val_start == '\t')) ++val_start;` → `value.assign(val_start, end);` —
+      // `libultra/source/ini_funcs.cpp:601-605` в подмодуле с наложенными
+      // `patches/*.patch`, в чистом `HEAD` `:600-604`), точку с запятой комментарием не считает —
       // хвост уехал бы в kip, и hexEditByOffset записал бы len/2 байт вместо длины поля.
       const dirty = readFileSync(defPath, 'utf8').split(/\r?\n/)
         .filter(l => /^\d+=/.test(l) && !/^\d+=[0-9A-Fa-f]+$/.test(l))
@@ -1020,7 +1250,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // его не видели: синтаксис безупречен, поле существует, значение в поле влезает.
 //
 // Допуск на масштаб единиц: кривая Erista хранит микровольты (600 mV = 600000),
-// частоты RAM — килогерцы с округлением подписи вниз (2707200 кГц → «2707MHz»).
+// частоты RAM — килогерцы с усечением (2707200 кГц → «2707MHz»).
 {
   const dicts = []
   const walk = (dir) => {
@@ -1033,6 +1263,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   walk(DIST)
 
   const liars = []
+  const twice = []
   let labels = 0
   for (const file of dicts) {
     let data
@@ -1046,18 +1277,24 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       const m = e.name.match(/^(\d+(?:\.\d+)?)\s*(mV|uV|MHz|kHz)\b/)
       if (!m || e.hex.length % 2) continue
       labels++
+      // A bare number right after " - " repeats the value in the right column, which then
+      // squeezes the row name to "1…" (RAM MHz, operator's photo 13.09.2026).
+      if (/^ - \d+(\.\d+)?( |$)/.test(e.name.slice(m[0].length))) twice.push(`${relative(ROOT, file)}: «${e.name}»`)
       const want = Number(m[1])
       let got = 0
       for (let i = e.hex.length - 2; i >= 0; i -= 2) got = got * 256 + parseInt(e.hex.slice(i, i + 2), 16)
-      // сама величина, она же в тысячных, она же в миллионных — с допуском на округление подписи
-      const fits = [1, 1e3, 1e6].some(k => Math.abs(got - want * k) < k)
+      // The value itself, in thousandths or millionths, truncated to the label's digits:
+      // 1900800 kHz is "1900MHz" and never "1901MHz" (decision 13.09.2026).
+      const scale = 10 ** ((m[1].split('.')[1] ?? '').length)
+      const fits = [1, 1e3, 1e6].some(k => Math.trunc(got * scale / k) === Math.round(want * scale))
       if (!fits) liars.push(`${relative(ROOT, file)}: «${e.name}» запишет ${got}`)
     }
   }
   // COUNT THE SUBJECT, NOT THE CONTAINER. The line used to print the number of json files,
   // so gutting the label regexp still read «170 dictionaries» and the zero gate never fired.
   if (liars.length) problems.push({ sev: 'CRITICAL', what: `подпись словаря обещает не то, что запишет: ${liars.join('; ')}` })
-  else ok.push(`every numeric dictionary label encodes the value it names (${labels} labels in ${dicts.length} dictionaries)`)
+  else if (twice.length) problems.push({ sev: 'CRITICAL', what: `значение названо в строке списка дважды — правая колонка выдавит имя до многоточия (${twice.length}): ${twice.slice(0, 4).join('; ')}` })
+  else ok.push(`every numeric dictionary label encodes the value it names, once (${labels} labels in ${dicts.length} dictionaries)`)
 }
 
 // ------------------------------------------- 20. Длина имени копии настроек
@@ -1086,7 +1323,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     .flatMap(f => (f.values ?? []).map(v => {
       const le = String(v.hex).match(/../g) ?? []
       const khz = le.reverse().reduce((a, b) => a * 256 + parseInt(b, 16), 0)
-      return digits(Math.round(khz / 1000))
+      return digits(Math.trunc(khz / 1000))
     })), 4)
   const balMax = Math.max(...fields
     .filter(f => f.name === 'EMC Balance')
@@ -1126,7 +1363,9 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // Причина — привязка: `ini_file './config.ini'`, затем `ini_file '{ini_file(Restore,Path)}'`
 // переводит чтение на файл копии, а следующая строка спрашивала `[Restore] Name` —
 // секцию, которой в копии нет. Движок возвращает литерал `null`, а таблица подменяет
-// любое значение со словом `null` на «Not available» (`utils.hpp:1261`).
+// любое значение со словом `null` на «Not available» (`infoText = (infoTextRaw.find(NULL_STR)
+// != std::string::npos) ? UNAVAILABLE_SELECTION : infoTextRaw;` в `buildTableDrawerLines` —
+// `source/utils.hpp:1418`, одинаково в форке и у автора прошивки).
 //
 // Дефект не даёт ни ошибки, ни пустоты — он даёт правдоподобное «недоступно», которое
 // читается как свойство копии, а не как поломка экрана. Поймать его можно только так:
@@ -1530,7 +1769,9 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     for (let i = 0; i < secs.length; i++) {
       if (!/^\[Header\]/.test(secs[i]) || !/^;mode=table/m.test(secs[i])) continue
       const title = secs[i].match(/^'([^']*)'\s*=/m)?.[1]
-      if (!title) continue
+      // A title built from placeholders (Magician profiles: `{list(1)} MHz`) names data, not a
+      // block: equal text there is not "two variants of one block". Check 62 guards that page.
+      if (!title || title.includes('{')) continue
       const info = secs.slice(i + 1).find(x => /^\[Info\]/.test(x))
       const cond = secs[i].match(/CUST (\d+) ([0-9A-F]+)/)
       blocks.push({
@@ -2394,6 +2635,28 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
         bad.push(`${p.rel}:${s.at} предупреждение не называет обе стороны — нужны слова «${p.Other}» и «${p.here}»`)
     }
 
+    // (6) import hint (13.09.2026): Erista only, one polled row printed only for an imported
+    //     backup. Polled, not a section condition: the row must stay right even if the
+    //     rebuild after a choice (check 64) does not happen.
+    const hints = []
+    secs.forEach(s => s.body.forEach((l, k) => {
+      const m = rowOf(l)
+      if (m && m[2].includes('{ini_file(Meta,kipver)},imported,')) hints.push({ s, m, at: s.bodyAt[k] })
+    }))
+    if (p.here === 'Mariko') {
+      for (const h of hints) bad.push(`${p.rel}:${h.at} подсказка про режим андервольта на Mariko — импорт там режим переносит, она только для Erista`)
+    } else if (hints.length !== 1) {
+      bad.push(`${p.rel}: подсказок про режим андервольта после импорта ${hints.length}, а на Erista она ровно одна`)
+    } else {
+      const { s, m, at } = hints[0]
+      if (!/^\{if_==\(\{ini_file\(Meta,kipver\)\},imported,[^,()]*undervolt[^,()]*,\)\}$/.test(m[2]))
+        bad.push(`${p.rel}:${at} подсказка про режим андервольта печатается не только для импортированной копии: «${m[2]}»`)
+      if (!s.body.includes(';polling=true') || s.body.some(l => l.startsWith(';visibility_condition=')))
+        bad.push(`${p.rel}:${s.at} подсказка про режим андервольта не опрашивается или закрыта условием секции — строка обязана быть верной и без перестройки страницы`)
+      if (!s.body.includes("ini_file '{ini_file(Restore,Path)}'"))
+        bad.push(`${p.rel}:${s.at} подсказка про режим андервольта читает не выбранную копию`)
+    }
+
     // (4) попапов ни про ревизию, ни про раскладку kip
     ls.forEach((l, i) => {
       const m = l.match(/^notify(?:-now)?\s+'([^']*)'/)
@@ -2425,7 +2688,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 
   if (pages !== PAGES.length) problems.push({ sev: 'CRITICAL', what: `страниц менеджера копий ${pages} из ${PAGES.length} — проверка вида смотрит в пустоту` })
   else if (bad.length) problems.push({ sev: 'CRITICAL', what: `вид менеджера копий изменён, а он зафиксирован решением оператора:\n     ${bad.slice(0, 8).join('\n     ')}` })
-  else ok.push(`the backup manager keeps its frozen face (${pages} pages: two-line passport, red mismatch text, no popups)`)
+  else ok.push(`the backup manager keeps its frozen face (${pages} pages: two-line passport, red mismatch text, no popups, import hint on Erista only)`)
 }
 
 // ---------------- 40. the manual GPU table is seeded with the ST1 curve
@@ -2570,15 +2833,41 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   }
 }
 
-// ---------------- 43. no text promises the reader an engine the archive has not carried since 04.09.2026
+// ---------------- 43. no text promises the engine inside the ORDINARY release archive
+//
+// SUBJECT: the ordinary published release archive, which carries no engine. The with-engine
+// kit is a separate, and since 08.09.2026 a NORMAL second path (DECISIONS.md) - it is not
+// this check's subject, and its own texts are exempt (EXEMPT/SKIP below, INSTALL-engine.txt).
+// The heading said "an engine the archive has not carried since 04.09.2026" until 08.09.2026;
+// that premise stopped being true while the check itself stayed right.
 //
 // Fourteen such claims were found by hand on 04.09.2026, one of them printed on the
 // operator's screen after every handoff build. Nothing caught them: check 18 pairs the
 // promise in LICENSE and NOTICE with the refusal in release.ps1, and looks nowhere else.
 // The composition of the archive is settled in one place and repeated in prose in dozens,
-// so prose is what rots. The rule is deliberately coarse - a paragraph that ties the engine
-// binary to what we ship must carry a year, which is how this project marks a statement as
-// history. Anything still written in the present tense is a promise, and the promise is false.
+// so prose is what rots.
+//
+// WHAT THIS GUARD ACTUALLY DOES, AND WHAT IT DOES NOT. It does NOT parse tense, and the
+// heading of this block must not claim it does. It fires on a paragraph that spells
+// `ovlmenu`, ties it to what we ship, and carries no history marker. Until 08.09.2026 a bare
+// four-digit year ANYWHERE in the paragraph was such a marker, so a paragraph could date
+// itself and go on lying in the present tense; the cross-check found three live ones that
+// way. A year now excuses only from the ENCLOSING MARKDOWN HEADING CHAIN, which is where
+// this project actually writes "how it worked until 04.09.2026", and the same chain now
+// carries EXEMPT. Measured 08.09.2026 over the whole corpus of that day (73 files, 4214
+// paragraphs): 0 extra catches, and the heading-chain exemption blinds exactly 2 - RELEASE.md
+// "Как это работало до 04.09.2026" and the with-engine composition table under "Релиз с движком".
+//
+// TWO HOLES LEFT OPEN ON PURPOSE, priced before the decision:
+//   * the literal `ovlmenu` is REQUIRED, so "the archive ships the engine" is not looked at
+//     at all. Widening it to движок/engine catches 12 more paragraphs, 11 of them false -
+//     build steps, the directory map, and the very sentences saying the archive has NO
+//     engine. Not widened. Consequence to name out loud: growing CARRIES (везёт/кладёт were
+//     added 08.09.2026) buys much less than it reads, because the paragraph must still
+//     spell `ovlmenu`.
+//   * EXEMPT is read over the WHOLE paragraph, so a paragraph mixing an ordinary-archive
+//     claim with a with-engine mention drops out of oversight entirely. Reading EXEMPT per
+//     sentence instead catches 6 more, all 6 false. Not narrowed.
 {
   const SCAN_DIRS = ['docs', 'Guides', 'Make', '.']
   // Журнал и разведка исключены осознанно: это датированные отчёты, и переписывание
@@ -2589,18 +2878,31 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
   const SKIP = [/^docs[\/]NOTES\.md$/i, /^docs[\/]research[\/]/i, /^docs[\/]INSTALL-engine\.txt$/i]
   // Форма самого утверждения, а не всякое соседство: «архив НЕСЁТ движок».
   // Без глагола обладания в сеть попадали глоссарий, аудит ссылок и шаги сборки.
-  const CARRIES = /(нес[ёеу]т|содерж(ит|ат)|внутри|едет|включа(ет|ют)|carr(y|ies|ied)|contains?|ships?|shipped|inside|bundle)/i
+  // 08.09.2026 добавлены «везёт» и «кладёт»: ими проза проекта пользуется постоянно
+  // («архив везёт config/ultrahand», «сборщик кладёт движок»), а словарь их не знал —
+  // то есть самая ходовая форма утверждения проходила мимо сторожа насквозь.
+  const CARRIES = /(нес[ёеу]т|содерж(ит|ат)|внутри|едет|везёт|везут|кладёт|кладут|включа(ет|ют)|carr(y|ies|ied)|contains?|ships?|shipped|inside|bundle)/i
   // ОТРИЦАНИЕ СНИМАЕТСЯ ДО ПРОВЕРКИ. Найдено 05.09.2026: сторож ловил глагол обладания
   // где угодно, в том числе внутри «архив НЕ несёт движок» — то есть краснел ровно на той
   // фразе, ради которой заведён. И наоборот: форма множественного числа («сборки
   // содержат ovlmenu.ovl») мимо словаря проходила. Отрицаемые обороты вырезаются
   // из абзаца, и обладание ищется в остатке: абзац, где сказано и «не несёт
   // движок», и «несёт конфигуратор», разбирается по-прежнему верно.
-  const NEGATED = /(не\s+(нес[ёеу]т|содерж(ит|ат)|включа(ет|ют)|кладётся|кладутся|едет)|больше\s+не\s+\S+|does\s+not\s+(carry|contain|ship|include)|no\s+longer\s+\S+|without)/gi
+  const NEGATED = /(не\s+(нес[ёеу]т|содерж(ит|ат)|включа(ет|ют)|кладётся|кладутся|кладёт|кладут|едет|везёт|везут)|больше\s+не\s+\S+|does\s+not\s+(carry|contain|ship|include)|no\s+longer\s+\S+|without)/gi
   const ARCHIVE = /(архив|релиз|комплект|поставк|release|archive|kit|[.]zip)/i
   // Комплект на передачу автору прошивки движок НЕСЁТ законно, и сборщик движка
-  // законно про движок рассказывает. Предмет надзора один: ПУБЛИКУЕМЫЙ архив релиза.
-  const EXEMPT = /(handoff|на передач|NoUpload|build(s|ing)? |собирает|сборка движка)/i
+  // законно про движок рассказывает. Предмет надзора один: ОБЫЧНЫЙ публикуемый архив.
+  //
+  // 08.09.2026 СЮДА ДОБАВЛЕН НАБОР С ДВИЖКОМ, И ЭТО ИСПРАВЛЕНИЕ ДЕФЕКТА, А НЕ ПОБЛАЖКА.
+  // С 08.09.2026 выпуск с движком — второй ШТАТНЫЙ состав (`DECISIONS.md`), и он движок
+  // несёт законно. А сторож этого состава не знал и краснел на КАЖДОМ честном абзаце
+  // про него. Поймано в тот же день: агент, писавший правду про набор первой установки,
+  // трижды получил красное и переформулировал абзацы так, чтобы обойти сторожа.
+  // КЛАСС ОШИБКИ: СТОРОЖ, ОТСТАВШИЙ ОТ ПРЕДМЕТА, НАЧИНАЕТ ЗАПРЕЩАТЬ ПРАВДУ — и хуже
+  // того, учит её не писать, а обход выглядит как зелёный прогон. Изъятие сделано по
+  // ЯВНЫМ признакам второго состава (ключ сборки, «с движком», «набор первой установки»),
+  // а не ослаблением словаря: обычный архив по-прежнему под полным надзором.
+  const EXEMPT = /(handoff|на передач|NoUpload|build(s|ing)? |собирает|сборка движка|-WithEngine|с движком|наборе? первой установки|with the engine|first-install kit)/i
   const HISTORY = /(19|20)\d\d/
   // Год — не единственная пометка истории: абзац, прямо говорящий «прежде было так,
   // а теперь нет», честен и без даты. Настоящая ложь — настоящее время без оговорки.
@@ -2626,15 +2928,24 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     // Абзац, а не строка: дату почти всегда пишут в соседнем предложении, и построчная
     // проверка утонула бы в ложных срабатываниях на переносах.
     let start = 0, buf = [], heading = ''
+    // Цепочка markdown-заголовков H1…H6 над абзацем. Именно она, а не сам абзац, объявляет
+    // раздел историей («Как это работало до 04.09.2026») или вторым составом («Релиз
+    // с движком»). Год внутри абзаца индульгенцией больше не считается.
+    const chain = []
+    let path = ''
     const flush = () => {
       const para = buf.join(' ')
       const claim = para.replace(NEGATED, ' ')
-      if (buf.length && /ovlmenu/i.test(para) && CARRIES.test(claim) && ARCHIVE.test(para) && !EXEMPT.test(para) && !PAST.test(para) && !HISTORY.test(para) && !HISTORY.test(heading))
+      if (buf.length && /ovlmenu/i.test(para) && CARRIES.test(claim) && ARCHIVE.test(para)
+        && !EXEMPT.test(para) && !EXEMPT.test(path)
+        && !PAST.test(para) && !HISTORY.test(heading) && !HISTORY.test(path))
         bad.push(`${rel}:${start + 1} — «${para.replace(/\s+/g, ' ').trim().slice(0, 95)}…»`)
       buf = []
     }
     for (let i = 0; i < lines.length; i++) {
       if (!lines[i].trim()) { flush(); continue }
+      const h = lines[i].match(/^(#{1,6})\s+(.*)$/)
+      if (h) { chain.length = h[1].length - 1; chain[h[1].length - 1] = h[2]; path = chain.filter(Boolean).join(' / ') }
       if (/^\s*(#|rem |::|\|)/.test(lines[i]) && !buf.length) heading = lines[i]
       if (!buf.length) start = i
       buf.push(lines[i])
@@ -3047,7 +3358,11 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   else if (!bad) ok.push(`every help line in menu.json is printed somewhere in dist (${checked} texts)`)
 }
 
-// ---------------------------------------------------------------- 53. the platform layer is still there
+// ---------------------------------------------------------------- 60. the platform layer is still there
+//
+// RENUMBERED 53 -> 60 on 08.09.2026: two different guards shared 53. The number went to the
+// other one ("открытый список выбора встаёт на текущее значение"), which six references point
+// at against this one's single reference (NOTES.md:9798). 1…59 were all taken. NOTES №294.
 //
 // WHY THIS LIVES HERE AND NOT IN merge-fields. The platform of 43 fields was set BY HAND on
 // 13.08.2026 from customize.cpp, because the donors' own marking contradicted itself. No
@@ -3089,11 +3404,18 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // ---------------- 53. открытый список выбора встаёт на текущее значение, а не на первую строку
 //
 // ЧТО ПРОВЕРЯЕТСЯ. Открывая `;mode=option`, движок ищет пункт с ГАЛОЧКОЙ и ставит фокус
-// на него (`jumpItemValue = CHECKMARK_SYMBOL`, форк `source/main.cpp:5914`, разрешается
-// в `libtesla/include/tesla.hpp:7470`). Галочку получает пункт, чьё ИМЯ ДО ASCII `" - "`
-// равно футеру, который родитель записал в свой `config.ini` (`main.cpp:4037-4043` режет
-// имя, `main.cpp:4065` сравнивает). Не совпало — штатный откат ставит фокус на ПЕРВУЮ
-// строку (`tesla.hpp:7501`), и в ряду из 31 значения до своего человек листает шестнадцать
+// на него (`jumpItemValue = CHECKMARK_SYMBOL` под `commandMode == OPTION_STR || … SLOT_STR`,
+// форк `source/main.cpp:5808`, у автора прошивки — `:5803`; разрешается
+// в `List::resolveJumpImmediately()` → `m_items[i]->matchesJumpCriteria(m_jumpToText,
+// m_jumpToValue, m_jumpToExactMatch)`, `libtesla/include/tesla.hpp:7465-7470` в подмодуле
+// С НАЛОЖЕННЫМИ `patches/*.patch`, у автора `:7589-7594`). Галочку получает пункт, чьё ИМЯ
+// ДО ASCII `" - "` равно футеру, который родитель записал в свой `config.ini`
+// (`pos = selectedItem.find(" - ")` … `itemName = selectedItem.substr(0, pos)` режет имя —
+// форк `main.cpp:3931-3936`, у автора `:3926-3931`; `if (selectedFooterDict[
+// specifiedFooterKey] == itemName)` сравнивает — форк `main.cpp:3958`, у автора `:3953`).
+// Не совпало — штатный откат ставит фокус на ПЕРВУЮ строку (`// FALLBACK: If no match found,
+// focus first item instead`, `tesla.hpp:7502` в подмодуле с заплатами, `:7466` в чистом
+// `HEAD`, у автора `:7626`), и в ряду из 31 значения до своего человек листает шестнадцать
 // раз при каждом заходе.
 //
 // ПОЧЕМУ СТОРОЖ. Обе стороны сравнения порождаем мы сами: левую — ключ `name` словаря,
@@ -3154,8 +3476,9 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
         entries++
         const p = e.name.indexOf(' - ')
         const left = p === -1 ? e.name : e.name.slice(0, p)
-        // "On" and "Off" may not be a row name. applyLangReplacements(itemName, true) runs
-        // AFTER the item is built (main.cpp:4057), so the comparison uses the translated
+        // "On" and "Off" may not be a row name. `applyLangReplacements(itemName, true);` runs
+        // AFTER the item is built (fork source/main.cpp:3951, author's fork :3946 --
+        // the `new tsl::elm::ListItem(itemName, …)` above it is fork :3943), so the comparison uses the translated
         // string while the cache keeps the untranslated one -- such a row loses its
         // checkmark for good, even right after being picked. Zero today; this keeps it so.
         if (/^(On|Off)$/.test(left)) bad.push(`${rel}: строка названа «${left}» — движок переводит это имя перед сравнением, но не перед записью в кэш, и галочка теряется навсегда`)
@@ -3439,22 +3762,21 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // поимённого списка тоже нет: сегодня в карте нет ни одной пары, которую пришлось бы
 // прощать по имени.
 //
-// ГРАНИЦА НАДЗОРА. Стережём записи с ОДИНАКОВО НАПИСАННЫМ значением. Донорские `01`
-// и `010000` в одном поле — не то же самое: их генератор схлопывает НАМЕРЕННО (дополнение
-// до длины поля в `emitDicts`), карта держит обе формы у 20 полей, и это её устройство,
-// а не дефект. Тот же риск подписи там есть, но закрывается не сторожем, а прополкой
-// словарей — записано отдельно, NOTES №285.
+// Values are compared padded to the field length, exactly as `padHex` in `emitDicts`:
+// donor `02` and `020000` are one value and one entry (pruned 13.09.2026, NOTES №305).
 {
   const norm = h => String(h ?? '').toUpperCase().replace(/[^0-9A-F]/g, '')
-  const dictKey = v => norm(v.hex) + (v.writes ? '|' + JSON.stringify(v.writes) : '')
+  const pad = (h, len) => { const s = norm(h); return !s ? '' : s.length >= len * 2 ? s.slice(0, len * 2) : s + '0'.repeat(len * 2 - s.length) }
+  const dictKey = (v, len) => { const h = pad(v.hex, len); return h && h + (v.writes ? '|' + JSON.stringify(v.writes) : '') }
+  const lenAt = new Map(fields.map(f => [f.offset, f.length ?? 3]))
   const dicts = []
-  for (const f of fields) if ((f.values ?? []).length) dicts.push({ where: `${f.offset} ${f.name}`, values: f.values })
+  for (const f of fields) if ((f.values ?? []).length) dicts.push({ where: `${f.offset} ${f.name}`, values: f.values, len: f.length ?? 3 })
   // Пункт меню вправе объявить свой ряд вместо ряда поля — это тоже словарь, и он
   // порождается тем же `emitDicts`, с той же дедупликацией.
   ;(function walk (n) {
     if (!n || typeof n !== 'object') return
     if (Array.isArray(n.values) && n.values.length && n.id !== undefined)
-      dicts.push({ where: `пункт «${n.id}»`, values: n.values })
+      dicts.push({ where: `пункт «${n.id}»`, values: n.values, len: lenAt.get(n.offsets?.[0]) ?? 3 })
     for (const v of Object.values(n)) if (v && typeof v === 'object') walk(v)
   })(menu)
 
@@ -3464,7 +3786,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
     const seen = new Map()
     for (const v of d.values) {
       entries++
-      const k = dictKey(v)
+      const k = dictKey(v, d.len)
       if (!k) continue
       if (seen.has(k)) twins.push(`${d.where}: значение ${v.hex} объявлено дважды — «${seen.get(k)}» и «${v.name}»; на экран попадёт первое`)
       else seen.set(k, v.name)
@@ -3502,11 +3824,13 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // ничего не стоит, когда затирать нечего, а условное поведение — ровно та развилка,
 // на которой мы и погорели. Поэтому проверка требует отведения ВСЕГДА и безусловно.
 //
-// 08.09.2026 `overlays.ini` перестал ездить в архиве (проверка 7), и вопрос «убрать ли
-// его отсюда» встал ровно в той же форме, что 04.09: предмета не стало — снять защиту.
-// НЕ СНИМАЕМ. Довод тот же, что абзацем выше: состав архива решается ключом на сборке,
-// а этот список — про то, что цепочка обязана уметь. Отвод лишнего файла стоит двух
-// команд и не стоит ничего на карте, где файла в архиве нет.
+// 08.09.2026 `overlays.ini` СНАЧАЛА перестал ездить в архиве, и вопрос «убрать ли его
+// отсюда» встал ровно в той же форме, что 04.09: предмета не стало — снять защиту.
+// НЕ СНЯЛИ — и правильно сделали: к вечеру того же дня изъятие отменили (довод под ним
+// оказался наполовину ложным, `NOTES` №293), файл снова в архиве, и защита понадобилась
+// ровно там, где её собирались убрать. Довод, который тогда удержал: состав архива
+// решается ключом на сборке, а этот список — про то, что цепочка обязана УМЕТЬ.
+// Отвод лишнего файла стоит двух команд и не стоит ничего на карте, где файла нет.
 //
 // ПОЧЕМУ КАЖДЫЙ ШАГ ДОКАЗЫВАЕТСЯ ОТДЕЛЬНО. `copy`, `move` и `delete` об ошибке
 // не сообщают вовсе (`path_funcs.cpp`: возвращают void и молча выходят по неудачному
@@ -3608,13 +3932,18 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 //
 // ЧТО СТЕРЕЖЁМ. `config/ultrahand/overlays.ini` — ЕДИНСТВЕННЫЙ носитель порядка оверлеев
 // на экране. Нет файла — движок строит список сам, всем ставит `priority=20`
-// (main.cpp:6794-6800) и выстраивает по алфавиту из NACP. Поэтому у комплекта, который
+// (форк source/main.cpp:6794-6800, у автора прошивки
+// source/main.cpp:6787-6793 — от overlaySection[PRIORITY_STR] = "20"
+// до overlaySection["custom_version"] = ""; снимок адресов 08.09.2026)
+// и выстраивает по алфавиту из NACP. Поэтому у комплекта, который
 // несёт `config/ultrahand/` (то есть у набора первой установки, собираемого с движком),
 // этот файл обязан быть.
 //
 // ПОЧЕМУ ТРЕБОВАНИЕ, А НЕ ЗАПРЕТ. До 08.09.2026 под этим номером стоял ОБРАТНЫЙ сторож:
 // файл не должен ехать никогда. Довод был — `mode_args`/`mode_labels` у
-// Status-Monitor-Overlay.ovl движок только ЧИТАЕТ (main.cpp:2226, 2248, 2250, 2378),
+// Status-Monitor-Overlay.ovl движок только ЧИТАЕТ (`splitIniList(getValue("mode_args"))`
+// и `splitIniList(getValue("mode_labels"))` — форк source/main.cpp:2226, 2248, 2250, 2378,
+// у автора прошивки — :2221, 2243, 2245, 2373; снимок адресов 08.09.2026),
 // а наш файл сотрёт их безвозвратно. Первая половина довода верна: записи этих ключей
 // в движке нет ни одной. Вторая ЛОЖНА, и это выяснилось только на четвёртой проверке:
 // оба списка значений ВМЕСТЕ С ИМЕНЕМ СВОЕЙ СЕКЦИИ лежат внутри самого
@@ -3637,6 +3966,11 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // ветвь `-PackageOnly`) и порядка оверлеев не требует. А сам отказ внутри обязан висеть
 // на одном условии — отсутствии файла; любой `-and`/`-or` рядом с ним есть тот самый
 // ключ, которого здесь быть не должно.
+//
+// ПОСТОЯННАЯ ПРОБА ЕСТЬ (08.09.2026): «у отказа по порядку оверлеев появилось второе
+// условие» в PROBES. До этого дня сторожа показывали красным только разовой ручной
+// порчей. Риск порчи выпускающего скрипта взвешен и назван там же: гейт release.ps1
+// не ЗАПУСКАЕТ, а читает как текст, поэтому испорченным он никогда не исполняется.
 {
   const relPs7 = join(ROOT, 'scripts', 'release.ps1')
   const REQUIRED7 = [
@@ -3680,13 +4014,15 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 //
 // ЧТО СТЕРЕЖЁМ, ВТОРОЕ: ЧУЖИЕ КЛЮЧИ. Файл распаковывается в корень карты и ложится
 // ЦЕЛИКОМ, поверх того, что там было. Пока в нём только `priority`, потеря невелика:
-// остальные ключи движок пересоздаёт сам теми же значениями (main.cpp:6794-6800).
+// остальные ключи движок пересоздаёт сам теми же значениями (форк source/main.cpp:6794-6800, у автора прошивки
+// source/main.cpp:6787-6793 — от overlaySection[PRIORITY_STR] = "20"
+// до overlaySection["custom_version"] = ""; снимок адресов 08.09.2026).
 // Но стоит попасть в него ключу, которого движок НЕ пишет, — и мы начинаем раздавать
 // чужое как своё. Так уже случалось в этом проекте: файл с живой карты попадает в
 // репозиторий вместе с `mode_args`, `mode_labels`, `star=true`, `custom_name`. Список
 // разрешённого — ровно те семь ключей, которые движок заводит сам.
 //
-// ПОЧЕМУ НЕ СВЕРЯЕТСЯ С ЖИВОЙ КАРТОЙ. `4r 04092026` — снимок обжитой карты, а не эталон
+// ПОЧЕМУ НЕ СВЕРЯЕТСЯ С ЖИВОЙ КАРТОЙ. Неизданная сборка 4IFIR — снимок обжитой карты, а не эталон
 // поставки: рядом лежат `fuse.ini` (калибровка конкретной консоли), `theme.ini`,
 // `RELEASE.ini`. В самой сборке 4IFIR каталога `config/ultrahand` нет вовсе. Сверять наш
 // файл с чужим снимком значило бы объявить эталоном чью-то настройку.
@@ -3700,7 +4036,8 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
     ['InfoNX-ovl.ovl', 4],
     ['ReverseNX-RT-ovl.ovl', 5],
   ]
-  // Семь ключей, которые движок заводит сам (main.cpp:6794-6800). Всё, чего здесь нет,
+  // Семь ключей, которые движок заводит сам (форк source/main.cpp:6794-6800, у автора прошивки
+  // source/main.cpp:6787-6793; снимок адресов 08.09.2026). Всё, чего здесь нет,
   // движок только читает, а значит мы бы это раздавали, а не восстанавливали.
   const ENGINE_KEYS59 = ['priority', 'star', 'hide', 'use_launch_args', 'launch_args', 'custom_name', 'custom_version']
   let bad59 = 0
@@ -3732,6 +4069,327 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   }
 }
 
+// ---------------- 62. the Magician page is invisible to an engine that cannot page it
+//
+// The third Current page exists only on our engine. The author's engine treats an unknown
+// condition mode as false, so a section carrying `engine_feature pages` is not drawn there
+// and the marker stops being a marker. One section without it and that engine shows it on
+// page 2, or renames page 2. And `!page_flag view` is TRUE there, so the view condition
+// alone hides nothing. Each section also has to belong to exactly one view.
+// Paged Y view (fork 71cc8f43): the marker names the file and the page size, every profile
+// slot reads its section through {page_view_first}, and the slots cover exactly one page -
+// fewer and profiles fall between pages, more and they repeat on the next one.
+{
+  const FEAT62 = ';visibility_condition=engine_feature pages'
+  const CUR62 = ';visibility_condition=!page_flag view'
+  const ALL62 = ';visibility_condition=page_flag view'
+  const cur = join(DIST, 'current.ini')
+  const txt62 = existsSync(cur) ? readFileSync(cur, 'utf8') : ''
+  const at62 = txt62.search(/^\[@Magician\]\s*$/m)
+  if (at62 < 0) {
+    problems.push({ sev: 'CRITICAL', what: 'в current.ini нет маркера [@Magician] — третья страница пропала, сторож смотрит в пустоту' })
+  } else {
+    const secs = txt62.slice(at62).split(/\r?\n(?=\[)/)
+    const has = (s, d) => s.split(/\r?\n/).some(l => l.trim() === d)
+    const bad = []
+    let nCur = 0, nAll = 0
+    if (!has(secs[0], FEAT62)) bad.push('маркер [@Magician] без engine_feature pages — движок автора сочтёт его страницей и переименует вторую')
+    if (!has(secs[0], ';page_toggle')) bad.push('маркер [@Magician] без ;page_toggle — A и Y на странице не заработают')
+    const pv62 = secs[0].split(/\r?\n/).map(l => l.trim()).map(l => l.match(/^;page_view_source=\/config\/4IFIR\/emc_timings\.ini,(\d+)$/)).find(Boolean)
+    const perPage62 = pv62 ? Number(pv62[1]) : 0
+    if (!perPage62) bad.push('маркер [@Magician] без ;page_view_source=/config/4IFIR/emc_timings.ini,<perPage> — Y не листает профили')
+    const body62 = secs.slice(1).join('\n')
+    const reads62 = body62.split('{ini_file_sorted(').length - 1
+    const slots62 = new Set([...body62.matchAll(/\{ini_file_sorted\(\{math\(\{page_view_first\}\+(\d+),true\)\}\)\}/g)].map(m => Number(m[1])))
+    const paged62 = [...body62.matchAll(/\{ini_file_sorted\(\{math\(\{page_view_first\}\+\d+,true\)\}\)\}/g)].length
+    if (!reads62) bad.push('в виде «все профили» нет ни одного {ini_file_sorted} — слоты профилей пропали')
+    else if (paged62 !== reads62) bad.push(`${reads62 - paged62} из ${reads62} чтений {ini_file_sorted} идут мимо {page_view_first} — Y покажет одни и те же профили на каждой странице`)
+    if (perPage62 && (slots62.size !== perPage62 || [...slots62].some(k => k >= perPage62))) bad.push(`слоты не покрывают страницу: слотов ${slots62.size}, в маркере по ${perPage62}`)
+    if (/Only the first \d+ profiles/.test(body62)) bad.push('осталась сноска «Only the first N profiles» — при листании она лжёт')
+    for (const s of secs.slice(1)) {
+      const name = s.split(/\r?\n/)[0]
+      if (!has(s, FEAT62)) bad.push(`${name}: нет engine_feature pages — на движке автора таблица покажется`)
+      const c = has(s, CUR62), a = has(s, ALL62)
+      if (c === a) bad.push(`${name}: ${c ? 'оба вида сразу' : 'ни одного вида'} — секция обязана нести ровно одно из page_flag view / !page_flag view`)
+      else if (c) nCur++
+      else nAll++
+    }
+    if (!nCur || !nAll) bad.push(`видов на странице: текущие ${nCur}, все профили ${nAll} — один из видов пропал`)
+    if (bad.length) problems.push({ sev: 'CRITICAL', what: `третья страница Current видна не только нашему движку (${bad.length}):\n     ${bad.slice(0, 6).join('\n     ')}` })
+    else ok.push(`the Magician page carries engine_feature pages everywhere (${secs.length} sections: ${nCur} current-view, ${nAll} all-profiles, marker with page_toggle, profiles paged by ${perPage62})`)
+  }
+}
+
+// ---------------- 63. one-shot footers and the backup choice do not outlive a new entry
+//
+// Operator, 13.09.2026: "saved …", "restored", "up to date" and the chosen backup are
+// cleared when the wizard is entered. set-footer writes <own dir>/config.ini under the raw
+// section name (`?rev` and trailing space included), so [boot] must name exactly that.
+// A footer read from the kip is not one-shot: [boot] re-seeds it anyway.
+{
+  const bootPath = join(DIST, 'boot_package.ini')
+  const bl = existsSync(bootPath) ? readFileSync(bootPath, 'utf8').split(/\r?\n/) : []
+  const from = bl.indexOf('[boot]')
+  let to = bl.findIndex((l, i) => i > from && /^\[/.test(l))
+  if (to < 0) to = bl.length
+  const inBoot = new Set(from < 0 ? [] : bl.slice(from + 1, to))
+  const bad = []
+  let footers = 0, choices = 0, backupPaths = 0
+
+  for (const file of iniFiles) {
+    if (file === bootPath) continue
+    const rel = relative(DIST, file).split(String.fromCharCode(92)).join('/')
+    const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : ''
+    const cfg = `'./${dir ? dir + '/' : ''}config.ini'`
+    const ls = readFileSync(file, 'utf8').split(/\r?\n/)
+    const seen = new Set()
+    const cleared = new Set()
+    let head = null, picks = false, creates = false
+    ls.forEach((l, i) => {
+      const h = l.match(/^\[(.*)\]$/)
+      if (h) { head = h[1]; return }
+      if (head === null) return
+      if (/^set-footer '/.test(l) && !/\{(json_file|hex_file)/.test(l) && !seen.has(head)) {
+        seen.add(head)
+        footers++
+        const want = `remove-ini-key ${cfg} '${head}' footer`
+        if (!inBoot.has(want)) bad.push(`${rel}:${i + 1} «[${head}]» — разовая подпись переживёт вход: в [boot] нет «${want}»`)
+      }
+      if (/^set-ini-val '\.\/config\.ini' Restore Path '\{file_source\}'$/.test(l)) picks = true
+      if (/^set-ini-val '\.\/config\.ini' Backup Path '[^']+'$/.test(l)) creates = true
+      const c = l.match(/^set-ini-val '\.\/config\.ini' Restore (\w+) ''$/)
+      if (c) cleared.add(c[1])
+    })
+    // A stale create path must not reach the "not saved" delete (NOTES 311): cleared on entry too.
+    if (creates) {
+      backupPaths++
+      const want = `set-ini-val ${cfg} Backup Path ''`
+      if (!inBoot.has(want)) bad.push(`${rel} — путь создаваемой копии переживёт вход: в [boot] нет «${want}»`)
+    }
+    if (picks) {
+      choices++
+      // Path always; plus whatever the delete button clears, so both empty states match.
+      for (const k of new Set(['Path', ...cleared])) {
+        const want = `set-ini-val ${cfg} Restore ${k} ''`
+        if (!inBoot.has(want)) bad.push(`${rel} — выбор копии переживёт вход: в [boot] нет «${want}»`)
+      }
+    }
+  }
+
+  if (!footers || !choices || !backupPaths) problems.push({ sev: 'CRITICAL', what: `проверка разовых подписей не нашла предмета (подписей ${footers}, страниц выбора копии ${choices}, страниц создания копии ${backupPaths}) — она смотрит в пустоту, ничего не проверив` })
+  else if (bad.length) problems.push({ sev: 'CRITICAL', what: `разовое состояние не очищается при входе (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else ok.push(`one-shot footers, the backup choice and the create path are cleared on entry (${footers} footers, ${choices} choice pages, ${backupPaths} create pages)`)
+}
+
+// ---------------- 64. a result footer is seen at once: the page is rebuilt after it
+//
+// Operator, 13.09.2026: "saved", "restored", "not applied" show right after the action, and what
+// depends on the chosen backup shows right after the choice. A plain item's footer is re-read only
+// when the page is built (handleInterpreterCompletion, fork source/main.cpp:594-664), so every
+// try-block that sets a literal footer or clears the choice must end in a rebuild: `refresh`, or
+// `refresh-to` naming its own item (cursor stays). The backup chooser returns with `refresh-return`.
+// Create backup (operator, 13.09.2026): writes report nothing, so "saved" follows a read-back of
+// the passport and every field, and a second try-block says "not saved" and rebuilds too.
+// Since the same day that failure block first deletes the half-written file, guarded to a path
+// under .bak/<revision> that is not the chosen backup; a third block says "not saved" otherwise.
+{
+  const bad = []
+  let blocks = 0, choosers = 0
+  const RESULT = l => (/^set-footer '/.test(l) && !/\{(json_file|hex_file)/.test(l)) || /^set-ini-val '\.\/config\.ini' Restore \w+ ''$/.test(l)
+  for (const file of iniFiles) {
+    if (file === join(DIST, 'boot_package.ini')) continue
+    const rel = relative(DIST, file).split(String.fromCharCode(92)).join('/')
+    const ls = readFileSync(file, 'utf8').split(/\r?\n/)
+    let head = null, block = [], picks = null, returns = false
+    const closeBlock = () => {
+      let last = -1
+      block.forEach(({ l }, k) => { if (RESULT(l)) last = k })
+      if (head !== null && last >= 0) {
+        blocks++
+        const r = block.slice(last + 1).find(({ l }) => /^refresh(-to\s|$)/.test(l))
+        if (!r) bad.push(`${rel}:${block[last].n} «[${head}]» — после подписи-результата нет перестройки страницы, её увидят только после перезахода`)
+        else if (r.l.startsWith('refresh-to')) {
+          const m = r.l.match(/^refresh-to '([^']+)'/)
+          if (!m || !head.split('?')[0].includes(m[1]))
+            bad.push(`${rel}:${r.n} «[${head}]» — refresh-to ставит курсор не на свой пункт: «${m ? m[1] : r.l}»`)
+        }
+      }
+      block = []
+    }
+    const closeSection = () => {
+      closeBlock()
+      if (picks !== null) {
+        choosers++
+        if (!returns) bad.push(`${rel}:${picks} «[${head}]» — выбор копии возвращается без перестройки страницы: нужен refresh-return`)
+      }
+      picks = null; returns = false
+    }
+    ls.forEach((l, i) => {
+      const h = l.match(/^\[(.*)\]$/)
+      if (h) { closeSection(); head = h[1]; return }
+      if (l === 'try:') { closeBlock(); return }
+      block.push({ l, n: i + 1 })
+      if (/^set-ini-val '\.\/config\.ini' Restore Path '\{file_source\}'$/.test(l)) picks = i + 1
+      if (l === 'refresh-return') returns = true
+    })
+    closeSection()
+  }
+  let creates = 0
+  for (const rev of ['mariko', 'erista']) {
+    const rel = `service/restore-${rev}.ini`
+    const abs = join(DIST, 'service', `restore-${rev}.ini`)
+    if (!existsSync(abs)) continue
+    const ls = readFileSync(abs, 'utf8').split(/\r?\n/)
+    const from = ls.indexOf(`[Create backup?${rev}]`)
+    if (from < 0) continue
+    creates++
+    let to = ls.findIndex((l, i) => i > from && /^\[/.test(l))
+    if (to < 0) to = ls.length
+    const parts = [[]]
+    for (const l of ls.slice(from + 1, to)) l === 'try:' ? parts.push([]) : parts[parts.length - 1].push(l)
+    const [writes, good = [], drop = [], fail = []] = parts
+    const head = `${rel} «[Create backup?${rev}]»`
+    if (parts.length !== 4 || !fail.includes(`set-footer 'not saved'`)) {
+      bad.push(`${head} — копия без исхода «not saved»: нужны три блока try:, сверка с «saved», удаление недописанной и запасной с «not saved»`)
+      continue
+    }
+    // Half-written backup (operator, 13.09.2026): deleted only in the drop block, only after the
+    // path is proven to sit under this revision's .bak, and "not saved" follows the delete.
+    const dir = `/atmosphere/kips/.bak/${rev}`
+    const P = '{ini_file(Backup,Path)}'
+    const del = `delete ${P}`
+    const inside = `matching_ini_val './config.ini' Backup Path '${dir}/{slice(${P},${dir.length + 1},512)}'`
+    const delAt = drop.indexOf(del)
+    if (delAt < 0) bad.push(`${head} — недописанная копия не удаляется: в блоке после сверки нет «${del}»`)
+    else {
+      if (!drop.slice(0, delAt).includes(inside))
+        bad.push(`${head} — удаление без доказательства, что путь внутри ${dir}/: нужна строка «${inside}» до «delete»`)
+      for (const g of [`!matching_ini_val './config.ini' Restore Path '${P}'`, `!matching_ini_val './config.ini' Restore Path 'sdmc:${P}'`, `path_exists ${P}`])
+        if (!drop.slice(0, delAt).includes(g)) bad.push(`${head} — перед удалением нет стража «${g}»`)
+      if (!drop.slice(delAt).includes(`set-footer 'not saved'`)) bad.push(`${head} — после удаления нет «not saved»`)
+    }
+    const stray = [...writes, ...good, ...fail].filter(l => /^(del|delete)\s/.test(l))
+    if (stray.length) bad.push(`${head} — удаление вне блока недописанной копии: ${stray[0]}`)
+    const forget = `set-ini-val './config.ini' Backup Path ''`
+    if (!good.slice(good.indexOf(`set-footer 'saved'`)).includes(forget))
+      bad.push(`${head} — после «saved» путь копии не забыт: старый путь достанется удалению при следующем сбое`)
+    const savedAt = good.indexOf(`set-footer 'saved'`)
+    if (savedAt < 0) { bad.push(`${head} — в блоке сверки нет «saved»`); continue }
+    // what the passport and the fields wrote, against what the block compares before "saved"
+    const W = /^set-ini-val '\{ini_file\(Backup,Path\)\}' (Meta|Fields) (\S+) '([^']*)'$/
+    const C = /^matching_ini_val \{ini_file\(Backup,Path\)\} (Meta|Fields) (\S+) '?([^']*?)'?$/
+    const checked = new Set(good.slice(0, savedAt).map(l => l.match(C)).filter(Boolean).map(m => `${m[1]} ${m[2]} ${m[3]}`))
+    const unchecked = writes.map(l => l.match(W)).filter(Boolean)
+      .filter(m => m[1] === 'Fields' || ['revision', 'kipver', 'fields'].includes(m[2]))
+      .map(m => `${m[1]} ${m[2]} ${m[3]}`).filter(k => !checked.has(k))
+    if (unchecked.length) bad.push(`${head} — «saved» не сверяет ${unchecked.length} записей: ${unchecked.slice(0, 3).join('; ')}`)
+    if (!good.slice(0, savedAt).some(l => /^!matching_ini_val \{ini_file\(Backup,Path\)\} Fields \d+ null$/.test(l)))
+      bad.push(`${head} — kip не читался: значения «null» совпадут сами с собой, а подпись скажет «saved»`)
+  }
+  if (creates !== 2) bad.push(`секций Create backup найдено ${creates}, а их две (mariko и erista) — исход «not saved» проверять не на чем`)
+  if (!blocks || !choosers) problems.push({ sev: 'CRITICAL', what: `проверка перестройки после подписи не нашла предмета (блоков ${blocks}, выборов копии ${choosers}) — она смотрит в пустоту, ничего не проверив` })
+  else if (bad.length) problems.push({ sev: 'CRITICAL', what: `подпись-результат или выбор копии не видны сразу (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else ok.push(`result footers and the backup choice rebuild the page at once (${blocks} blocks, ${choosers} choosers); Create backup reads back before saved (${creates} sections)`)
+}
+
+// ---------------- 61. guard numbers are unique, gapless-or-retired, and every doc reference lands
+//
+// A block number is the only address DECISIONS.md, NOTES.md and ANCHORS.md use to name a
+// guard. Check 49 counts ok.push calls, not numbers, so a duplicate is invisible to it by
+// construction - and two different guards sat under 53 until 08.09.2026, with seven doc
+// references unable to say which. A gap invites the same collision: the next author takes
+// the "free" number a document still points at. File order is NOT checked - blocks run in
+// dependency order (51, 56, 7, 59, 49 sit last), only the set of numbers is guarded.
+// NOTES №294.
+//
+// HOW A GUARD IS RETIRED WITHOUT BREAKING THE ADDRESSES THAT NAME IT (08.09.2026). The first
+// edition left no way out: gaplessness meant a guard could only be removed by renumbering a
+// neighbour - breaking the very references the rule exists to protect - or by leaving a dead
+// numbered stub behind. Third way, taken here: A GAP IS LEGAL IF THE NUMBER IS DECLARED
+// RETIRED BELOW. The registry is the address book, not a formality: a document may go on
+// saying "проверка №53" and still be answered, and the range keeps counting a retired number
+// so that retiring the last one cannot shrink 1…max quietly. Reuse is refused from both
+// sides - a number cannot be live and retired at once.
+//
+// SECOND HALF: A REFERENCE POINTING AT NOTHING. The guard knew only its own file, so
+// "проверка №62" in a document passed green - and precisely such references were what
+// NOTES №294 was about. Measured before writing (08.09.2026): every reference of the form
+// «проверка №N» in the tree landed on a live number, not one dangling. Cheap, so closed.
+// The live count is printed by the green line, not frozen here.
+const RETIRED61 = new Map([
+  // [номер, 'дата — почему выведен и чем заменён']. Пустой реестр — это норма,
+  // а не пробел: пока никого не выводили. Номер отсюда НЕ ПЕРЕИСПОЛЬЗУЕТСЯ.
+])
+{
+  const selfPath = fileURLToPath(import.meta.url)
+  let selfSrc = ''
+  try { selfSrc = readFileSync(selfPath, 'utf8') } catch {}
+  const heads = [...selfSrc.matchAll(/^\/\/ *-+ *(\d+)\./gm)].map(m => Number(m[1]))
+
+  const seen = new Map()
+  const dup = []
+  for (const n of heads) {
+    seen.set(n, (seen.get(n) ?? 0) + 1)
+    if (seen.get(n) === 2) dup.push(n)
+  }
+  // Выведенный номер продолжает считаться в ряду: иначе снятие последнего сторожа
+  // укоротило бы 1…max, и пропажа стала бы невидимой.
+  const max = Math.max(0, ...heads, ...RETIRED61.keys())
+  const gaps = []
+  for (let n = 1; n <= max; n++) if (!seen.has(n) && !RETIRED61.has(n)) gaps.push(n)
+  const zombie = [...RETIRED61.keys()].filter(n => seen.has(n))
+
+  const bad = []
+  for (const n of dup)
+    bad.push(`номер ${n} носят ${seen.get(n)} разных блока — ссылка «проверка ${n}» в документах адресует неизвестно кого`)
+  if (gaps.length)
+    bad.push(`в ряду 1…${max} пропущены номера ${gaps.join(', ')} — следующий автор займёт дыру, на которую уже ссылается документ; если сторож снят намеренно, впишите номер в RETIRED61 с датой и причиной`)
+  for (const n of zombie)
+    bad.push(`номер ${n} объявлен выведенным в RETIRED61, но блок под ним живой — реестр снятых номеров врёт, и номер оказался переиспользован`)
+
+  // ССЫЛКИ ИЗ ДОКУМЕНТОВ. Границы слова заданы просмотром назад, а не `\b`: `\b` в JS
+  // считает по ASCII, и перед кириллицей не срабатывает вовсе — иначе «перепроверке №256»
+  // (номер записи NOTES, не сторожа) попадала бы в улов.
+  const REF61 = /(?<![A-Za-zА-Яа-яЁё])провер(?:ка|ки|ку|ке|кой|ок|ками|кам|ках)[^\S\r\n]*№[^\S\r\n]*(\d+)((?:[^\S\r\n]*(?:,|и|или)[^\S\r\n]*№[^\S\r\n]*\d+)*)/gi
+  const refFiles = []
+  const walk61 = d => {
+    let entries = []
+    try { entries = readdirSync(join(ROOT, d), { withFileTypes: true }) } catch { return }
+    for (const e of entries) {
+      const rel = d === '.' ? e.name : `${d}/${e.name}`
+      // research/raw — дампы строк из чужого бинарника, номеров сторожей там нет по определению.
+      if (e.isDirectory()) { if (d !== '.' && !/^(\.git|node_modules|research)$/i.test(e.name)) walk61(rel); continue }
+      if (/\.(md|txt)$/i.test(e.name)) refFiles.push(rel)
+    }
+  }
+  for (const d of ['docs', 'Guides', 'Make', '.']) walk61(d)
+  const refs = new Map()
+  let refCount = 0
+  for (const rel of refFiles) {
+    let t = ''
+    try { t = readFileSync(join(ROOT, rel), 'utf8') } catch { continue }
+    for (const m of t.matchAll(REF61)) {
+      for (const n of [Number(m[1]), ...[...(m[2] ?? '').matchAll(/\d+/g)].map(x => Number(x[0]))]) {
+        refCount++
+        if (!refs.has(n)) refs.set(n, new Set())
+        refs.get(n).add(rel)
+      }
+    }
+  }
+  const dangling = [...refs.keys()].filter(n => !seen.has(n) && !RETIRED61.has(n)).sort((a, b) => a - b)
+  for (const n of dangling)
+    bad.push(`документ ссылается на «проверку №${n}», которой в гейте нет: ${[...refs.get(n)].join(', ')}`)
+
+  // ZERO IS RED: change the header style and this check would declare order over nothing.
+  if (heads.length < 2)
+    problems.push({ sev: 'CRITICAL', what: `в гейте найдено ${heads.length} нумерованных блоков — проверка нумерации смотрит в пустоту, оформление заголовков сменилось` })
+  else if (!refCount)
+    problems.push({ sev: 'CRITICAL', what: `в документах не нашлось ни одной ссылки «проверка №N» — сверка ссылок смотрит в пустоту, форма ссылки в проекте сменилась` })
+  else if (bad.length)
+    problems.push({ sev: 'CRITICAL', what: `нумерация сторожей разъехалась:\n     ${bad.join('\n     ')}` })
+  else ok.push(`guard numbers are unique and gapless (${heads.length} blocks, 1…${max}, ${RETIRED61.size ? `${RETIRED61.size} retired` : 'none retired'}; ${refCount} doc references land)`)
+}
+
 // ---------------- 49. the gate does not quietly lose a check
 //
 // A check whose subject disappears can vanish from this file's own count without a word:
@@ -3741,7 +4399,18 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // loops. A hard-coded expectation is crude, but it is the one thing that notices a guard
 // going missing. Raise it deliberately when you add a check; never to make a run green.
 {
-  const EXPECTED = 62
+  // THIS COUNTS GREEN LINES, NOT CHECK NUMBERS. Three counts live in this file and no two of
+  // them are equal: numbered blocks (check 61 prints it), ok.push call sites, and green lines
+  // printed per run (this EXPECTED). Two of the three are printed by every run and so correct
+  // themselves; the call-site count is printed by nothing, so it is deliberately NOT written
+  // down here - the first edition of this comment froze it at 73 on a day it was 70, and no
+  // guard noticed, because no guard watches it. Count it when you need it, never quote it:
+  //   grep -ao "ok\.push(" scripts/check-generated.mjs | wc -l
+  // Numbers are check 61's job. 08.09.2026: 62 -> 63 for the new check 61.
+  // 13.09.2026: 63 -> 64 for check 62 (Magician page hides on the author's engine).
+  // 13.09.2026: 64 -> 65 for check 63 (one-shot footers cleared on entry).
+  // 13.09.2026: 65 -> 66 for check 64 (result footers shown at once, page rebuilt).
+  const EXPECTED = 66
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,

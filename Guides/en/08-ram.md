@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/08-ram.md sha=62cba22a83c0 self=f2ca1122c007 -->
+<!-- i18n: source=Guides/ru/08-ram.md sha=62cba22a83c0 self=c8268e760913 -->
 # RAM
 
 <!-- nav:begin -->
@@ -18,7 +18,7 @@ the same order:
 
 1. `Frequency` — the memory clock;
 2. `EMC Balance`;
-3. `Vddq` and `Vdd2` — the voltages;
+3. `Vddq` (Mariko only) and `Vdd2` — the voltages;
 4. `EMC DVB Mode`;
 5. `EBA-Shift`;
 6. the timings — a topic of their own, [see their page](09-timings.md).
@@ -57,8 +57,9 @@ exactly that case — `pMeh 1 divMB Supressor` in `Micro-Enhance Logic`.
 
 ## Memory voltages
 
-- **`Vddq`** — the voltage on the memory data lines;
-- **`Vdd2`** — the second memory supply.
+- **`Vddq`** — the voltage on the memory data lines. **Mariko only:** the entry is not in
+  the menu on an Erista;
+- **`Vdd2`** — the second memory supply, on both revisions.
 
 The firmware picks both itself from the clock + `EMC Balance` pair. These two entries let
 you put your own number in instead. So change `EMC Balance` first, and only then the

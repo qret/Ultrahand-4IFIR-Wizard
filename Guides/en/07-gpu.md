@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=e8844d09cf06 self=a68df3a9857f -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=e8844d09cf06 self=a280fee98f8f -->
 # GPU and stages
 
 <!-- nav:begin -->
@@ -223,7 +223,7 @@ Practical consequences:
   deepest of the four cuts. Other tools label the same entry `Custom Table`, and that name
   is misleading.
 - **The stage and your own edits stack.** Lower the points by hand, then pick `Eco ST3`,
-  and the firmware takes another 12.5 mV off on top. If artefacts or crashes start after
+  and the firmware takes another 37.5 mV off on top. If artefacts or crashes start after
   that, put the stage back to `Default` and work on the curve on its own.
 
 ---

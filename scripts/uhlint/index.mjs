@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 // uhlint — checks an Ultrahand/Uberhand package for compatibility with Ultrahand 2.5.3.
 //
-// Why: the engine silently ignores commands it does not know (utils.hpp:5648-5655, no default
-// branch), and Uberhand just as silently ignores FAILED writes to the kip (hex_funcs.hpp:372).
+// Why: the engine silently ignores commands it does not know (`processCommand`'s
+// `switch (commandName[0])` -- fork source/utils.hpp:4898, author's fork :4896;
+// no `default:` branch anywhere in the switch, which closes at fork :5871), and Uberhand just
+// as silently ignores FAILED writes to the kip (Uberhand's own hex_funcs.hpp:372 -- a FOREIGN
+// tree, no Uberhand sources locally, nothing here to check it against).
 // Neither engine ever reports an error — so we check before the package reaches the console.
 //
 // Usage:
@@ -198,6 +201,19 @@ export function lintFile(rows, filePath, ctx) {
   const { header, sections } = groupSections(rows)
 
   // ---- package header directives
+  //
+  // The engine addresses printed in the messages below are STALE and were left alone on
+  // purpose: they sit in string literals, i.e. running code. Re-checked 08.09.2026 -- read
+  // them as [printed -> anchor, fork source/…, author's fork]:
+  //   main.cpp:5354      -> `// Treat it as a comment and skip it`      5272-5274 / 5267-5269
+  //   main.cpp:4883      -> `if (optionName.front() == '@')`            4801-4808 / 4796-4803
+  //   main.cpp:99        -> `std::array<…, 11> commandModes`                  99 / 99
+  //   main.cpp:3714      -> `populateSelectedItemsListFromJson(sourceType, …)`
+  //                                                                     3696-3697 / 3691-3692
+  //   main.cpp:4862      -> `parseCommandSettings(…)` (called :4781/:4795)  4452 / 4447
+  //   utils.hpp:5648-55  -> `switch (commandName[0])`, no `default:`, closes :5871
+  //                                                                          4898 / 4896
+  //   utils.hpp:4705     -> `case 'b': if (commandName == "back")`           4907 / 4905
   for (const row of header.rows) {
     if (row.type !== 'directive') continue
     if (UBERHAND_DIRECTIVES.has(row.key)) {
@@ -299,9 +315,13 @@ export function lintFile(rows, filePath, ctx) {
         const r = RENAMES.get(c)
         add(row, SEV.ERROR, 'RENAMED', `${c} → ${r.to}${r.note ? `. ${r.note}` : ''}`)
       } else if (/^mirror[_-]/.test(c) && !MIRROR_COPY.has(c)) {
-        // ЛОВУШКА ДВИЖКА. `mirror_*` диспетчеризуется ПО ПРЕФИКСУ (`utils.hpp:4995`),
-        // а операция выбирается так: копирование, если имя одно из четырёх известных,
-        // ИНАЧЕ УДАЛЕНИЕ (`utils.hpp:4234`). То есть `mirror_delete` работает — но и
+        // ЛОВУШКА ДВИЖКА. `mirror_*` диспетчеризуется ПО ПРЕФИКСУ
+        // (`if ((commandName.compare(0, 7, "mirror_") == 0) || (commandName.compare(0, 7,
+        // "mirror-") == 0))` — форк `source/utils.hpp:5210`, у автора прошивки —
+        // `:5208`), а операция выбирается так: копирование, если имя
+        // одно из четырёх известных, ИНАЧЕ УДАЛЕНИЕ (`(commandName == "mirror-copy" ||
+        // … == "mirror_cp") ? "copy" : "delete"` — форк `source/utils.hpp:4436-4437`,
+        // у автора `:4434-4435`). То есть `mirror_delete` работает — но и
         // опечатка `mirror_cpy` тоже «работает», молча удаляя вместо копирования.
         // Неизвестного имени тут не бывает, бывает неожиданное поведение.
         add(row, SEV.WARN, 'MIRROR-DELETES',

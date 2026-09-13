@@ -41,6 +41,8 @@ was solvable at all.
 
 **What we took:**
 
+- **Part of the value dictionaries** — entries his package offered and 4IFIR Wizard's
+  did not.
 - **The help page layout.** Two `[@Section]` and `[@Info]` pages in one file, flipped with
   L/R. We first did it our own way and got a screen titled "Commands" with text running
   into the frame. Then we looked at his: `;alignment=left`, `;offset=10`, parameter name
@@ -65,12 +67,22 @@ a good lesson.
 
 The engine everything runs on. GPL v2, open source, actively developed.
 
-**What we took:** the overlay itself (version 2.5.3, built from source without a single
-modification), the menu description language, the mechanics of `;mode=option`,
-`json_file_source`, `hex-by-custom-offset` and everything else. The sources served as our
-reference manual: whenever the package behaved differently than expected, the answer was
-in `main.cpp` or `utils.hpp`. Line references like `main.cpp:7381` scattered through our
-comments come from there.
+**What we took:** the overlay itself (version 2.5.3), the menu description language, the
+mechanics of `;mode=option`, `json_file_source`, `hex-by-custom-offset` and everything
+else.
+
+It is no longer an unmodified build. When an archive of ours carries an engine, that
+engine is our fork of the same 2.5.3 with our own commits on top:
+<https://github.com/qret/Ultrahand-Overlay>, branch `4ifir`. Some of those changes live
+as patch files in `patches/` there, applied to the `lib/libultrahand` submodule; the rest
+are ordinary commits. The `BUILD.txt` inside such an archive names the exact commit the
+binary was built from, and that commit is on GitHub before the archive is.
+
+The sources served as our reference manual: whenever the package behaved differently than
+expected, the answer was in `main.cpp` or `utils.hpp`. Line references like
+`main.cpp:7381` in our comments point into ppkantorski's own tree. **They go stale** —
+his code moves between versions, and our patches move ours — so treat any such number as
+a hint and confirm it by the surrounding function or string name.
 
 It is also a pleasure that the code is readable. That is not a universal property of
 projects in this space.
@@ -126,13 +138,17 @@ mechanism, the very possibility of changing clocks and voltages on a locked cons
 
 So as not to claim more than due. Our contribution is only this:
 
-- the field map, merged from three sources and verified against a live `loader.kip`;
+- the field map, merged from the two donor packages and verified against a live
+  `loader.kip`;
 - a generator that derives the label and the write from the same map entry — so they
   cannot drift apart;
-- six checks a package cannot pass with known defects (four of them from a clone);
-- the bugs we found that both original packages shared: writes into seven offsets holding
-  the CPU frequency table rather than the GPU voltage curve; reset to defaults in one
-  keypress, with no question and no backup.
+- a build gate of checks a package with a known defect cannot pass (they are in
+  `scripts/check-generated.mjs` — this file deliberately keeps no count of its own);
+- the bugs we found that both original packages shared: on Erista, writes into seven
+  offsets that hold row 0 of the CPU frequency table there, not the GPU voltage curve —
+  on Mariko the very same bytes *are* curve points, which is why we show them on one
+  revision and not the other; and reset to defaults in one keypress, with no question
+  and no backup.
 
 Everything else here is someone else's, taken with gratitude.
 

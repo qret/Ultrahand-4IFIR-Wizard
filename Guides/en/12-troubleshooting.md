@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=a060745131b7 self=ff2994489b68 -->
+<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=a060745131b7 self=4ad72bd1140c -->
 # If something goes wrong
 
 <!-- nav:begin -->
@@ -29,14 +29,15 @@ If the console still boots, you can settle this on the spot:
 Both open a preview page. To apply, **hold A** on the entry at the bottom.
 
 > [!NOTE]
-> A reset returns the settings themselves to factory values, and rewrites the manual GPU
-> curve **only at the top**: the seven top points go back to factory, the other
-> twenty-four stay as you left them — there is no factory copy of those to put back.
+> A reset puts **everything** back to factory values, **the whole manual GPU curve
+> included**: all 31 points on a Mariko, all 29 on an Erista. There is a factory copy of
+> those to put back.
 >
-> The curve stops taking effect either way: the mode becomes `Eco ST1` again, and that
-> mode reads another table, which was never touched.
+> The mode comes back with them: it becomes `Eco ST1` again, so the curve stops taking
+> effect by its switch as well as by its values.
 >
-> Only `Backup manager` brings the whole state back, curve included.
+> The only difference between the two buttons is now where they take you: a reset goes to
+> factory, `Backup manager` goes to your own saved setup.
 
 ### 2. Boot into `Stock (semi-stock)`
 
@@ -161,7 +162,8 @@ screenshots are a starting point, not a recipe.
 
 **`Current Settings`** in the tuner shows what is written into the file right now,
 including the GPU voltage curve and the clock ceiling of the selected stage. The top line
-of the curve is not shown: it is the same for every stage.
+of the curve is not shown: it is the same for every stage. The third page holds the
+timings saved in EMC Magician ([details](02-first-run.md#third-page-emc-magician-timings)).
 
 It is the only way to see the real state: menu entries show what is *selected*, the
 summary shows what is *written*.

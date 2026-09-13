@@ -917,7 +917,7 @@
         },
         {
           "hex": "000924",
-          "name": "2366 - L-C4C"
+          "name": "2361 - L-C4C"
         },
         {
           "hex": "005424",
@@ -1253,116 +1253,16 @@
           "name": "1125 mV"
         },
         {
-          "hex": "6A04",
-          "name": "1130 mV"
-        },
-        {
           "hex": "6F04",
           "name": "1135 mV"
-        },
-        {
-          "hex": "7404",
-          "name": "1140 mV"
         },
         {
           "hex": "7904",
           "name": "1145 mV"
         },
         {
-          "hex": "7E04",
-          "name": "1150 mV"
-        },
-        {
           "hex": "8304",
           "name": "1155 mV"
-        },
-        {
-          "hex": "8804",
-          "name": "1160 mV - Max recommended"
-        },
-        {
-          "hex": "9204",
-          "name": "1170 mV - Warning"
-        },
-        {
-          "hex": "9C04",
-          "name": "1180 mV - Warning"
-        },
-        {
-          "hex": "A604",
-          "name": "1190 mV - Warning"
-        },
-        {
-          "hex": "B004",
-          "name": "1200 mV - Warning"
-        },
-        {
-          "hex": "BA04",
-          "name": "1210mV - Warning"
-        },
-        {
-          "hex": "C404",
-          "name": "1220mV - Warning"
-        },
-        {
-          "hex": "CE04",
-          "name": "1230mV - Warning"
-        },
-        {
-          "hex": "D804",
-          "name": "1240mV - Warning"
-        },
-        {
-          "hex": "E204",
-          "name": "1250mV"
-        },
-        {
-          "hex": "EC04",
-          "name": "1260mV"
-        },
-        {
-          "hex": "F604",
-          "name": "1270mV"
-        },
-        {
-          "hex": "0005",
-          "name": "1280mV"
-        },
-        {
-          "hex": "0A05",
-          "name": "1290mV"
-        },
-        {
-          "hex": "1405",
-          "name": "1300mV"
-        },
-        {
-          "hex": "1E05",
-          "name": "1310mV"
-        },
-        {
-          "hex": "2805",
-          "name": "1320mV"
-        },
-        {
-          "hex": "3205",
-          "name": "1330mV"
-        },
-        {
-          "hex": "3C05",
-          "name": "1340mV"
-        },
-        {
-          "hex": "4605",
-          "name": "1350mV"
-        },
-        {
-          "hex": "5005",
-          "name": "1360mV"
-        },
-        {
-          "hex": "5F05",
-          "name": "1375mV"
         }
       ],
       "help_text": "CPU VMAX mode controls the max voltage available to the CPU by the system.\n\nThe higher value- the more power can be drawn by the CPU, and the higher frequencies it can reach.\n\nTo test this setting - run the CPU-heavy game and see if the performance is goodon the max CPU load.",
@@ -2466,18 +2366,6 @@
         {
           "hex": "06",
           "name": "lvl 6"
-        },
-        {
-          "hex": "010000",
-          "name": "Stage1 - Min"
-        },
-        {
-          "hex": "030000",
-          "name": "Stage2 - Mid"
-        },
-        {
-          "hex": "050000",
-          "name": "Stage3 - Max"
         }
       ],
       "help_text": "This menu allows you to set undervolting mode for frequencies from 16XX MHz and down.\n\nThe higher the value, the more agressive undervolting is appied to the CPU.",
@@ -2701,14 +2589,6 @@
         {
           "hex": "03",
           "name": "Custom Table"
-        },
-        {
-          "hex": "010000",
-          "name": "Stage2 - Mid"
-        },
-        {
-          "hex": "020000",
-          "name": "Stage3 - Max"
         }
       ],
       "menu_path": {
@@ -3011,26 +2891,14 @@
           "name_ebal": "ST1 - Default"
         },
         {
-          "hex": "030000",
-          "name": "Auto — Eco ST1 — Default"
-        },
-        {
           "hex": "0200",
           "name": "Auto — Eco ST2",
           "name_ebal": "ST2"
         },
         {
-          "hex": "020000",
-          "name": "Auto — Eco ST2"
-        },
-        {
           "hex": "0100",
           "name": "Auto — Eco ST3",
           "name_ebal": "ST3"
-        },
-        {
-          "hex": "010000",
-          "name": "Auto — Eco ST3"
         },
         {
           "hex": "000000",
@@ -3041,136 +2909,68 @@
           "name": "430mV"
         },
         {
-          "hex": "AE01",
-          "name": "430 mV"
-        },
-        {
           "hex": "B80100",
           "name": "440mV"
-        },
-        {
-          "hex": "B801",
-          "name": "440 mV"
         },
         {
           "hex": "C20100",
           "name": "450mV"
         },
         {
-          "hex": "C201",
-          "name": "450 mV"
-        },
-        {
           "hex": "CC0100",
           "name": "460mV"
-        },
-        {
-          "hex": "CC01",
-          "name": "460 mV"
         },
         {
           "hex": "D60100",
           "name": "470mV"
         },
         {
-          "hex": "D601",
-          "name": "470 mV"
-        },
-        {
           "hex": "E00100",
           "name": "480mV"
-        },
-        {
-          "hex": "E001",
-          "name": "480 mV"
         },
         {
           "hex": "EA0100",
           "name": "490mV"
         },
         {
-          "hex": "EA01",
-          "name": "490 mV"
-        },
-        {
           "hex": "F40100",
           "name": "500mV"
-        },
-        {
-          "hex": "F401",
-          "name": "500 mV"
         },
         {
           "hex": "FE0100",
           "name": "510mV"
         },
         {
-          "hex": "FE01",
-          "name": "510 mV"
-        },
-        {
           "hex": "080200",
           "name": "520mV"
-        },
-        {
-          "hex": "0802",
-          "name": "520 mV"
         },
         {
           "hex": "120200",
           "name": "530mV - RAM <= 1734Mhz"
         },
         {
-          "hex": "1202",
-          "name": "530 mV - RAM <= 1734Mhz"
-        },
-        {
           "hex": "1C0200",
           "name": "540mV"
-        },
-        {
-          "hex": "1C02",
-          "name": "540 mV"
         },
         {
           "hex": "260200",
           "name": "550mV"
         },
         {
-          "hex": "2602",
-          "name": "550 mV"
-        },
-        {
           "hex": "300200",
           "name": "560mV - RAM 1862Mhz"
-        },
-        {
-          "hex": "3002",
-          "name": "560 mV - RAM 1862Mhz"
         },
         {
           "hex": "3A0200",
           "name": "570mV"
         },
         {
-          "hex": "3A02",
-          "name": "570 mV"
-        },
-        {
           "hex": "440200",
           "name": "580mV"
         },
         {
-          "hex": "4402",
-          "name": "580 mV"
-        },
-        {
           "hex": "4E0200",
           "name": "590mV - RAM 1996Mhz"
-        },
-        {
-          "hex": "4E02",
-          "name": "590 mV - RAM 1996Mhz"
         },
         {
           "hex": "5302",
@@ -3181,20 +2981,12 @@
           "name": "600mV"
         },
         {
-          "hex": "5802",
-          "name": "600 mV"
-        },
-        {
           "hex": "5D02",
           "name": "605 mV"
         },
         {
           "hex": "620200",
           "name": "610mV"
-        },
-        {
-          "hex": "6202",
-          "name": "610 mV"
         },
         {
           "hex": "6702",
@@ -3205,20 +2997,12 @@
           "name": "620mV - Default"
         },
         {
-          "hex": "6C02",
-          "name": "620 mV - Default"
-        },
-        {
           "hex": "7102",
           "name": "625 mV"
         },
         {
           "hex": "760200",
           "name": "630mV"
-        },
-        {
-          "hex": "7602",
-          "name": "630 mV"
         },
         {
           "hex": "7B02",
@@ -3229,20 +3013,12 @@
           "name": "640mV"
         },
         {
-          "hex": "8002",
-          "name": "640 mV"
-        },
-        {
           "hex": "8502",
           "name": "645 mV"
         },
         {
           "hex": "8A0200",
           "name": "650mV"
-        },
-        {
-          "hex": "8A02",
-          "name": "650 mV"
         },
         {
           "hex": "8F02",
@@ -3253,20 +3029,12 @@
           "name": "660mV"
         },
         {
-          "hex": "9402",
-          "name": "660 mV"
-        },
-        {
           "hex": "9902",
           "name": "665 mV"
         },
         {
           "hex": "9E0200",
           "name": "670mV"
-        },
-        {
-          "hex": "9E02",
-          "name": "670 mV"
         },
         {
           "hex": "A302",
@@ -3513,26 +3281,14 @@
           "name_ebal": "St1 - Default"
         },
         {
-          "hex": "0300",
-          "name": "Eco ST1 — Default"
-        },
-        {
           "hex": "020000",
           "name": "Eco ST2",
           "name_ebal": "St2"
         },
         {
-          "hex": "0200",
-          "name": "Eco ST2"
-        },
-        {
           "hex": "010000",
           "name": "Eco ST3 — lowest voltage",
           "name_ebal": "St3"
-        },
-        {
-          "hex": "0100",
-          "name": "Eco ST3 — lowest voltage"
         },
         {
           "hex": "AE0100",
@@ -4416,154 +4172,6 @@
         {
           "hex": "7E0400",
           "name": "1150mV"
-        },
-        {
-          "hex": "FA00",
-          "name": "250 mV"
-        },
-        {
-          "hex": "1301",
-          "name": "275 mV"
-        },
-        {
-          "hex": "2C01",
-          "name": "300 mV"
-        },
-        {
-          "hex": "4501",
-          "name": "325 mV"
-        },
-        {
-          "hex": "5E01",
-          "name": "350 mV"
-        },
-        {
-          "hex": "7701",
-          "name": "375 mV"
-        },
-        {
-          "hex": "9001",
-          "name": "400 mV"
-        },
-        {
-          "hex": "A901",
-          "name": "425 mV"
-        },
-        {
-          "hex": "C201",
-          "name": "450 mV"
-        },
-        {
-          "hex": "DB01",
-          "name": "475 mV"
-        },
-        {
-          "hex": "F401",
-          "name": "500 mV"
-        },
-        {
-          "hex": "0D02",
-          "name": "525 mV"
-        },
-        {
-          "hex": "2602",
-          "name": "550 mV"
-        },
-        {
-          "hex": "3F02",
-          "name": "575 mV"
-        },
-        {
-          "hex": "5802",
-          "name": "600 mV"
-        },
-        {
-          "hex": "7102",
-          "name": "625 mV"
-        },
-        {
-          "hex": "8A02",
-          "name": "650 mV"
-        },
-        {
-          "hex": "A302",
-          "name": "675 mV"
-        },
-        {
-          "hex": "BC02",
-          "name": "700 mV"
-        },
-        {
-          "hex": "D502",
-          "name": "725 mV"
-        },
-        {
-          "hex": "EE02",
-          "name": "750 mV"
-        },
-        {
-          "hex": "0703",
-          "name": "775 mV"
-        },
-        {
-          "hex": "2003",
-          "name": "800 mV"
-        },
-        {
-          "hex": "3903",
-          "name": "825 mV"
-        },
-        {
-          "hex": "5203",
-          "name": "850 mV"
-        },
-        {
-          "hex": "6B03",
-          "name": "875 mV"
-        },
-        {
-          "hex": "8403",
-          "name": "900 mV"
-        },
-        {
-          "hex": "9D03",
-          "name": "925 mV"
-        },
-        {
-          "hex": "B603",
-          "name": "950 mV"
-        },
-        {
-          "hex": "CF03",
-          "name": "975 mV"
-        },
-        {
-          "hex": "E803",
-          "name": "1000 mV"
-        },
-        {
-          "hex": "0104",
-          "name": "1025 mV"
-        },
-        {
-          "hex": "1A04",
-          "name": "1050 mV"
-        },
-        {
-          "hex": "3304",
-          "name": "1075 mV"
-        },
-        {
-          "hex": "4C04",
-          "name": "1100 mV"
-        },
-        {
-          "hex": "6504",
-          "name": "1125 mV"
-        },
-        {
-          "hex": "7E04",
-          "name": "1150 mV"
         }
       ],
       "menu_path": {
@@ -4734,22 +4342,6 @@
         {
           "hex": "000000",
           "name": "0 - DEBUG"
-        },
-        {
-          "hex": "020000",
-          "name": "Stage1 - Min"
-        },
-        {
-          "hex": "050000",
-          "name": "Stage2 - Mid"
-        },
-        {
-          "hex": "040000",
-          "name": "Stage3 - Max"
-        },
-        {
-          "hex": "010000",
-          "name": "Default"
         }
       ],
       "menu_path": {
@@ -4933,18 +4525,6 @@
         {
           "hex": "09",
           "name": "9 - ALT Logic"
-        },
-        {
-          "hex": "030000",
-          "name": "Stage1 - Min"
-        },
-        {
-          "hex": "040000",
-          "name": "Stage3 - Max"
-        },
-        {
-          "hex": "010000",
-          "name": "Default"
         }
       ],
       "menu_path": {
@@ -5315,18 +4895,6 @@
         {
           "hex": "000000",
           "name": "0 - DEBUG"
-        },
-        {
-          "hex": "070000",
-          "name": "Stage1 - Min"
-        },
-        {
-          "hex": "080000",
-          "name": "Stage3 - Max"
-        },
-        {
-          "hex": "010000",
-          "name": "Default"
         }
       ],
       "menu_path": {
@@ -5510,18 +5078,6 @@
         {
           "hex": "000000",
           "name": "0 - DEBUG"
-        },
-        {
-          "hex": "070000",
-          "name": "Stage1 - Min"
-        },
-        {
-          "hex": "080000",
-          "name": "Stage3 - Max"
-        },
-        {
-          "hex": "010000",
-          "name": "Default"
         }
       ],
       "menu_path": {
@@ -5725,18 +5281,6 @@
         {
           "hex": "000000",
           "name": "0 - DEBUG"
-        },
-        {
-          "hex": "010000",
-          "name": "Default"
-        },
-        {
-          "hex": "040000",
-          "name": "Stage2 - Mid"
-        },
-        {
-          "hex": "030000",
-          "name": "Stage3 - Max"
         }
       ],
       "menu_path": {
@@ -5924,22 +5468,6 @@
         {
           "hex": "000000",
           "name": "0 - DEBUG"
-        },
-        {
-          "hex": "070000",
-          "name": "Stage1 - Min"
-        },
-        {
-          "hex": "090000",
-          "name": "Stage2 - Mid"
-        },
-        {
-          "hex": "080000",
-          "name": "Stage3 - Max"
-        },
-        {
-          "hex": "010000",
-          "name": "Default"
         }
       ],
       "menu_path": {
@@ -19632,26 +19160,6 @@
         {
           "hex": "AF00",
           "name": "Eco Stage 4"
-        },
-        {
-          "hex": "01",
-          "name": "D"
-        },
-        {
-          "hex": "32",
-          "name": "Sport"
-        },
-        {
-          "hex": "64",
-          "name": "Eco ST1"
-        },
-        {
-          "hex": "7D",
-          "name": "Eco ST2"
-        },
-        {
-          "hex": "96",
-          "name": "Eco ST3"
         }
       ],
       "help_text": "Speed Shift is the secret component of 4IFIR, that allows you to open the full potential of your console.\n\nThe higher the value, the lower the consumption.",
@@ -19823,18 +19331,6 @@
         {
           "hex": "07",
           "name": "lvl 7"
-        },
-        {
-          "hex": "010000",
-          "name": "Stage1 - Min"
-        },
-        {
-          "hex": "030000",
-          "name": "Stage2 - Mid"
-        },
-        {
-          "hex": "050000",
-          "name": "Stage3 - Max"
         }
       ],
       "help_text": "This menu allows you to set undervolting mode for frequencies from 16XX MHz and up.\n\nThe higher the value, the more agressive undervolting is appied to the CPU.",
@@ -20836,35 +20332,27 @@
       "values": [
         {
           "hex": "000000",
-          "name": "Default"
+          "name": "eBAMATIC"
         },
         {
           "hex": "01",
-          "name": "1 - SYK-LOH"
+          "name": "1"
         },
         {
           "hex": "02",
-          "name": "2 - Eco ST1"
+          "name": "2"
         },
         {
           "hex": "03",
-          "name": "3 - Default"
+          "name": "3"
         },
         {
           "hex": "04",
-          "name": "4 - SRT ST1"
+          "name": "4"
         },
         {
           "hex": "05",
-          "name": "5 - SRT ST2"
-        },
-        {
-          "hex": "010000",
-          "name": "Stage1 - Min"
-        },
-        {
-          "hex": "020000",
-          "name": "Stage3 - Max"
+          "name": "5"
         }
       ],
       "menu_path": {
@@ -21051,18 +20539,6 @@
         {
           "hex": "000000",
           "name": "0 - DEBUG"
-        },
-        {
-          "hex": "040000",
-          "name": "Stage1 - Min"
-        },
-        {
-          "hex": "080000",
-          "name": "Stage3 - Max"
-        },
-        {
-          "hex": "010000",
-          "name": "Default"
         }
       ],
       "menu_path": {
@@ -24153,18 +23629,6 @@
         {
           "hex": "03",
           "name": "Stage 3"
-        },
-        {
-          "hex": "010000",
-          "name": "Stage1 - Min"
-        },
-        {
-          "hex": "020000",
-          "name": "Stage2 - Mid"
-        },
-        {
-          "hex": "030000",
-          "name": "Stage3 - Max"
         }
       ],
       "menu_path": {

@@ -12,25 +12,28 @@ PARTICULAR PURPOSE. See the GNU General Public License below for more details.
 --------------------------------------------------------------------------------
 WHAT THIS COVERS, AND WHAT CAME FROM OTHERS
 
-  Release archives contain the configurator only: switch\.packages\4IFIR Wizard\.
+  An ordinary release archive contains the configurator only:
+  switch\.packages\4IFIR Wizard\. The engine this package runs on - Ultrahand
+  Overlay by ppkantorski, GPL v2 - is not in this repository. It is maintained
+  by the author of the 4IFIR firmware and arrives with the firmware build.
 
-  The engine this package runs on - Ultrahand Overlay by ppkantorski, GPL v2 -
-  is in neither this repository nor our release archives. It is maintained by
-  the author of the 4IFIR firmware and arrives with the firmware build, and
-  installing or updating this package does not replace it.
-  Where our own engine changes live, if you want to build one: our fork,
+  The first-install kit, a second kind of release, also carries the engine:
+  switch\.overlays\ovlmenu.ovl and config\ultrahand\. Its BUILD.txt names the
+  repository, branch and exact commit the engine was built from. Our fork:
   https://github.com/qret/Ultrahand-Overlay  (branch 4ifir)
   Upstream is https://github.com/ppkantorski/Ultrahand-Overlay
 
-  Value dictionaries and part of the help texts originate from the 4IFIR Wizard
-  package by rashevskyv and contributors (https://github.com/rashevskyv/4IFIR),
-  which states no licence for the package itself. Used with attribution; it will
-  be removed on request from its authors.
+  Most value dictionaries come from two tuner packages: 4IFIR Wizard by
+  rashevskyv and contributors (https://github.com/rashevskyv/4IFIR), which states
+  no licence for the package itself, and Ebal Tuner of EbalNX by Vladislav. Part
+  of the help texts comes from 4IFIR Wizard. Used with attribution; removed on
+  request from their authors.
 
   Overclocking itself, loader.kip and the 4IFIR firmware are the work of Cooler3D
   and the Switch-OC-Suite authors. Not included here and not modified.
 
-  Plain-language breakdown: NOTICE.md in the repository, NOTICE.txt in release archives.
+  Plain-language breakdown: NOTICE.md in the repository and in the first-install
+  kit, NOTICE.txt in an ordinary release archive.
 --------------------------------------------------------------------------------
 
 

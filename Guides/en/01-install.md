@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/01-install.md sha=9d35faf1ba31 self=365114d4383b -->
+<!-- i18n: source=Guides/ru/01-install.md sha=9d35faf1ba31 self=adce2486a80f -->
 # Installation
 
 <!-- nav:begin -->
@@ -11,8 +11,9 @@ itself: the bootloader, `loader.kip`, the 4IFIR overlay and the system modules a
 stay as they are.
 
 Only one thing changes: the tuning package. The Ultrahand overlay engine the tuner runs
-on comes with the 4IFIR build — as a rule we neither ship it nor swap it out. The rare
-exception is in step 2.
+on comes with the 4IFIR build, and an ordinary release does not carry it. There is a
+second kind of archive though — the kit with the engine; the release page says which of
+the two you are looking at. More in step 2.
 
 ## Step 1. Delete the old package
 
@@ -28,8 +29,9 @@ These are leftovers of the old engine and the old wizard. The new package cannot
 them, and side by side the two will get in each other's way.
 
 > [!IMPORTANT]
-> **Do not delete `atmosphere\kips\kip-json\`.** Those are your saved setting profiles,
-> not scratch files. The tuner can read them — [importing old profiles](10-profiles.md).
+> **Do not touch `atmosphere\kips\`.** It holds `loader.kip` with your overclock
+> settings, `kip-json\` with your saved profiles — the tuner can read them,
+> [importing old profiles](10-profiles.md) — and the backups the tuner makes.
 
 ## Step 2. Copy the archive
 
@@ -45,7 +47,7 @@ Inside the ordinary archive there is one folder of settings —
 > come with the 4IFIR build. The ordinary archive carries none of that and overwrites
 > none of it: your overlay setup stays yours, however many times you update the tuner.
 >
-> **Once in a while a build with the engine goes out instead** — the release page says
+> **Sometimes a build with the engine goes out instead** — the release page says
 > so. That one brings the engine itself and `config\ultrahand\` with it: otherwise someone
 > installing from scratch would get neither our key combination, nor the language, nor
 > the sound switch, nor the overlay order — 4IFIR on top, then Status Monitor, FPSLocker,
@@ -57,7 +59,7 @@ Inside the ordinary archive there is one folder of settings —
 >
 > That moving-aside lives inside the package, so it covers you from the **next** update
 > after the one that brought it. If you unpack an archive with the engine by hand rather
-> than through the update button, save your `config\ultrahand\config.ini` first.
+> than through the update button, save your `config\ultrahand\config.ini` and `overlays.ini` first.
 
 ## Step 3. Check
 

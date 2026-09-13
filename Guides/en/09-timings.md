@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/09-timings.md sha=50b5bbbd65fe self=3a0d6173c001 -->
+<!-- i18n: source=Guides/ru/09-timings.md sha=50b5bbbd65fe self=f2a40991fff0 -->
 # Timings and fine tuning
 
 <!-- nav:begin -->
@@ -52,6 +52,9 @@ Switch profile and its set comes with it — nothing to set up again.
 The settings live in `/config/4IFIR/emc_timings.ini` — that is, **outside the firmware**.
 Updating 4IFIR through AiO does not wipe them.
 
+You can also look at what is saved from our tuner, on the third page of `Current Settings`
+([details](02-first-run.md#third-page-emc-magician-timings)).
+
 ### How to tune
 
 Measuring is done with `MicroMemBench` and `MicroMemTest`, both already in the build.
@@ -73,12 +76,12 @@ already in that mode. There is no need to install it separately, whatever other 
    seconds** after every step and watch the numbers.
 6. Once the numbers drop or the console freezes, the previous value is your limit. The
    stable value is the one circled in white; save it with `X`.
-7. Verify: `MicroMemTest`, ten passes are enough, CPU at `4IFIR Optimised`.
+7. Verify: `MicroMemTest`, ten passes are enough, CPU at `4IFIR Optimized`.
 8. Verify in a game — something heavy, docked.
 9. Repeat from step 2 for the next slider.
 10. Once they are all set, check the lot again: `MicroMemTest` with the CPU at
-    `4IFIR Optimised`, then a game.
-11. Set the CPU back to **`4IFIR Optimised`** and open `MicroMemBench` again. This matters:
+    `4IFIR Optimized`, then a game.
+11. Set the CPU back to **`4IFIR Optimized`** and open `MicroMemBench` again. This matters:
     the arbiter has to be picked at the clock you actually play at, not the overclocked one.
 12. Without leaving the benchmark, use `L` and `R` to pick the **arbiter** for each timing.
     Save with the same `X`.
@@ -135,10 +138,14 @@ Three caveats that are easy to trip over:
   automatic selection, and that is its factory value.
 - **The top value of `Core Timings 2` and `Core Timings 3` falls out of the pattern** —
   it switches the algorithm rather than tightening the delay.
-- **The upper bound differs for all eight.**
+- **The upper bound varies, but not across all eight.** In order: `9`, `9`, `10`, `9`,
+  `9`, `14`, `10`, `12`. The first, fourth and fifth even share one and the same list
+  of values.
 
 > [!TIP]
-> In the list `0 — DEBUG` comes **last**, not first. Look for it at the end.
+> In the list `0 — DEBUG` comes **at the end**, not first. More precisely: in
+> `Core Timings 2` it is second to last, with `9 - ALT Logic` after it; `Core Timings 3`
+> has no debug entry at all.
 
 Start at `1` — that is the automatic mode.
 
@@ -211,8 +218,11 @@ The factory setting for the top band is a hundred per cent: once the console rea
 > [!IMPORTANT]
 > **If the top band reads a hundred per cent and the fan still holds back in a hot
 > game**, the curve in the file does not match what the entry says. Open `Fan Control`
-> and set the sliders again: writing them lays a correct curve down. The simplest route
-> is to put everything back with `Service → Restore Factory Defaults`.
+> and set the sliders again: writing them lays a correct curve down.
+>
+> **`Service → Restore Factory Defaults` will not help here** — the fan curve is not in
+> the file a reset touches. A reset only writes into `loader.kip`, while the curve lives
+> in `atmosphere\config\system_settings.ini`. Setting the sliders again is the only way.
 
 A fan that stays quiet under load is almost always a setting rather than wear. Check this
 curve before you take the console apart.

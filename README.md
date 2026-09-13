@@ -19,7 +19,8 @@ replaces it.
 > archive carries neither, so your key combination, theme, overlay order and sounds stay
 > as they are.
 >
-> Once in a while a build **with** the engine goes out instead — the release page says so.
+> A build **with** the engine goes out instead from time to time — a second regular kind
+> of release, not an exception; the release page says which one you are looking at.
 > That one does carry `config/ultrahand/`, and with it the overlay order a first install
 > should open on: 4IFIR on top, then Status Monitor, FPSLocker, InfoNX, ReverseNX. When it
 > arrives through the tuner's own `Update` entry, your `config.ini` and `overlays.ini` are
@@ -206,13 +207,16 @@ and a console that won't boot.
 
 ## Building the engine
 
-The overlay binary (`ovlmenu.ovl`) is **not** part of this repository, and it is not part
-of our releases either: the engine is maintained by the author of the firmware and comes
-with the 4IFIR build. Nothing here replaces the one you already run.
+The overlay binary (`ovlmenu.ovl`) is **not** part of this repository — it is built, not
+committed. Whether it is part of a release depends on which release: the ordinary archive
+carries the configurator alone, while a build **with** the engine carries the binary and
+`config/ultrahand/` too, as the box at the top of this page describes. The engine is
+maintained by the author of the firmware and comes with the 4IFIR build; our own engine
+changes live in a fork, and an archive that carries a binary is built from that fork.
 
-So build it yourself only if you want to modify the engine, or to see for yourself what
-you are running. The rest of this section covers that. It is written for Windows with
-WSL, but the steps are the same on any Linux.
+So build it yourself if you want to modify the engine, to reproduce what we ship, or to
+see for yourself what you are running. The rest of this section covers that. It is
+written for Windows with WSL, but the steps are the same on any Linux.
 
 ### What you need
 
@@ -268,7 +272,9 @@ make -j$(nproc)
 
 That is upstream, the engine itself. Our own engine changes live in a fork,
 <https://github.com/qret/Ultrahand-Overlay>, branch `4ifir` — clone that one instead if
-you want them. Nothing built from either ships in our releases.
+you want them. When a release archive carries a binary, that branch is what it was built
+from, and it is pushed before the archive goes out: GPL v2 asks for the source of a
+binary you hand out, not for the source of some later version of it.
 
 ### Two things that will bite you
 
@@ -381,8 +387,10 @@ The generator and the field map are our own work. Value dictionaries and part of
 texts come from the 4IFIR Wizard package ([rashevskyv/4IFIR](https://github.com/rashevskyv/4IFIR)) —
 years of accumulated knowledge that cannot be reconstructed by hand.
 
-**Ultrahand-Overlay** is distributed under GPL v2 by ppkantorski. It is in neither this
-repository nor our release archives — it comes with the 4IFIR build.
+**Ultrahand-Overlay** is distributed under GPL v2 by ppkantorski. It is not in this
+repository, and it comes with the 4IFIR build; a release archive of ours carries a binary
+of it only when the release page says so. When one does, the source it was built from is
+public first — our fork, <https://github.com/qret/Ultrahand-Overlay>, branch `4ifir`.
 
 Overclocking itself, `loader.kip` and the 4IFIR firmware are the work of Cooler3D and the
 Switch-OC-Suite authors. Not included here, not modified.
@@ -414,7 +422,8 @@ your console. Use at your own risk.
 > 4IFIR — вместе со своим `config/ultrahand/`. Обычный архив релиза не несёт ни того,
 > ни другого: ваша комбинация вызова, тема, порядок оверлеев и звук остаются как были.
 >
-> Изредка вместо него выходит сборка **с движком** — на странице релиза это сказано.
+> Время от времени вместо него выходит сборка **с движком** — это второй штатный состав,
+> а не исключение; на странице релиза сказано, какой перед вами.
 > Она везёт `config/ultrahand/`, а вместе с ним и порядок оверлеев, с которым должна
 > открываться первая установка: сверху 4IFIR, под ним Status Monitor, дальше FPSLocker,
 > InfoNX, ReverseNX. Если она приезжает через пункт `Update` в самом тюнере, ваши
@@ -601,13 +610,16 @@ node scripts/make-guide.mjs --check    # руководство не разош�
 
 ## Сборка движка
 
-Бинарник оверлея (`ovlmenu.ovl`) **не входит** ни в этот репозиторий, ни в наши релизы:
-движок ведёт автор прошивки, и он приходит со сборкой 4IFIR. Тот, что у вас стоит, мы
-ничем не заменяем.
+Бинарник оверлея (`ovlmenu.ovl`) **не входит в этот репозиторий** — он собирается,
+а не хранится. Входит ли он в релиз, зависит от релиза: обычный архив несёт один
+конфигуратор, а сборка **с движком** везёт и бинарник, и `config/ultrahand/` — про два
+состава сказано во врезке в начале страницы. Сам движок ведёт автор прошивки, и он
+приходит со сборкой 4IFIR; наши правки движка живут в форке, и архив, который несёт
+бинарник, собран из этого форка.
 
-Значит, собирать самому есть смысл, только если вы хотите править движок или своими
-глазами увидеть, что именно запускаете. Дальше — про это. Написано под Windows с WSL,
-но на любом Linux шаги те же.
+Значит, собирать самому есть смысл, если вы хотите править движок, повторить то, что мы
+выпускаем, или своими глазами увидеть, что именно запускаете. Дальше — про это. Написано
+под Windows с WSL, но на любом Linux шаги те же.
 
 ### Что понадобится
 
@@ -663,7 +675,9 @@ make -j$(nproc)
 
 Это апстрим, сам движок. Наши правки движка живут в форке,
 <https://github.com/qret/Ultrahand-Overlay>, ветка `4ifir` — клонируйте его, если нужны
-они. В наших релизах не едет ни то, ни другое.
+они. Когда архив релиза несёт бинарник, собран он именно из этой ветки, и ветка
+выкладывается раньше архива: GPL v2 требует исходник того бинарника, который вы раздали,
+а не какой-нибудь более поздней его версии.
 
 ### Две вещи, на которых вы споткнётесь
 
@@ -773,8 +787,11 @@ Switch-OC-Suite.
 из пакета 4IFIR Wizard ([rashevskyv/4IFIR](https://github.com/rashevskyv/4IFIR)) — это
 годами накопленное знание, которое руками не восстановить.
 
-**Ultrahand-Overlay** распространяется под GPL v2, автор ppkantorski. Ни в этот
-репозиторий, ни в наши архивы релиза он не входит — приходит со сборкой 4IFIR.
+**Ultrahand-Overlay** распространяется под GPL v2, автор ppkantorski. В этот репозиторий
+он не входит и приходит со сборкой 4IFIR; наш архив релиза несёт его бинарник только
+тогда, когда об этом сказано на странице релиза. А когда несёт — исходник, из которого
+бинарник собран, выложен раньше: наш форк <https://github.com/qret/Ultrahand-Overlay>,
+ветка `4ifir`.
 
 Сам разгон, `loader.kip` и прошивка 4IFIR — работа Cooler3D и авторов Switch-OC-Suite.
 Здесь не содержится и не изменяется.
