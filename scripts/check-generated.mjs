@@ -517,6 +517,48 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       hurt: s => s.replace('\n[@Page 2]\n', '\n').replace('\n[Apply this backup', '\n[@Page 2]\n\n[Apply this backup'),
       expect: /кнопка уехала со страницы 1/,
     },
+    {
+      // Check 39 (8) and 28, the photo of 14.09.2026: the manual table of a backup loses its mode gate.
+      name: 'ручная таблица GPU копии Mariko видна при любом режиме',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.split(/\n(?=\[)/).map(x => x.includes(',030000,y,null)}') ? x.split('\n;skip_null=true').join('') : x).join('\n'),
+      expect: /при Fields 44 = 0[0-2]0000 на второй странице видно таблиц GPU 2/,
+    },
+    {
+      // Check 39 (8): ST1 variant reads a table the backup does not carry, from the backup.
+      name: 'вариант ST1 копии читает из файла копии таблицу, которой там нет',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(/hex_file\(CUST,7160,4\)/, 'ini_file(Fields,7160)'),
+      expect: /при Fields 44 = 000000 «307MHz» читает copy 7160, а нужно kip 7160/,
+    },
+    {
+      // Check 39 (8): the Erista backup page grows a Mariko top curve point.
+      name: 'вторая страница копии Erista показывает верхнюю точку кривой Mariko',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace("\n'192MHz' = ", "\n'1228MHz' = '{if_==({ini_file(Fields,184)},null,—,{hex_to_decimal({hex_to_rhex({ini_file(Fields,184)})})} mV)}'\n'192MHz' = "),
+      expect: /вторая страница Erista читает точку кривой Mariko 184/,
+    },
+    {
+      // Check 39 (8): a variant label drifts away from Current.
+      name: 'подпись таблицы GPU копии разошлась с Current',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(/\n'1420MHz' = '\{if_null\(\{list\(0\)\},null,\{if_==/, "\n'1459MHz' = '{if_null({list(0)},null,{if_=="),
+      expect: /при Fields 44 = 030000 подписи таблицы GPU расходятся с Current/,
+    },
+    {
+      // Check 39 (8): a variant title loses the backup gate but keeps skip_null and the list.
+      name: 'заголовок варианта таблицы GPU копии без затвора',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace("\n'GPU Voltage Table' = '{if_null({list(0)},null,)}'", "\n'GPU Voltage Table' = ''"),
+      expect: /Fields 44 = 000000: строка «GPU Voltage Table» секции \[Header\] без затвора из копии/,
+    },
+    {
+      // Check 39 (8): a variant indent loses the backup gate but keeps skip_null and the list.
+      name: 'отступ варианта таблицы GPU копии без затвора',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace("\n'{if_null({list(0)},null,)}'=''\n;gap=6\n\n[Header]", "\n''=''\n;gap=6\n\n[Header]"),
+      expect: /Fields 44 = 000000: строка «» секции \[Gap\] без затвора из копии/,
+    },
   ]
   let failed = 0, skipped = 0
   console.log('отрицательный прогон: ' + PROBES.length + ' проб\n')
@@ -1903,6 +1945,48 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 //
 // Если же блоки взаимоисключающие — это варианты одного и того же, и длина у них обязана
 // совпадать. Разная длина здесь означает, что в один из вариантов попало лишнее.
+/**
+ * Gate read from a backup (14.09.2026): a ;skip_null table whose list line turns one Fields
+ * value into `y` or `null`, and every row goes null with it. A section condition cannot read
+ * the backup, so this is how backup pages hide variants. Evaluated over every value the field
+ * can hold in a backup (map, menu, and `null` for an imported or empty one).
+ */
+function copyGateOf(sec) {
+  if (!/^;skip_null=true$/m.test(sec)) return null
+  const m = sec.match(/^list '\[(.*)\]'$/m)
+  if (!m) return null
+  const offs = [...new Set([...m[1].matchAll(/ini_file\(Fields,(\d+)\)/g)].map(x => Number(x[1])))]
+  if (offs.length !== 1) return null
+  const tpl = m[1]
+  const on = v => {
+    let s = tpl.split(`{ini_file(Fields,${offs[0]})}`).join(v)
+    for (let guard = 0; guard < 100; guard++) {
+      const i = Math.max(s.lastIndexOf('{if_=='), s.lastIndexOf('{if_null'))
+      if (i < 0) break
+      const close = s.indexOf(')}', i)
+      const inner = s.slice(s.indexOf('(', i) + 1, close)
+      const p = inner.split(',')
+      const val = s.startsWith('{if_==', i) ? (p[0] === p[1] ? p[2] : (p[3] ?? p[0])) : (p[0] === 'null' ? p[1] : (p[2] ?? p[0]))
+      s = s.slice(0, i) + val + s.slice(close + 2)
+    }
+    return s === 'y'
+  }
+  return { off: offs[0], tpl, on }
+}
+function gateDomain(off) {
+  const f = fields.find(x => x.offset === off)
+  const len = (f?.length ?? 3) * 2
+  const pad = h => { const s = String(h ?? '').toUpperCase().replace(/[^0-9A-F]/g, ''); return s ? (s + '0'.repeat(len)).slice(0, len) : '' }
+  const out = new Set((f?.values ?? []).map(v => pad(v.hex)))
+  ;(function walk(n) {
+    if (!n || typeof n !== 'object') return
+    if (Array.isArray(n.offsets) && n.offsets.map(Number).includes(off)) for (const v of n.values ?? []) out.add(pad(v.hex))
+    for (const x of Object.values(n)) if (x && typeof x === 'object') walk(x)
+  })(menu)
+  out.delete('')
+  return [...out, 'null']
+}
+
 {
   const bad = []
   let seenTitles = 0
@@ -1924,6 +2008,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
         // два условия друг друга, или просто отличаются текстом.
         off: cond ? cond[1] : null,
         val: cond ? cond[2] : null,
+        gate: copyGateOf(secs[i]),
         rows: info ? (info.match(/^'/gm) ?? []).length : 0,
         // Не только счёт, но и сами подписи: длина ловит не всякую порчу, а вот
         // ЧУЖИЕ подписи среди своих — ловит всегда.
@@ -1944,10 +2029,13 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
         const a = list[i], b = list[j]
         const sameConsole = a.rev === b.rev || a.rev === 'both' || b.rev === 'both'
         if (!sameConsole) continue                       // разные ревизии — вместе не встретятся
-        const exclusive = a.off && b.off && a.off === b.off && a.val !== b.val
+        const both = a.gate && b.gate && a.gate.off === b.gate.off
+          ? gateDomain(a.gate.off).filter(v => a.gate.on(v) && b.gate.on(v)) : null
+        const exclusive = (a.off && b.off && a.off === b.off && a.val !== b.val) || (both && !both.length)
         if (!exclusive) {
+          const say = x => x.gate ? `Fields ${x.gate.off} из копии` : x.off ? `${x.off}=${x.val}` : 'без условия'
           bad.push(`${relative(ROOT, file)}: «${title}» — два блока могут показаться разом `
-                 + `(${a.rev}/${a.off ? `${a.off}=${a.val}` : 'без условия'} и ${b.rev}/${b.off ? `${b.off}=${b.val}` : 'без условия'})`)
+                 + `(${a.rev}/${say(a)} и ${b.rev}/${say(b)}${both?.length ? `; оба при ${both.join(', ')}` : ''})`)
         } else if (!prefixOf(a.labels, b.labels)) {
           /**
            * ПРАВИЛО — НЕ «ОДИНАКОВАЯ ДЛИНА», А «КОРОТКИЙ ЕСТЬ НАЧАЛО ДЛИННОГО».
@@ -2837,9 +2925,95 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
         if (m.at < b.at) bad.push(`${p.rel}:${b.at} «${b.head}» стоит после маркера ${m.head} (строка ${m.at}) — кнопка уехала со страницы 1`)
   }
 
+  /**
+   * (8) Page 2 shows ONE GPU curve table per undervolt mode, the one Current shows (14.09.2026).
+   * The operator saw two: the working table and the manual one, both ungated, the manual one
+   * printing the factory bytes of 184...208 as "408000 mV". For every value Fields 44 can hold
+   * exactly one table is visible; its labels and offsets equal Current's variant for that mode
+   * (a backup without Fields 44 counts as mode 01); a cell the backup carries is read from the
+   * backup, one it does not carry from the kip; Erista has one table and no Mariko curve cell.
+   */
+  const gpu = { tables: 0, modes: 0 }
+  {
+    const pageSecs = (txt, from) => {
+      const at = txt.search(new RegExp(`^\\[@${from}\\]\\s*$`, 'm'))
+      if (at < 0) return []
+      const rest = txt.slice(at)
+      const end = rest.slice(1).search(/^\[@/m)
+      return (end < 0 ? rest : rest.slice(0, end + 1)).split(/\r?\n(?=\[)/)
+    }
+    const rowsOf = sec => sec.split(/\r?\n/).map(l => l.match(/^'([^']*)'\s*=\s*'(.*)'$/)).filter(Boolean).map(m => {
+      const h = m[2].match(/hex_file\(CUST,(\d+),(\d+)\)/), f = m[2].match(/ini_file\(Fields,(\d+)\)/)
+      return { label: m[1], value: m[2], kind: h ? 'kip' : f ? 'copy' : null, off: Number((h ?? f)?.[1]), via: m[2].includes('json_file(') ? 'json' : 'calc' }
+    })
+    const tablesOf = secs => secs.map((s, i) => ({ s, i })).filter(({ s }) => /^\[Header\]/.test(s) && /^'GPU Voltage Table[^']*'\s*=/m.test(s))
+      .map(({ s, i }) => ({ head: s, gap: secs[i - 1], info: secs.slice(i + 1).find(x => /^\[Info\]/.test(x)) ?? '',
+        rev: s.match(/^;system=(\w+)/m)?.[1] ?? 'both', mode: s.match(/CUST 44 ([0-9A-F]{2})/)?.[1] ?? null, gate: copyGateOf(s) }))
+    const cur = tablesOf(pageSecs(readFileSync(join(DIST, 'current.ini'), 'utf8'), 'Page 2'))
+    if (!cur.length) bad.push('current.ini: на второй странице нет таблиц «GPU Voltage Table» — сверять копию не с чем')
+    const curveM = new Set(fields.filter(f => f.series === 'gpu_curve_mariko').map(f => f.offset))
+
+    for (const p of PAGES) {
+      const abs = join(DIST, p.rel)
+      if (!existsSync(abs)) continue
+      const txt = readFileSync(abs, 'utf8')
+      const carried = new Set([...txt.matchAll(/^set-ini-val '\{ini_file\(Backup,Path\)\}' Fields (\d+) /gm)].map(m => Number(m[1])))
+      const mine = tablesOf(pageSecs(txt, 'Page 2'))
+      gpu.tables += mine.length
+      const rev = p.here.toLowerCase()
+      const domain = gateDomain(44)
+      // First, so the cap on printed lines cannot hide it behind per-mode mismatches.
+      if (rev === 'erista') {
+        for (const s of pageSecs(txt, 'Page 2'))
+          for (const m of s.matchAll(/(?:ini_file\(Fields,|hex_file\(CUST,)(\d+)/g))
+            if (curveM.has(Number(m[1]))) bad.push(`${p.rel}: вторая страница Erista читает точку кривой Mariko ${m[1]} — на Erista это строка таблицы CPU`)
+      }
+      if (!mine.length) { bad.push(`${p.rel}: на второй странице копии нет таблицы GPU — сторож смотрит в пустоту`); continue }
+      for (const t of mine) {
+        if (!t.gate) continue
+        const gl = t.gate.tpl
+        for (const [name, sec] of [['[Gap]', t.gap], ['[Info]', t.info]])
+          if (!sec || copyGateOf(sec)?.tpl !== gl)
+            bad.push(`${p.rel}: ${name} таблицы GPU с затвором «${gl}» не несёт тот же затвор — останется пустой ${name === '[Gap]' ? 'отступ' : 'рамка'}`)
+        for (const r of rowsOf(t.info))
+          if (!r.value.startsWith('{if_null({list(0)},null,')) bad.push(`${p.rel}: строка «${r.label}» таблицы GPU с затвором печатается при любом режиме`)
+        // Title and indent rows need the same wrapper: a shared list alone still prints them in every mode.
+        const variant = domain.filter(v => t.gate.on(v)).map(v => v === 'null' ? 'без Fields 44' : v).join(', ')
+        for (const [name, sec] of [['[Header]', t.head], ['[Gap]', t.gap]])
+          for (const r of rowsOf(sec ?? ''))
+            if (!r.label.startsWith('{if_null({list(0)},null,') && !r.value.startsWith('{if_null({list(0)},null,'))
+              bad.push(`${p.rel}: вариант таблицы GPU для Fields 44 = ${variant}: строка «${r.label}» секции ${name} без затвора из копии — ${name === '[Gap]' ? 'отступ' : 'заголовок'} печатается при любом режиме`)
+      }
+      for (const v of domain) {
+        gpu.modes++
+        const shown = mine.filter(t => !t.gate || t.gate.on(v))
+        const say = v === 'null' ? 'без Fields 44' : `Fields 44 = ${v}`
+        if (shown.length !== 1) { bad.push(`${p.rel}: при ${say} на второй странице видно таблиц GPU ${shown.length}, а ровно одна`); continue }
+        const want = rev === 'erista'
+          ? cur.find(t => t.rev === 'erista')
+          : cur.find(t => t.rev === 'mariko' && t.mode === (v === 'null' ? '01' : v.slice(0, 2)))
+        if (!want) { bad.push(`${p.rel}: при ${say} в Current нет варианта таблицы GPU для сверки`); continue }
+        const a = rowsOf(shown[0].info), b = rowsOf(want.info)
+        if (a.map(r => r.label).join('|') !== b.map(r => r.label).join('|'))
+          bad.push(`${p.rel}: при ${say} подписи таблицы GPU расходятся с Current (${a.length} и ${b.length} строк; «${a.map(r => r.label).find((l, k) => l !== b[k]?.label) ?? '—'}»)`)
+        // One mismatch per mode is enough to name the defect; more would crowd out other lines.
+        b.some((w, k) => {
+          const r = a[k]
+          if (!r) return false
+          const need = carried.has(w.off) ? 'copy' : 'kip'
+          if (r.off !== w.off || r.kind !== need)
+            return bad.push(`${p.rel}: при ${say} «${r.label}» читает ${r.kind} ${r.off}, а нужно ${need} ${w.off} (копия ${carried.has(w.off) ? 'несёт' : 'не несёт'} эту ячейку)`)
+          if (r.via !== w.via)
+            return bad.push(`${p.rel}: при ${say} «${r.label}» показывается ${r.via === 'json' ? 'словарём' : 'вычислением'}, а в Current наоборот — единицы разойдутся`)
+          return false
+        })
+      }
+    }
+  }
+
   if (pages !== PAGES.length) problems.push({ sev: 'CRITICAL', what: `страниц менеджера копий ${pages} из ${PAGES.length} — проверка вида смотрит в пустоту` })
   else if (bad.length) problems.push({ sev: 'CRITICAL', what: `вид менеджера копий изменён, а он зафиксирован решением оператора:\n     ${bad.slice(0, 8).join('\n     ')}` })
-  else ok.push(`the backup manager keeps its frozen face (${pages} pages: two-line passport, red mismatch text, no popups, import hint on Erista only)`)
+  else ok.push(`the backup manager keeps its frozen face (${pages} pages: two-line passport, red mismatch text, no popups, import hint on Erista only; page 2 shows one GPU curve table per mode, as Current: ${gpu.tables} tables over ${gpu.modes} page-mode pairs)`)
 }
 
 // ---------------- 40. the manual GPU table is seeded with the ST1 curve

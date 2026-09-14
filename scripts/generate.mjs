@@ -3103,6 +3103,32 @@ if (kipRows.length) {
     // меняться нечему — переключение страниц пересобирает экран заново. Выходило до
     // 183 открытий файла в секунду на неподвижных данных, дороже всей сводки, ради
     // которой затевались кэши. Опрос остаётся на первой странице, где выбор живой.
+    /**
+     * GPU curve of a Mariko backup: one table per undervolt mode, like Current page 2.
+     * A condition cannot read the backup (its path is a placeholder), so each table reads
+     * Fields 44 into a list line and ;skip_null drops every table whose gate is null.
+     * Gate is `y` or `null`; a backup without Fields 44 shows its working table (mode 01 slot).
+     */
+    const MODE44 = '{ini_file(Fields,44)}'
+    const gpuGated = groupName => groupName === 'GPU Voltage Table' && rev === 'mariko' && !only
+      && !!curveTables && curveTables.labels.length > 0
+    const gpuGate = hex => hex === '01'
+      ? `{if_null(${MODE44},y,{if_==(${MODE44},010000,y,null)})}`
+      : `{if_==(${MODE44},${hex}0000,y,null)}`
+    // Gap, heading and rows all carry the gate: a table left empty is not added at all.
+    const gpuTable = (gate, name, extraSrc, rows) => {
+      const on = v => `{if_null({list(0)},null,${v})}`
+      const bind = [...source, `list '[${gate}]'`]
+      const t = []
+      t.push('[Gap]', ';mode=table', ';background=false', ';skip_null=true', ...bind,
+             `'${on('')}'=''`, `;gap=${HEAD_GAP - 16}`, '')
+      t.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ';skip_null=true', ...bind,
+             `'${safeName(name)}' = '${on('')}'`, '')
+      t.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ';skip_null=true', ...bind, ...extraSrc,
+             ...rows.map(l => l.replace(/^('[^']*' = ')(.*)'$/, (_, head, v) => `${head}${on(v)}'`)), '')
+      return t
+    }
+
     const previewGroups = (src, heading, before = null, pollHere = true) => {
       const out = []
       const PREVIEW_GROUPS = []
@@ -3220,19 +3246,25 @@ if (kipRows.length) {
         const ctx = rev ? '' : (g.ctx ?? '')
 
         for (const t of tables) {
+          // The manual GPU table of a Mariko backup is one of the mode variants (see gpuVariants).
+          const gate = gpuGated(g.name) ? gpuGate('03') : null
+          const body = []
           // Отступ ПЕРЕД заголовком, а не только между таблицами. Без него подпись группы
           // печатается вплотную к рамке предыдущей таблицы и наезжает на неё. Ровно это
           // уже чинили в emitPage — и я повторил ошибку, собирая группировку заново.
+          if (!gate) {
           out.push('[Gap]', ';mode=table', ';background=false', ...t.sys, `;gap=${HEAD_GAP}`, '')
           out.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ...t.sys,
                   `'${safeName(g.name)}' = '${ctx}'`, '')
           out.push('[Info]', ';mode=table', ...(pollHere ? poll : []), ';spacing=0', ';gap=0', ...t.sys, ...source)
+          }
           // ОБЪЯВЛЕНИЕ СЛОВАРЯ — ОДНО НА ТАБЛИЦУ, А НЕ НА СТРОКУ, и это не косметика.
           // В нашем форке движка разобранный json кэшируется на время сборки ОДНОЙ таблицы
           // (`JsonScope`, `utils.hpp`, коммит 215270d5). Повторное `json_file` внутри той же
           // таблицы кэш не рушит, но лишние объявления сводят выигрыш на нет, а на второй
           // странице строк вчетверо больше, чем на первой.
           let lastMap = null
+          const sink = gate ? body : out
           for (const r of t.rows) {
             // Подпись — та же, что в сводке, целиком. Раньше имя группы срезалось с начала
             // строки («Core Timings 1» → «1»), и ряд таймингов на сбросе выглядел иначе,
@@ -3263,16 +3295,17 @@ if (kipRows.length) {
               // строка 0 таблицы CPU Erista, и поле говорит об этом ключом
               // `factory_not_a_value`. На странице сброса показываем сами байты.
               const notAValue = factory && byOffset.get(r.offset)?.factory_not_a_value
-              out.push(notAValue
+              sink.push(notAValue
                 ? `'${safeName(label)}' = '{ini_file(Fields,${r.offset})} - not a voltage'`
                 : `'${safeName(label)}' = '${curveValue(r, true)}'`)
               continue
             }
             const mapPath = probeInSrc || !r.flatMap ? r.map : r.flatMap
-            if (mapPath !== lastMap) { out.push(`json_file '${mapPath}'`); lastMap = mapPath }
-            out.push(`'${safeName(label)}' = '{json_file(0,${key})}'`)
+            if (mapPath !== lastMap) { sink.push(`json_file '${mapPath}'`); lastMap = mapPath }
+            sink.push(`'${safeName(label)}' = '{json_file(0,${key})}'`)
           }
-          out.push('')
+          if (gate) out.push(...gpuTable(gate, g.name, [], body))
+          else out.push('')
         }
       }
 
@@ -3348,60 +3381,30 @@ if (kipRows.length) {
      * нет. Решает это сам `previewGroups`, возвращая пустой массив.
      */
     /**
-     * РАБОЧАЯ ТАБЛИЦА СТУПЕНЕЙ — ТРИДЦАТЬ ОДНА ЯЧЕЙКА, КОТОРЫЕ КОПИЯ НЕСЁТ МОЛЧА.
-     *
-     * ПРАВИЛО, ПО КОТОРОМУ ЭТОТ БЛОК ЕСТЬ (решение оператора): есть в копии — показываем
-     * из копии; нет — показываем заводское, оно у всех одно. Условий по режиму не ставим
-     * вовсе, потому что условие тут и не выражается: `;visibility_condition` разбирает
-     * только общие подстановки (`utils.hpp`, `evaluateMenuCondition` → `generalPlaceholders`),
-     * а `{ini_file(...)}` раскрывает другой, рекурсивный проход. Прочитать режим ИЗ КОПИИ
-     * условие не может: путь копии сам является подстановкой.
-     *
-     * Что показываем:
-     *   рабочая таблица `@8896` (её переписывают половинчатые ступени) — В КОПИИ ЕСТЬ,
-     *   она лежит в `SIDE_WRITES` и уезжает в файл вместе с настройками. Читаем оттуда.
-     *   Ручной массив `Custom Table` — тоже в копии, его печатает группа ниже.
-     *
-     * Чего НЕ показываем и почему: заводские таблицы `@7160` (ST1) и `@10632` (ST3).
-     *
-     * РЕШЕНИЕ ОПЕРАТОРА 01.09.2026, ОКОНЧАТЕЛЬНОЕ: «забудь про это и никогда не надо
-     * делать». Экран показывает ВЫБРАННУЮ ступень — остальные человеку не нужны, и двух
-     * лишних блоков на странице копии быть не должно.
-     *
-     * Прежняя редакция этого комментария звала доделать: «в карте их сейчас нет, нужен
-     * отдельный скрипт-вычитыватель — тогда сюда добавятся ещё два блока». К 01.09 это
-     * стало неправдой дважды: скрипт написан (`make-stock-curves.mjs`), данные лежат
-     * в карте ключом `stock_tables` — а показывать их всё равно не надо.
-     *
-     * Поэтому `stock_tables` генератор не читает СОЗНАТЕЛЬНО. Если однажды заметите, что
-     * данные в карте есть, а на экране их нет, — так и задумано, это не забытое звено.
-     *
-     * Смещения выводятся из `curveTables`, а не перечисляются: сводка считает их той же
-     * формулой, и разойтись эти два места не должны.
+     * GPU curve variants of a Mariko backup page, one visible per Fields 44 (14.09.2026).
+     * 01 (and no Fields 44) reads the working table @8896 from the backup; 00 and 02 read
+     * ST1 @7160 / ST3 @10632 from the live kip: the backup does not carry them, Apply does
+     * not write them, so after Apply the firmware uses exactly these. 03 is the manual
+     * table printed by the group itself. `stock_tables` in the map is still not read.
+     * Offsets come from `curveTables`, the same formula as Current.
      */
     const stageTable = groupName => {
-      if (groupName !== 'GPU Voltage Table' || rev !== 'mariko' || !curveTables) return []
-      const m = curveTables.modes.find(x => x.hex === '01')
-      if (!m || !curveTables.labels.length) return []
-      const cells = curveTables.labels.map((title, i) => [title, m.base + curveTables.step * i + 32])
-      // Потолок стоит не на сетке строк, а на своём месте — как и в сводке.
-      cells.push(['Max Clock', m.base + curveTables.step * curveTables.labels.length])
-      // Источник обязан нести ВСЕ ячейки: половина таблицы хуже, чем её отсутствие.
-      if (only && cells.some(([, o]) => !only.has(o))) return []
-      const t = []
-      t.push('[Gap]', ';mode=table', ';background=false', `;gap=${HEAD_GAP}`, '')
-      t.push('[Header]', ';mode=table', ';header_indent=true', ';background=false',
-             `'GPU Voltage Table - stages' = ''`, '')
-      // Объявления — ОДИН РАЗ НА ТАБЛИЦУ: словарь у всех строк один, и кэш разбора json
-      // на время сборки таблицы (`JsonScope`) работает только при таком порядке.
-      // Блок ступеней живёт на ВТОРОЙ странице — там опроса нет, см. previewGroups.
-      t.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ...source,
-             `json_file '${rebase(curveTables.map, depth)}'`)
-      for (const [title, off] of cells) {
-        t.push(`'${safeName(title)}' = '{json_file(0,{ini_file(Fields,${off})})}'`)
+      if (!gpuGated(groupName)) return []
+      const out = []
+      for (const hex of ['00', '01', '02']) {
+        const m = curveTables.modes.find(x => x.hex === hex)
+        if (!m) throw new Error(`curveTables has no mode ${hex}: the backup page would miss a GPU table`)
+        const cells = curveTables.labels.map((title, i) => [title, m.base + curveTables.step * i + 32])
+        // The ceiling sits after the grid, as in Current.
+        cells.push(['Max Clock', m.base + curveTables.step * curveTables.labels.length])
+        const fromCopy = hex === '01'
+        const read = off => fromCopy ? `{ini_file(Fields,${off})}` : `{hex_file(CUST,${off},4)}`
+        // One json_file per table: the parsed-json cache lives for one table build.
+        const src = [...(fromCopy ? [] : [`hex_file '${KIP}'`]), `json_file '${rebase(curveTables.map, depth)}'`]
+        out.push(...gpuTable(gpuGate(hex), 'GPU Voltage Table', src,
+          cells.map(([title, off]) => `'${safeName(title)}' = '{if_null({json_file(0,${read(off)})},—)}'`)))
       }
-      t.push('')
-      return t
+      return out
     }
 
     const deepLines = previewGroups(deep, 'Also applied', stageTable, false)
