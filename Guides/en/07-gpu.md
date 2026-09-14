@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=e8844d09cf06 self=a280fee98f8f -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=2a86991ed16d self=d833285c2b03 -->
 # GPU and stages
 
 <!-- nav:begin -->
@@ -15,7 +15,7 @@ least obvious one.
 >
 > `Service → System Info` tells you which console you have.
 
-## What an undervolt stage is
+## What a voltage stage is
 
 The GPU needs voltage, and the higher the clock, the more of it. The firmware keeps that
 relationship in a **table**: thirty-one rows of "clock — voltage".

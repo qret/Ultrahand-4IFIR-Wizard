@@ -23,7 +23,7 @@
 | Advanced → CPU → dCPUv | `dCPUv` | Mariko | 24 | eBAMATIC, 1 - Eco ST 1 … 890mV |
 | Advanced → CPU → Low MHz Undervolt | `Low MHz Undervolt` | Mariko | 7 | 0 - Default, lvl 1 … lvl 6 |
 | Advanced → CPU → High MHz Undervolt | `High MHz Undervolt` | Mariko | 8 | 0 - Base undervolting, lvl 1 … lvl 7 |
-| Advanced → CPU → Speed Shift | `Speed Shift` | обе | 8 | eBAMATIC, Auto … Eco Stage 4 |
+| Advanced → CPU → Speed Shift | `Speed Shift` | обе | 8 | eBAMATIC, Default … Eco ST4 |
 | Advanced → GPU → GPU Voltage Table → 307MHz | `307MHz` | Mariko | 42 | 395 mV - Default, 400 mV … 600 mV |
 | Advanced → GPU → GPU Voltage Table → 345MHz | `345MHz` | Mariko | 41 | 400 mV, 405 mV … 600 mV |
 | Advanced → GPU → GPU Voltage Table → 384MHz | `384MHz` | Mariko | 41 | 400 mV, 405 mV … 600 mV |

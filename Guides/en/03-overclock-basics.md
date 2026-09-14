@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/03-overclock-basics.md sha=c64e680d086f self=298e20a51635 -->
+<!-- i18n: source=Guides/ru/03-overclock-basics.md sha=7e34f8182629 self=298e20a51635 -->
 # Overclocking: where to start
 
 <!-- nav:begin -->

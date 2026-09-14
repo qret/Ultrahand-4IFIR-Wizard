@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/11-update.md sha=4dbe520c3b5c self=f17238a06e3e -->
+<!-- i18n: source=Guides/ru/11-update.md sha=a858637fa832 self=482bca0ddd8b -->
 # Updating
 
 <!-- nav:begin -->
@@ -15,6 +15,10 @@ The tuner can update itself without taking the card out.
 2. If there is one, an **`Update`** entry appears. You have to **hold** it.
 3. Restart the overlay. Overclock settings are applied when the console reboots, and
    `Reboot the console` is there for that.
+
+The answer is shown to the right of the entry: `available`, `up to date`, or
+`check failed` if the check could not be made. The next time you open the wizard that
+label is gone — just check again.
 
 Updating **the tuner** leaves your overclock settings alone: they live in the firmware
 settings file, and our archive does not touch it.
@@ -33,7 +37,8 @@ updated together with the 4IFIR build. Whether the engine rides in our archive d
 which archive came out: there are two kinds, and the release page says which one this is.
 
 - **Configurator only.** The archive holds one directory, `switch/.packages/4IFIR Wizard/`,
-  and nothing else. Neither the engine nor `config/ultrahand/` is in it, so an update
+  plus install notes, a build passport and the licence files. Neither the engine nor
+  `config/ultrahand/` is in it, so an update
   like that changes nothing about your key combination, theme, overlay order or sounds.
 - **With the engine.** Besides the tuner it brings the overlay engine itself — the file
   in `switch/.overlays/` — and the whole `config/ultrahand/` directory: languages,

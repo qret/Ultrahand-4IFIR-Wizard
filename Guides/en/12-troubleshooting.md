@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=a060745131b7 self=4ad72bd1140c -->
+<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=cf06521a3f89 self=bb1f324a0dff -->
 # If something goes wrong
 
 <!-- nav:begin -->
@@ -108,7 +108,7 @@ curve lives outside the file the tuner resets — [details](09-timings.md#coolin
 
 **It hangs after ten or fifteen minutes of play.** The CPU is short of margin. Set
 `Advanced → CPU → Low MHz Undervolt` to `lvl 1`. If that does not help, try
-`Advanced → CPU → Speed Shift` at `Eco Stage 1`.
+`Advanced → CPU → Speed Shift` at `Eco ST1`.
 
 Erista does not have the first entry — go straight to `Speed Shift` there.
 
@@ -124,7 +124,7 @@ profile's stock clock. Lower `Advanced → RAM → Frequency` to `2400` and rebo
 The profile itself is not set here but in the 4IFIR overlay — the fix, however, is ours.
 
 **A black screen after the Nintendo logo.** With KipTool, set `Speed Shift` to `100`. That
-is the same thing as `Eco Stage 1` in the tuner: KipTool shows the number, the tuner shows
+is the same thing as `Eco ST1` in the tuner: KipTool shows the number, the tuner shows
 the name.
 
 **The console shuts down under load, and the charge drops suddenly.** The power

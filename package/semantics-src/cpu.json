@@ -256,10 +256,10 @@
     "what": "FACT: a shift of the 'speedo target' — the target value of the silicon bin that is substituted into the CVB voltage calculation. Ebal: 'Adjusts speedo target in calculations for UV. Higher number = lower voltages overall.' That is, this is not a correction for a particular frequency but a shift of the whole voltage curve. The real speedo of the chip is visible in the overlay as {cpu_speedo} / {gpu_speedo}.",
     "units": "code",
     "range": {
-      "min": 1,
-      "max": 200,
+      "min": 25,
+      "max": 175,
       "step": 1,
-      "note": "FACT (customize.cpp:304): '0 DEFAULT // 50 AUTO SRT // 100 AUTO ECO ST1 // 125 AUTO ECO ST2 // 150 AUTO ECO ST3 // 1-200 MANUAL'; ':306' — 'Ov << 100 >> uV', i.e. 100 is the border between the overvolt and undervolt directions. The dictionaries give only 8 points: 0, 1(Auto/D), 25, 50(Sport/SRT), 100, 125, 150, 175 — a 1..200 trackbar is implemented nowhere in the UI."
+      "note": "FACT (current firmware source, the SpeedShift legend): the field has one automatic value, eBAMATIC (0); the value 1 is a separate point the firmware names DEFAULT; 50 is its SRT step one, 100/125/150 are its ECO steps one to three, and the manual range runs from 25 to 175. A companion mark in the source puts 100 on the border between the overvolt and undervolt directions. An older copy of the source (Wizard git, 2024) described 0 as DEFAULT and a manual range up to 200; that copy is outdated. The dictionaries give only 8 points: 0, 1, 25, 50, 100, 125, 150, 175 — a free trackbar is implemented nowhere in the UI."
     },
     "depends_on": [
       {
@@ -286,15 +286,14 @@
         "how": "UNKNOWN whether it is CPU only. Ebal writes the test type as '[CPU?]' — with a question mark, i.e. the author himself is not sure. The Russian 4IFIR documentation calls it 'lowering the consumption of the SECONDARY components of the console', which hints at a scope wider than the CPU."
       }
     ],
-    "auto_value": "FACT: 0 = eBAMATIC/DEFAULT. A subtlety: 0 and 1 are DIFFERENT things: 0 is labelled 'eBamatic', 1 — 'Auto' (Ebal) / 'D' (Full Assist 4IFIR). That is, the field has two different 'automatics', and what the difference between them is — UNKNOWN.",
+    "auto_value": "FACT: 0 = eBAMATIC, the only automatic value of the field. 1 is a different thing: the firmware names it DEFAULT, and it is not an automatic mode. Donors labelled it 'Auto' (Ebal) and 'D' (Full Assist 4IFIR); the tuner labels it 'Default' (operator decision 14.09.2026). What exactly the DEFAULT point computes is not established.",
     "ram_relation": "NOT FOUND — no direct indications. HYPOTHESIS: if the speedo shift is applied to all CVB tables, it also affects the voltages critical for memory. NOT VERIFIED.",
-    "current_in_kip": "00 00 00 00 → 0 = eBAMATIC/DEFAULT. Matches .SpeedShift = 0 (customize.cpp:305).",
-    "danger": "Wizard recommends leaving eBAMATIC. Test — a game on the '4IFIR Optimised' profile, 5 minutes. UI trap: the values 25/50 are labelled 'Sport'/'SRT' — that is the direction of RAISING the voltage, not lowering it, although they are numerically smaller than 'ECO Stage 1' = 100. A plain '0…175' slider will mislead the user.",
+    "current_in_kip": "00 00 00 00 → 0 = eBAMATIC. Matches the initial value in the current firmware source, which is eBAMATIC too.",
+    "danger": "Wizard recommends leaving eBAMATIC. Test — a game on the '4IFIR Optimised' profile, 5 minutes. UI trap: the values 25 and 50 lie on the side of RAISING the voltage, not lowering it, although they are numerically smaller than Eco ST1 = 100. The tuner labels 50 'Sport'; the firmware calls that point SRT ST1, and 'Sport' stays by operator decision 14.09.2026. A plain '0…175' slider will mislead the user.",
     "help_quote": "Speed Shift is the secret component of 4IFIR, that allows you to open the full potential of your console. The higher the value, the lower the consumption.",
     "sources": [
-      "Wizard/4IFIR-Wizard-update/customize.cpp:304",
-      "Wizard/4IFIR-Wizard-update/customize.cpp:305",
-      "Wizard/4IFIR-Wizard-update/customize.cpp:306",
+      "customize.cpp:370-372",
+      "4ifir/atmosphere/kips/loader.kip CUST+12336",
       "Wizard/4ifir Wizard source code/Help/CPU/Speed Shift.txt:1",
       "Wizard/4ifir Wizard source code/4Advanced/CPU/config.ini:51",
       "Wizard/4ifir Wizard source code/4Advanced/CPU/json/SpeedShift.json:1",

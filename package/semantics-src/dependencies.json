@@ -684,7 +684,7 @@
       ],
       "why": "FACT: «Adjusts speedo target in calculations for UV. Higher number = lower voltages overall».",
       "confidence": "fact",
-      "evidence": "Ebal/CPU.ini:145-146 · customize.cpp:304-305"
+      "evidence": "Ebal/CPU.ini:145-146 · customize.cpp:370-372"
     }
   ],
   "paired_switches": [
@@ -828,20 +828,21 @@
       "offset": 12336,
       "struct_field": "SpeedShift",
       "mode_values": {
-        "0": "DEFAULT",
-        "50": "AUTO SRT",
-        "100": "AUTO ECO ST1",
-        "125": "AUTO ECO ST2",
-        "150": "AUTO ECO ST3"
+        "0": "eBAMATIC",
+        "1": "DEFAULT",
+        "50": "SRT ST1",
+        "100": "ECO ST1",
+        "125": "ECO ST2",
+        "150": "ECO ST3"
       },
       "literal_range": {
-        "min": 1,
-        "max": 200,
+        "min": 25,
+        "max": 175,
         "units": "arbitrary speedo units"
       },
-      "note": "FACT: the package dictionaries call 0 «eBAMATIC», the source — «DEFAULT». The discrepancy is mild (DEFAULT ≈ «do not interfere»), but the name is worth correcting.",
+      "note": "FACT: 0 is the automatic value eBAMATIC and 1 is a separate DEFAULT point. The tuner labels them eBAMATIC and Default, keeps Sport on 50 and Eco ST4 on 175 (operator decisions 14.09.2026). An older copy of the source called 0 DEFAULT and allowed 1..200; it is outdated.",
       "confidence": "fact",
-      "evidence": "customize.cpp:304-305 · Wizard/4Advanced/CPU/json/SpeedShift.json"
+      "evidence": "customize.cpp:370-372 · loader.kip CUST+12336 = 0 · Wizard/4Advanced/CPU/json/SpeedShift.json"
     }
   ],
   "arithmetic_links": [
@@ -1014,6 +1015,7 @@
       12352
     ],
     "verified": [
+      12336,
       12344,
       12348,
       12352
@@ -1023,8 +1025,7 @@
     ],
     "confirmed_by_packages_only": [
       12,
-      28,
-      12336
+      28
     ],
     "disputed": [
       48,
@@ -1095,13 +1096,13 @@
       },
       {
         "offset": 12336,
-        "status": "packages_only",
+        "status": "verified",
         "struct_field": "SpeedShift",
-        "source_says": "0 = DEFAULT",
+        "source_says": "0 = eBAMATIC; 1 = DEFAULT is a separate value",
         "packages_say": "0000 = eBAMATIC",
-        "why": "The discrepancy is mild: DEFAULT ≈ «do not interfere». Keep it in the list, but rename the value.",
+        "why": "The current source names 0 eBAMATIC directly. The earlier «0 = DEFAULT» came from an outdated copy of the source.",
         "confidence": "fact",
-        "evidence": "customize.cpp:304-305 · Wizard/4Advanced/CPU/json/SpeedShift.json"
+        "evidence": "customize.cpp:370-371 · loader.kip CUST+12336 = 0 · Wizard/4Advanced/CPU/json/SpeedShift.json"
       },
       {
         "offset": 12340,

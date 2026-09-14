@@ -11,8 +11,8 @@ stay exactly as their authors made them. This package **writes into** the kip �
 replaces it.
 
 > **Just want to use it?** One archive from [Releases](../../releases), unpacked into
-> the root of your SD card. It holds the tuner and nothing else:
-> `switch/.packages/4IFIR Wizard/`.
+> the root of your SD card. It holds the tuner, `switch/.packages/4IFIR Wizard/`, plus
+> install notes, a build passport and the licence files.
 >
 > **The engine is not in it.** Ultrahand is maintained by the author of the firmware and
 > comes with the 4IFIR build, along with its `config/ultrahand/`. The ordinary release
@@ -61,7 +61,7 @@ you can read on a PC.
 | | |
 |---|---|
 | **eBAMATIC Stage** | the easy path. One setting for everything — the kip works out CPU, GPU and memory voltages itself, you only choose how far it goes. If unsure, change only this. |
-| **Current Settings** | what is in the kip right now, read-only. Press L or R for the second page with timings and fine tuning. |
+| **Current Settings** | what is in the kip right now, read-only. Press L or R for the second page with timings and fine tuning. On the engine from the first-install kit a third page shows the memory timings saved in EMC Magician. |
 | **Advanced** | every parameter individually: CPU, GPU, RAM, Micro-Enhance Logic, Fan Control. Sections that hold settings have a second page with help — press L or R. |
 | **Service** | backups, restore, import from the old Wizard, reset to defaults, system info. |
 | **Check for updates** | asks GitHub whether a newer build exists and says so on the spot. |
@@ -415,8 +415,8 @@ your console. Use at your own risk.
 такими, какими их сделали авторы. Пакет **пишет в** kip, а не подменяет его.
 
 > **Просто хотите пользоваться?** Один архив из [Releases](../../releases),
-> распаковать в корень SD-карты. Внутри только тюнер:
-> `switch/.packages/4IFIR Wizard/`.
+> распаковать в корень SD-карты. Внутри тюнер — `switch/.packages/4IFIR Wizard/` —
+> и рядом инструкция, паспорт сборки и файлы лицензии.
 >
 > **Движка в нём нет.** Ultrahand ведёт автор прошивки, и он приходит вместе со сборкой
 > 4IFIR — вместе со своим `config/ultrahand/`. Обычный архив релиза не несёт ни того,
@@ -465,7 +465,7 @@ your console. Use at your own risk.
 | | |
 |---|---|
 | **eBAMATIC Stage** | лёгкий путь. Одна настройка на всё — kip сам считает напряжения CPU, GPU и памяти, вы выбираете только насколько далеко зайти. Если не уверены — меняйте только это. |
-| **Current Settings** | что сейчас в kip, только чтение. L или R — вторая страница с таймингами и тонкой настройкой. |
+| **Current Settings** | что сейчас в kip, только чтение. L или R — вторая страница с таймингами и тонкой настройкой. На движке из набора первой установки есть третья — тайминги памяти, сохранённые в EMC Magician. |
 | **Advanced** | каждый параметр отдельно: CPU, GPU, RAM, Micro-Enhance Logic, Fan Control. У разделов с настройками есть вторая страница со справкой — L или R. |
 | **Service** | копии настроек, восстановление, импорт из старого визарда, сброс к заводским, информация о консоли. |
 | **Check for updates** | спрашивает у GitHub, вышла ли сборка новее, и сразу отвечает. |
@@ -738,7 +738,7 @@ tail -c 4 ovlmenu.ovl          # ULTR  — подпись Ultrahand, допис�
 
 ```
 package/
-  fields.json          карта полей: 129 смещений блока CUST внутри loader.kip —
+  fields.json          карта полей: смещения блока CUST внутри loader.kip —
                        адрес, длина, единицы, ревизия консоли, словарь значений
                        и чем каждая запись подтверждена
   menu.json            структура меню: где живёт каждый параметр, тексты справки

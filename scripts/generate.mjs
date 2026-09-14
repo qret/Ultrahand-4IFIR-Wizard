@@ -1044,6 +1044,26 @@ const stockTable = (() => {
 let kipGroup = 'General'
 /** Group subtitle in the summary: the reference puts "Speedo {cpu_speedo}" next to "CPU". */
 let kipGroupCtx = ''
+
+/**
+ * Short RAM model, read from the string (operator 07.09.2026, variant B): no dash - all of it;
+ * else space token k; no such token - the tail after the dash, and a 4-char tail becomes the
+ * last 7 chars (keeps AA-/AB-MGCL apart). k=1 for {ram_model}, k=2 for "vendor model".
+ * One function for the RAM heading, System Info and the backup passport (14.09.2026).
+ */
+function ramShort(m, k = 1) {
+  const dash = `{split(${m},"-",1)}`, sp = `{split(${m}," ",${k})}`
+  const x = `{if_null(${dash},${m},{if_!null(${sp},${sp},${dash})})}`
+  return `{if_==({length(${x})},4,{if_null(${sp},{slice(${m},{math({length(${m})}-7)},{length(${m})})},${x})},${x})}`
+}
+/** "vendor model" as written to Meta ram: vendor plus the short model, or all of it without a dash. */
+const ramPassport = s => `{if_null({split(${s},"-",1)},${s},{split(${s}," ",0)} ${ramShort(s, 2)})}`
+/** menu.json says {@ram_short} where the short model of {ram_model} goes. */
+function expandRam(text) {
+  const out = text.split('{@ram_short}').join(ramShort('{ram_model}'))
+  if (out.includes('{@')) throw new Error(`unknown generator macro in menu.json: ${out}`)
+  return out
+}
 /** Accumulator for the help blocks of the current section. */
 const infoRows = []
 
@@ -1810,7 +1830,7 @@ function emitAction(item, lines) {
     lines.push(';alignment=left')
     lines.push(';spacing=3')
     lines.push(';gap=20')
-    for (const row of item.info_table) lines.push(row)
+    for (const row of item.info_table) lines.push(expandRam(row))
     lines.push('')
     stats.actions++
     return
@@ -2012,7 +2032,7 @@ function emitPackage(node, dirPath, depth = 0) {
   bootLines.length = 0
   currentDir = here
   kipGroup = node.title ?? node.id
-  kipGroupCtx = node.header_context ?? ''
+  kipGroupCtx = expandRam(node.header_context ?? '')
 
   // the node's own content
   if (node.offsets?.length === 1) emitItem(node, lines)
@@ -2117,7 +2137,7 @@ function emitPackage(node, dirPath, depth = 0) {
   // restore our own context after the recursion
   currentDir = here
   kipGroup = node.title ?? node.id
-  kipGroupCtx = node.header_context ?? ''
+  kipGroupCtx = expandRam(node.header_context ?? '')
   infoRows.length = 0
   // forwarders are drawn above the section's own items, so their help leads the page too
   infoRows.push(...linkInfo, ...ownInfo)
@@ -2613,7 +2633,7 @@ if (kipRows.length) {
    * timings -> profile pages -> current timings (;page_view_source= in the marker, fork 71cc8f43).
    * Tables hide themselves through `;skip_null` when their row text still holds `null`.
    */
-  function emitMagicianPage(kl) {
+  function emitMagicianPage(kl, copyRev = null) {
     const EMC = '/config/4IFIR/emc_timings.ini'
     const TIMINGS = ['RP', 'RCD', 'RC', 'RAS', 'R2P', 'W2P', 'W2R', 'R2W', 'RFC', 'FAW', 'RRD', 'RCDW']
     // Profile slots on one page of the "all saved" view, and the page size the marker hands the
@@ -2641,8 +2661,8 @@ if (kipRows.length) {
     // drops the whole table. Header tables ignore ;gap= (forced to 17), hence a table of its own.
     // 16 px row + ;gap = HEAD_GAP. The directive goes last: the engine reads it in the same pass,
     // and check 12 wants a directive right above [Header].
-    const gap = (conds, alive) => kl.push('[Gap]', ';mode=table', ';background=false', ';skip_null=true', ...conds,
-                                          INI, `'{if_null(${alive},null,)}'=''`, `;gap=${HEAD_GAP - 16}`, '')
+    const gap = (conds, alive, src = [INI]) => kl.push('[Gap]', ';mode=table', ';background=false', ';skip_null=true', ...conds,
+                                          ...src, `'{if_null(${alive},null,)}'=''`, `;gap=${HEAD_GAP - 16}`, '')
     const header = (conds, src, label, value) =>
       kl.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ';skip_null=true',
               ...conds, ...src, `'${label}' = '${value}'`, '')
@@ -2660,9 +2680,18 @@ if (kipRows.length) {
 
     // ---- view "current timings"
     const cur = [FEAT, vc('!page_flag view')]
-    note(cur, [], [`A MC {if_==({page_mc},1,on,off)} · Y profiles`], false)
+    // Button hint in the engine footer style: system-font glyph, GAP_2 (two spaces), action,
+    // GAP_1 (five spaces) between pairs (libultra tsl_utils.cpp GAP_1/GAP_2). Tables draw with
+    // wrapping_mode none and quoted values keep inner spaces, so the runs survive.
+    const GLYPH_A = '\uE0E0', GLYPH_Y = '\uE0E3'
+    const hint = y => `${GLYPH_A}  {if_==({page_mc},1,Hide MC,Show MC)}     ${GLYPH_Y}  ${y}`
+    const HINT = hint(bare('Profiles'))
+    if (copyRev) emitCopyCurrent(cur, copyRev === 'mariko' ? 32 : 24)
+    else {
+    note(cur, [], [HINT], false)
     note(cur, [INI], EMPTY.map(l => `{if_null({ini_file(0)},${l},null)}`))
-    for (const [rev, off] of [['mariko', 32], ['erista', 24]]) {
+    }
+    for (const [rev, off] of copyRev ? [] : [['mariko', 32], ['erista', 24]]) {
       const sys = `;system=${rev}`
       // eBAMATIC is "clock is zero OR eBAL is zero"; conditions only AND, so two disjoint tables.
       note([...cur, sys, kipIs(off, '000000')], [INI], EBAMATIC.map(hasFile))
@@ -2692,12 +2721,73 @@ if (kipRows.length) {
         `'${t}' = '${hasFile(cell(`{if_null(${ini(L(0), 's' + t)},Auto)}`, ini(L(0), 'as' + t)))}'`))
     }
 
+    /**
+     * Backup manager page 3: clock, eBAL and E-Boost from the chosen backup, timings from this
+     * console's Magician file. A condition cannot read the backup (its path is a placeholder),
+     * so each table rebuilds the state in list lines while the backup is bound, rebinds the
+     * Magician file, and every row prints only for its state; ;skip_null drops the rest.
+     */
+    function emitCopyCurrent(cur, off) {
+      const hex = i => `{if_null(${L(i)},000000,${L(i)})}`
+      const dec = i => `{hex_to_decimal({hex_to_rhex(${hex(i)})})}`
+      const keep = n => Array.from({ length: n }, (_, i) => L(i)).join(',')
+      // 1600 applies with E-Boost 02, a pinned eBAL and a readable state (Current: eConds).
+      const eOn = `{if_==(${L(5)},02,{if_==(${L(2)},0,null,{if_==(${L(0)},ok,y,{if_==(${L(0)},eb,y,null)})})},null)}`
+      const src = [
+        `ini_file './config.ini'`, `ini_file '{ini_file(Restore,Path)}'`,
+        `list '[{ini_file(Meta,revision)},{ini_file(Fields,${off})},{ini_file(Fields,12352)},{ini_file(Fields,12492)}]'`,
+        // 0 nc (no backup) | nr (no clock or eBAL) | ok, 1 kHz, 2 eBAL, 3 E-Boost
+        `list '[{if_null(${L(0)},nc,{if_null(${L(1)},nr,{if_null(${L(2)},nr,ok)})})},${dec(1)},${dec(2)},${L(3)}]'`,
+        INI,
+        // 0 state, adds nf (no Magician file) and eb (eBAMATIC clock or eBAL), 1 MHz, 2 eBAL, 3 CL, 4 E-Boost
+        `list '[{if_==(${L(0)},ok,{if_null({ini_file(0)},nf,{if_==(${L(1)},0,eb,{if_==(${L(2)},0,eb,ok)})})},${L(0)})},`
+          + `{math(${L(1)}/1000,true)},${L(2)},{math(${L(2)}*2+8,true)},${L(3)}]'`,
+        // 3 S section, 4 1600 section, 5 E-Boost, 6 any s key; one key scan per line (check 48)
+        `list '[${keep(3)},${L(1)}CL${L(3)},1600CL${L(3)},${L(4)},${anyKey(`${L(1)}CL${L(3)}`, 's')}]'`,
+        `list '[${keep(7)},${anyKey(L(4), 'e')}]'`,
+        `list '[${keep(8)},${anyKey(L(3), 'e')}]'`,
+        // 0 state, 1 MHz, 2 eBAL, 3 S section, 4 1600 section, 5 S shown, 6 S missing,
+        // 7 1600 shown, 8 1600 missing, 9 any e key in the 1600 section
+        `list '[${keep(5)},{if_==(${L(0)},ok,{if_null(${L(6)},null,y)},null)},{if_==(${L(0)},ok,{if_null(${L(6)},y,null)},null)},`
+          + `{if_==(${eOn},y,{if_null(${L(7)},{if_null(${L(8)},null,y)},y)},null)},`
+          + `{if_==(${eOn},y,{if_null(${L(7)},{if_null(${L(8)},y,null)},null)},null)},${L(7)}]'`,
+      ]
+      const when = (i, rows) => rows.map(bare).map(r => `{if_null(${L(i)},null,${r})}`)
+      const state = (s, rows) => rows.map(bare).map(r => `{if_==(${L(0)},${s},${r},null)}`)
+
+      note(cur, [], [HINT, bare('Timings: this console - not the backup')], false)
+      note(cur, src, [
+        ...state('nc', wrap('Choose a backup on page 1 to see its Magician timings.')),
+        ...state('nr', wrap('This backup does not record the RAM clock and eBAL.')),
+        ...state('nf', EMPTY),
+        ...state('eb', EBAMATIC),
+      ])
+
+      // 1600 (state E): 1600 section first, old-format e keys from the S section second.
+      gap(cur, `{if_null(${L(7)},${L(8)},y)}`, src)
+      header(cur, src, '1600 MHz', `{if_null(${L(7)},null,eBAL ${L(2)}{if_null(${L(9)}, · old format,)})}`)
+      info(cur, src, TIMINGS.map(t => {
+        const v = `{if_null(${ini(L(4), 'e' + t)},{if_null(${ini(L(3), 'e' + t)},Auto)})}`
+        const mc = `{if_null(${ini(L(4), 'ae' + t)},${ini(L(3), 'ae' + t)})}`
+        return `'${t}' = '{if_null(${L(7)},null,${cell(v, mc)})}'`
+      }))
+      // Two fixed rows: wrap() would count the placeholder, not the number, and split "MHz".
+      note(cur, src, when(8, ['No Magician timings saved for', `1600 MHz eBAL ${L(2)}.`]))
+
+      // State S
+      gap(cur, `{if_null(${L(5)},${L(6)},y)}`, src)
+      header(cur, src, `${L(1)} MHz`, `{if_null(${L(5)},null,eBAL ${L(2)})}`)
+      info(cur, src, TIMINGS.map(t =>
+        `'${t}' = '{if_null(${L(5)},null,${cell(`{if_null(${ini(L(3), 's' + t)},Auto)}`, ini(L(3), 'as' + t))})}'`))
+      note(cur, src, when(6, ['No Magician timings saved for', `${L(1)} MHz eBAL ${L(2)}.`]))
+    }
+
     // ---- view "all saved profiles", natural order of section names, SLOTS per page
     const all = [FEAT, vc('page_flag view')]
     // Range row drops out on an empty file (total 0); the hint says where Y goes next.
     note(all, [], [
       `{if_==({page_view_total},0,null,${bare('Profiles {page_view_from}-{page_view_to} of {page_view_total}')})}`,
-      `A MC {if_==({page_mc},1,on,off)} · Y {if_==({page_view},{page_view_pages},current timings,next page)}`,
+      hint('{if_==({page_view},{page_view_pages},Current timings,Next page)}'),
     ])
     note(all, [INI], EMPTY.map(l => `{if_null({ini_file(0)},${l},null)}`))
     for (let k = 0; k < SLOTS; k++) {
@@ -2854,7 +2944,9 @@ if (kipRows.length) {
     //
     // Остались две, и каждая отвечает на свой вопрос перед записью в kip:
     //   `Memory` — на какой памяти снята копия. Единственная строка, несущая то, чего
-    //              человек не знает и не может посмотреть рядом;
+    //              человек не знает и не может посмотреть рядом. Since 14.09.2026 it is
+    //              shortened by the RAM heading's rule (ramPassport); Meta ram itself is
+    //              written in full. Read once into `list`, not once per substitution;
     //   `Kip layout` — видно ВСЕГДА, иначе отказ применить копию выглядел бы поломкой.
     //              На неё же ссылается заметка под сводкой, объясняя слово `imported`.
     pl.push('[Gap]', ';mode=table', ';background=false', `;gap=${HEAD_GAP}`, '')
@@ -2909,7 +3001,7 @@ if (kipRows.length) {
     }
 
     pl.push('[Info]', ';mode=table', ...poll, ';spacing=0', ';gap=0', ...source)
-    if (chooser) pl.push(`'Memory' = '{ini_file(Meta,ram)}'`)
+    if (chooser) pl.push(`list '[{ini_file(Meta,ram)}]'`, `'Memory' = '${ramPassport('{list(0)}')}'`)
     pl.push(`'Kip layout' = '{ini_file(Meta,kipver)}'`, '')
 
     /**
@@ -3317,6 +3409,8 @@ if (kipRows.length) {
       pl.push('[@Page 2]', '')
       pl.push(...deepLines, '')
     }
+    // Page 3 of the backup manager: Magician timings for the chosen backup, same page as Current.
+    if (chooser) emitMagicianPage(pl, rev)
 
     write(file, pl.join('\n'))
     stats.previewPages = (stats.previewPages ?? 0) + 1

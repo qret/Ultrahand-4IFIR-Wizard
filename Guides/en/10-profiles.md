@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/10-profiles.md sha=82f39c4b7083 self=f42e8ae66a62 -->
+<!-- i18n: source=Guides/ru/10-profiles.md sha=b7e431852408 self=c7a7f020a147 -->
 # Profiles, backups and reset
 
 <!-- nav:begin -->
@@ -30,6 +30,14 @@ see what is inside, apply or delete.
 The first item is **`Choose backup`**, for picking a copy you already made. The second,
 **`Create backup`**, stores your current overclock settings in a file.
 
+The result shows to the right of the entry at once, without leaving the page. `saved`
+means the copy was written and the tuner checked what it wrote against your current
+settings. `not saved` means the write failed; the tuner deletes the half-written file
+straight away, so it never turns up in `Choose backup`.
+
+Result labels (`saved`, `restored` and the rest) and the chosen copy last until you
+leave: every time you open the wizard again they are cleared, and a copy is picked anew.
+
 A backup is not a firmware image, it is a list of values. That means it:
 
 - takes a few kilobytes;
@@ -56,6 +64,15 @@ Applying is a separate press; it will not happen by accident.
 If the copy was taken on the other console model, a red line above the buttons names
 both sides outright. Such a copy cannot be applied: the Erista and Mariko setting lists
 do not overlap.
+
+**The third page shows the EMC Magician timings for the chosen copy.** It works like
+[the one in `Current Settings`](02-first-run.md#third-page-emc-magician-timings), except that the
+memory clock, `eBAL` and `sMeh 8 E-Boost` come from the chosen copy. The timings themselves are
+not in the copy: they are read from the Magician file on this console, and a line at the top
+says so. If Magician holds nothing for the copy's clock and `eBAL`, a short note says that
+instead of the table. The page is just as plain when no copy is chosen or the copy does not
+record the clock and `eBAL` (this happens with imported ones). `A` and `Y` work as in
+`Current Settings`; the page exists only on the engine from the first-install kit.
 
 > [!NOTE]
 > Not every copy holds everything. If the one you picked is short of something, a line on

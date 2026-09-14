@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/08-ram.md sha=62cba22a83c0 self=c8268e760913 -->
+<!-- i18n: source=Guides/ru/08-ram.md sha=ddf2069ad3f4 self=6563fa73e3c4 -->
 # RAM
 
 <!-- nav:begin -->
@@ -29,7 +29,11 @@ directly on `Vdd2`.
 ## Frequency
 
 `Frequency` sets the memory clock. The values are labelled with a number and with the
-mode they belong to — `1862MHz — 1862 — Eco ST2 eb2`, for instance.
+mode they belong to — on a Mariko, `1862MHz - Eco ST2 eb2`, for instance.
+
+The clock in a label is a whole number of megahertz: the fraction is dropped, not
+rounded, just as on the Magician page and in sys-clk — `1868MHz`, not `1869MHz`.
+`Current Settings` shows it the same way.
 
 1. Raise the clock one step.
 2. Reboot.
@@ -51,6 +55,9 @@ faster the memory at low clocks, but a high clock will not hold.
 >
 > **Do not take `1` or `2`** — those are maximum-speed modes for low clocks, and they
 > stop you reaching a high one. The factory value is automatic selection.
+
+In the list the levels are labelled with plain digits, and automatic selection with the
+word `eBAMATIC`.
 
 If a clock refuses to hold for no visible reason, the firmware has a control made for
 exactly that case — `pMeh 1 divMB Supressor` in `Micro-Enhance Logic`.

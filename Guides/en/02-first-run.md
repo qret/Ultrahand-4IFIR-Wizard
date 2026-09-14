@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/02-first-run.md sha=e2520dcb316d self=4a51fb1252ca -->
+<!-- i18n: source=Guides/ru/02-first-run.md sha=44409d049c69 self=06a870fb18bf -->
 # First run
 
 <!-- nav:begin -->
@@ -52,10 +52,13 @@ only reads that file.
   firmware. Magician names a profile by `CL`, the page shows `eBAL` instead — they are the
   same thing: `CL = eBAL × 2 + 8`. The `1600 MHz` timings appear only when
   `sMeh 8 E-Boost` is set to `2`. A timing you never touched in Magician reads `Auto`.
-- **`A`** shows or hides the arbiter (MC) values: they appear next to each timing, after
-  a dot.
-- **`Y`** turns to the saved profiles, in order of rising clock, a page of them at a time:
-  each press shows the next page, and after the last one the current timings come back.
+- **The line on top** names the buttons the way the overlay's bottom bar does: a button
+  icon and the action.
+- **Button `A`** (`Show MC` / `Hide MC`) shows or hides the arbiter (MC) values: they
+  appear next to each timing, after a dot.
+- **Button `Y`** (`Profiles`, `Next page`, `Current timings`) turns to the saved profiles,
+  in order of rising clock, a page of them at a time: each press shows the next page,
+  and after the last one the current timings come back.
   The line on top says which profiles of how many you are looking at.
 - **The view resets.** Page away, leave with `B`, come back in, or close the overlay — the
   page shows the current timings without MC again.

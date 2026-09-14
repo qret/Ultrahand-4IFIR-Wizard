@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/06-cpu.md sha=c8260aae8e4f self=6de23fbf0b82 -->
+<!-- i18n: source=Guides/ru/06-cpu.md sha=7f760e7a0915 self=d89e654ee872 -->
 # CPU
 
 <!-- nav:begin -->
@@ -110,18 +110,20 @@ says.
 | Entry | Side |
 |---|---|
 | `25` | the far end of the scale towards headroom; labelled with the bare number |
-| `Sport` | adds voltage: more headroom at high clocks, more power draw |
-| `Eco Stage 1…4` | saving: the further you go, the lower the draw and the smaller the margin |
-| `eBAMATIC`, `Auto` | two different automatic modes, both off this scale |
+| `Sport` | adds voltage: more headroom at high clocks, more power draw. The firmware calls this point `SRT ST1` |
+| `Eco ST1` | the middle of the scale: the firmware marks it as the border between adding and removing voltage |
+| `Eco ST2…ST4` | saving: the further you go, the lower the draw and the smaller the margin |
+| `eBAMATIC` | the firmware's automatic and the factory value; off the scale |
+| `Default` | a separate value the firmware names just that; not an automatic, also off the scale |
 
 The firmware accepts values from 25 to 175. The tuner gives eight entries: six of them sit
-on that scale (`25`, `Sport`, `Eco Stage 1…4`), while `eBAMATIC` and `Auto` are off it.
+on that scale (`25`, `Sport`, `Eco ST1…ST4`), while `eBAMATIC` and `Default` are off it.
 There is no free entry.
 
 ### How to tune it
 
 1. Start with `eBAMATIC`.
-2. Want savings — go up a step at a time: `Eco Stage 1`, then `2`, then `3`.
+2. Want savings — go up from `Eco ST1` a step at a time: `ST2`, then `ST3`, then `ST4`.
 3. Short of stability at high clocks — the other way, towards `Sport`.
 
 > [!TIP]

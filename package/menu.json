@@ -1616,7 +1616,7 @@
         {
           "id": "ram",
           "title": "RAM",
-          "header_context": "{ram_vendor} {if_==({length({if_null({split({ram_model},\"-\",1)},{ram_model},{if_!null({split({ram_model},\" \",1)},{split({ram_model},\" \",1)},{split({ram_model},\"-\",1)})})})},4,{if_null({split({ram_model},\" \",1)},{slice({ram_model},{math({length({ram_model})}-7)},{length({ram_model})})},{if_null({split({ram_model},\"-\",1)},{ram_model},{if_!null({split({ram_model},\" \",1)},{split({ram_model},\" \",1)},{split({ram_model},\"-\",1)})})})},{if_null({split({ram_model},\"-\",1)},{ram_model},{if_!null({split({ram_model},\" \",1)},{split({ram_model},\" \",1)},{split({ram_model},\"-\",1)})})})}",
+          "header_context": "{ram_vendor} {@ram_short}",
           "children": [
             {
               "id": "ram_mhz_mariko",
@@ -1934,7 +1934,7 @@
             "'Firmware'='{hos_version}'",
             "'Bootloader'='{hekate_version}'",
             "'RAM'='{ram_vendor}'",
-            "'Model'='{ram_model}'",
+            "'Model'='{@ram_short}'",
             "'Size'='{ram_size_gb} GB'",
             "'CPU speedo'='{cpu_speedo}'",
             "'CPU iddq'='{cpu_iddq}'",
@@ -1942,7 +1942,7 @@
             "'GPU iddq'='{gpu_iddq}'",
             "'SoC speedo'='{soc_speedo}'"
           ],
-          "note": "live context: you can see what hardware you are dealing with (idea taken from Ebal). Vendor and model are two rows, not one: together they ran past the right edge of the frame - the table wraps nothing, it just clips."
+          "note": "live context: you can see what hardware you are dealing with (idea taken from Ebal). Vendor and model are two rows, not one: together they ran past the right edge of the frame - the table wraps nothing, it just clips. Since 14.09.2026 Model is the short model (NEE, AA-MGCL), the same rule as the RAM heading: the ram_short macro is expanded by the generator (ramShort in generate.mjs)."
         }
       ]
     },

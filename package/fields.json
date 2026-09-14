@@ -19128,6 +19128,7 @@
         "ebal"
       ],
       "confidence": "high",
+      "default_label_note": "Default у этого поля — имя, которым прошивка называет значение 1, а не заводское состояние. Заводское здесь — автомат eBAMATIC (0): его держат живые kip и его пишет сброс. Поэтому метка Default и эталон сброса расходятся законно (решение оператора 14.09.2026, docs/NOTES.md №322).",
       "values": [
         {
           "hex": "000000",
@@ -19135,7 +19136,7 @@
         },
         {
           "hex": "0100",
-          "name": "Auto"
+          "name": "Default"
         },
         {
           "hex": "1900",
@@ -19147,19 +19148,19 @@
         },
         {
           "hex": "6400",
-          "name": "Eco Stage 1"
+          "name": "Eco ST1"
         },
         {
           "hex": "7D00",
-          "name": "Eco Stage 2"
+          "name": "Eco ST2"
         },
         {
           "hex": "9600",
-          "name": "Eco Stage 3"
+          "name": "Eco ST3"
         },
         {
           "hex": "AF00",
-          "name": "Eco Stage 4"
+          "name": "Eco ST4"
         }
       ],
       "help_text": "Speed Shift is the secret component of 4IFIR, that allows you to open the full potential of your console.\n\nThe higher the value, the lower the consumption.",

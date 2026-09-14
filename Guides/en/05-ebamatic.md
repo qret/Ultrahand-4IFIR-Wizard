@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/05-ebamatic.md sha=3ea1f7b5f6f3 self=f11db7b0300b -->
+<!-- i18n: source=Guides/ru/05-ebamatic.md sha=9fa748507fab self=58feecbd651f -->
 # eBAMATIC
 
 <!-- nav:begin -->
@@ -34,6 +34,9 @@ Manual values are worth it in two cases:
 Both are found by experiment, and both need a way back if it does not work out.
 
 ## The eBAMATIC stage
+
+A stage is a step: that is how the tuner's screen labels its setting steps (`Stage`), and
+this guide calls them the same from here on.
 
 `eBAMATIC Stage` sets **how boldly the automatic selection works**: stage `0` is calm,
 `3` the most aggressive.

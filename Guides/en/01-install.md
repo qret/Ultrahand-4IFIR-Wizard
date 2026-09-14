@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/01-install.md sha=9d35faf1ba31 self=adce2486a80f -->
+<!-- i18n: source=Guides/ru/01-install.md sha=e3996cb55e80 self=adce2486a80f -->
 # Installation
 
 <!-- nav:begin -->

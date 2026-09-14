@@ -214,7 +214,7 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
         const j = s.indexOf(line, s.indexOf('\n[Info]', at))
         return at < 0 || j < 0 ? s : s.slice(0, j) + s.slice(j + line.length)
       },
-      expect: /третья страница Current видна не только нашему движку/,
+      expect: /страница Magician сломана — Current[^]*Current, current\.ini: \[Info\]: нет engine_feature pages/,
     },
     {
       // Check 62, paging: the marker loses ;page_view_source, Y is back to one fixed page.
@@ -373,6 +373,149 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       file: join(DIST, 'service', 'restore-mariko.ini'),
       hurt: s => s.replace("\nset-footer 'saved'\nset-ini-val './config.ini' Backup Path ''", "\nset-footer 'saved'"),
       expect: /путь копии не забыт/,
+    },
+    {
+      // Check 65: System Info goes back to the full model while the heading stays short.
+      name: 'System Info Model не по правилу шапки RAM',
+      file: join(DIST, 'service', 'package.ini'),
+      hurt: s => s.replace(/^'Model'='.*'$/m, "'Model'='{ram_model}'"),
+      expect: /System Info Model не по правилу/,
+    },
+    {
+      // Check 65: a copy of the rule that drifted - the passport takes the model's space token.
+      name: 'паспорт Memory сокращает не по правилу шапки RAM',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.split('{split({list(0)}," ",2)}').join('{split({list(0)}," ",1)}'),
+      expect: /паспорт Memory не по правилу/,
+    },
+    {
+      // Check 65: without the list line the row would read the backup file per substitution.
+      name: 'паспорт Memory читает Meta ram не через list',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace("list '[{ini_file(Meta,ram)}]'\n", '').split('{list(0)}').join('{ini_file(Meta,ram)}'),
+      expect: /не читает Meta ram один раз/,
+    },
+    {
+      // Check 62, backup manager: a page-3 table loses engine_feature pages.
+      name: 'таблица страницы Magician в менеджере копий потеряла engine_feature pages',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => {
+        const at = s.indexOf('[@Magician]')
+        const line = '\n;visibility_condition=engine_feature pages'
+        const j = s.indexOf(line, s.indexOf('\n[Info]', at))
+        return at < 0 || j < 0 ? s : s.slice(0, j) + s.slice(j + line.length)
+      },
+      expect: /restore-mariko\.ini: \[Info\]: нет engine_feature pages/,
+    },
+    {
+      // Check 62, backup manager: page 3 reads the kip instead of the chosen backup.
+      name: 'страница Magician в менеджере копий читает kip',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => {
+        const at = s.indexOf('[@Magician]')
+        const line = "\nini_file '/config/4IFIR/emc_timings.ini'"
+        const j = s.indexOf(line, at)
+        return at < 0 || j < 0 ? s : s.slice(0, j) + "\nhex_file '/atmosphere/kips/loader.kip'" + s.slice(j)
+      },
+      expect: /на странице копии есть hex_file/,
+    },
+    {
+      // Check 62, backup manager: page 3 is gone from one revision.
+      name: 'у менеджера копий Erista пропала страница Magician',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace('\n[@Magician]\n', '\n[Magician]\n'),
+      expect: /restore-erista\.ini нет маркера \[@Magician\]/,
+    },
+    {
+      // Check 62, revision offset: the Erista backup page reads the Mariko clock (Fields 32).
+      name: 'страница Magician копии Erista читает частоту Mariko',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => { const at = s.indexOf('[@Magician]'); return at < 0 ? s : s.slice(0, at) + s.slice(at).split('{ini_file(Fields,24)}').join('{ini_file(Fields,32)}') },
+      expect: /страница Magician сломана — Backup manager Erista[^]*читает Fields 32,12352,12492 вместо 24,12352,12492/,
+    },
+    {
+      // Check 62, revision offset: E-Boost read from a wrong offset on the Mariko backup page.
+      name: 'страница Magician копии Mariko читает E-Boost мимо 12492',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => { const at = s.indexOf('[@Magician]'); return at < 0 ? s : s.slice(0, at) + s.slice(at).split('{ini_file(Fields,12492)}').join('{ini_file(Fields,12493)}') },
+      expect: /Backup manager Mariko, service\/restore-mariko\.ini: \[\w+\]: читает Fields 32,12352,12493/,
+    },
+    {
+      // Check 62, revision offset: Current's Mariko tables read the Erista clock (CUST 24).
+      name: 'Current Mariko на третьей странице читает частоту Erista',
+      file: join(DIST, 'current.ini'),
+      hurt: s => { const at = s.indexOf('[@Magician]'); return at < 0 ? s : s.slice(0, at) + s.slice(at).split(/\n(?=\[)/).map(x => x.includes(';system=mariko') ? x.split('hex_file(CUST,32,').join('hex_file(CUST,24,').split(' CUST 32 ').join(' CUST 24 ') : x).join('\n') },
+      expect: /страница Magician сломана — Current[^]*\(;system=mariko\): читает CUST 24/,
+    },
+    {
+      // Check 62, blind: Current loses ;system=erista on page 3, no Erista table is left to compare.
+      name: 'у третьей страницы Current пропали таблицы Erista',
+      file: join(DIST, 'current.ini'),
+      hurt: s => { const at = s.indexOf('[@Magician]'); return at < 0 ? s : s.slice(0, at) + s.slice(at).split(/\r?\n/).filter(l => l.trim() !== ';system=erista').join('\n') },
+      expect: /;system=erista не читает kip — сверка смещений ослепла/,
+    },
+    {
+      // Check 62, binding: one backup header no longer binds the chosen backup, Fields read config.ini.
+      name: 'таблица страницы Magician копии потеряла привязку к копии',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => {
+        const at = s.indexOf('[@Magician]')
+        const j = s.indexOf("\nini_file '{ini_file(Restore,Path)}'", s.indexOf('\n[Header]', at))
+        return at < 0 || j < 0 ? s : s.slice(0, j) + s.slice(j + "\nini_file '{ini_file(Restore,Path)}'".length)
+      },
+      expect: /Backup manager Mariko, service\/restore-mariko\.ini: \[Header\]: не привязана к выбранной копии/,
+    },
+    {
+      // Check 62, binding: one backup table loses the rebind to emc_timings.ini, timings read the backup.
+      name: 'таблица страницы Magician копии читает тайминги из копии',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => {
+        const at = s.indexOf('[@Magician]')
+        const line = "\nini_file '/config/4IFIR/emc_timings.ini'"
+        const j = s.indexOf(line, s.indexOf('\n[Info]', at))
+        return at < 0 || j < 0 ? s : s.slice(0, j) + s.slice(j + line.length)
+      },
+      expect: /Backup manager Erista, service\/restore-erista\.ini: \[Info\], строка \d+: тайминги читаются до перепривязки/,
+    },
+    {
+      // Check 62, blind: the backup page's current view no longer reads anything at all.
+      name: 'таблицы страницы Magician копии перестали читать файлы',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => {
+        const at = s.indexOf('[@Magician]')
+        if (at < 0) return s
+        return s.slice(0, at) + s.slice(at).split(/\n(?=\[)/).map(x => !x.includes('\n;visibility_condition=!page_flag view') ? x
+          : x.split('\n').filter(l => !/^(ini_file|list) /.test(l) && !/\{(ini_file|list)\(/.test(l)).join('\n')).join('\n')
+      },
+      expect: /Backup manager Erista[^]*не читает копию — сверка привязки и смещений ослепла/,
+    },
+    {
+      // Check 62, hint: the current view of Current loses the Y glyph.
+      name: 'подсказка вида «текущие» в Current без глифа Y',
+      file: join(DIST, 'current.ini'),
+      hurt: s => { const at = s.indexOf('[@Magician]'); return at < 0 ? s : s.slice(0, at) + s.slice(at).split(/\n(?=\[)/).map(x => x.includes('\n;visibility_condition=!page_flag view\n') ? x.split('\uE0E3').join('Y') : x).join('\n') },
+      expect: /Current, current\.ini: вид «текущие»: нет подсказки с глифами/,
+    },
+    {
+      // Check 62, hint: the profiles view of the Erista backup page loses the A glyph.
+      name: 'подсказка вида профилей копии Erista без глифа A',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => { const at = s.indexOf('[@Magician]'); return at < 0 ? s : s.slice(0, at) + s.slice(at).split(/\n(?=\[)/).map(x => x.includes('\n;visibility_condition=page_flag view\n') ? x.split('\uE0E0').join('A') : x).join('\n') },
+      expect: /Backup manager Erista, service\/restore-erista\.ini: вид «все профили»: нет подсказки с глифами/,
+    },
+    {
+      // Check 62, hint: the old letter hint comes back next to the new one on the Mariko backup page.
+      name: 'старая подсказка «A MC» вернулась на страницу копии Mariko',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => { const at = s.indexOf('\n[Note]', s.indexOf('[@Magician]')); return at < 0 ? s : s.slice(0, at) + "\n[Note]\n;mode=table\n;visibility_condition=engine_feature pages\n;visibility_condition=!page_flag view\n''='A MC off · Y profiles'\n" + s.slice(at) },
+      expect: /Backup manager Mariko, service\/restore-mariko\.ini: осталась старая подсказка «A MC»/,
+    },
+    {
+      // Check 39 (7): Apply slides onto page 2.
+      name: 'кнопка Apply уехала за маркер второй страницы',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace('\n[@Page 2]\n', '\n').replace('\n[Apply this backup', '\n[@Page 2]\n\n[Apply this backup'),
+      expect: /кнопка уехала со страницы 1/,
     },
   ]
   let failed = 0, skipped = 0
@@ -2684,6 +2827,14 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       const say = apply.body.findIndex(l => /^notify/.test(l))
       if (say >= 0) bad.push(`${p.rel}:${apply.bodyAt[say]} применение объясняет отказ попапом — при несовпадении оно молчит`)
     }
+
+    // (7) Apply and Delete stay on page 1: every page marker after the first comes after both.
+    const del39 = secs.find(s => /^\[Delete this backup/.test(s.head))
+    if (!del39) bad.push(`${p.rel}: пункта «Delete this backup» нет`)
+    const marks39 = secs.filter(s => /^\[@/.test(s.head)).slice(1)
+    for (const b of [apply, del39].filter(Boolean))
+      for (const m of marks39)
+        if (m.at < b.at) bad.push(`${p.rel}:${b.at} «${b.head}» стоит после маркера ${m.head} (строка ${m.at}) — кнопка уехала со страницы 1`)
   }
 
   if (pages !== PAGES.length) problems.push({ sev: 'CRITICAL', what: `страниц менеджера копий ${pages} из ${PAGES.length} — проверка вида смотрит в пустоту` })
@@ -4079,19 +4230,40 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // Paged Y view (fork 71cc8f43): the marker names the file and the page size, every profile
 // slot reads its section through {page_view_first}, and the slots cover exactly one page -
 // fewer and profiles fall between pages, more and they repeat on the next one.
+// Backup manager (14.09.2026): the same page for the chosen backup. Its values come from the
+// backup file, never from the kip, so page 3 there carries no hex_file.
+// Revision offset (14.09.2026): the RAM clock is CUST 32 on Mariko and CUST 24 on Erista, eBAL
+// and E-Boost are 12352 and 12492 on both. Current picks the revision by ;system=, a backup
+// page by its file name; each current-view table reads its own clock offset and nothing else.
+// Button hint: each view carries a row with the A and Y glyphs (U+E0E0, U+E0E3); `A MC` is gone.
+// Backup binding: every current-view table that reads anything binds config.ini, then the
+// chosen backup (Fields/Meta read only there), then emc_timings.ini (timings only after it).
 {
   const FEAT62 = ';visibility_condition=engine_feature pages'
   const CUR62 = ';visibility_condition=!page_flag view'
   const ALL62 = ';visibility_condition=page_flag view'
-  const cur = join(DIST, 'current.ini')
+  const FREQ62 = { mariko: 32, erista: 24 }
+  const SHARED62 = [12352, 12492]
+  const LABEL62 = { 'current.ini': 'Current', 'service/restore-mariko.ini': 'Backup manager Mariko', 'service/restore-erista.ini': 'Backup manager Erista' }
+  const CFG62 = "ini_file './config.ini'"
+  const BIND62 = "ini_file '{ini_file(Restore,Path)}'"
+  const TIM62 = "ini_file '/config/4IFIR/emc_timings.ini'"
+  const said62 = []
+  const bad = []
+  const broken62 = new Set()
+  let perCur62 = 0
+  for (const rel62 of ['current.ini', 'service/restore-mariko.ini', 'service/restore-erista.ini']) {
+  const cur = join(DIST, rel62)
+  const copy62 = rel62 !== 'current.ini'
   const txt62 = existsSync(cur) ? readFileSync(cur, 'utf8') : ''
   const at62 = txt62.search(/^\[@Magician\]\s*$/m)
   if (at62 < 0) {
-    problems.push({ sev: 'CRITICAL', what: 'в current.ini нет маркера [@Magician] — третья страница пропала, сторож смотрит в пустоту' })
+    broken62.add(LABEL62[rel62])
+    bad.push(`${LABEL62[rel62]}: в ${rel62} нет маркера [@Magician] — третья страница пропала, сторож смотрит в пустоту`)
   } else {
     const secs = txt62.slice(at62).split(/\r?\n(?=\[)/)
     const has = (s, d) => s.split(/\r?\n/).some(l => l.trim() === d)
-    const bad = []
+    const from62 = bad.length
     let nCur = 0, nAll = 0
     if (!has(secs[0], FEAT62)) bad.push('маркер [@Magician] без engine_feature pages — движок автора сочтёт его страницей и переименует вторую')
     if (!has(secs[0], ';page_toggle')) bad.push('маркер [@Magician] без ;page_toggle — A и Y на странице не заработают')
@@ -4106,6 +4278,12 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
     else if (paged62 !== reads62) bad.push(`${reads62 - paged62} из ${reads62} чтений {ini_file_sorted} идут мимо {page_view_first} — Y покажет одни и те же профили на каждой странице`)
     if (perPage62 && (slots62.size !== perPage62 || [...slots62].some(k => k >= perPage62))) bad.push(`слоты не покрывают страницу: слотов ${slots62.size}, в маркере по ${perPage62}`)
     if (/Only the first \d+ profiles/.test(body62)) bad.push('осталась сноска «Only the first N profiles» — при листании она лжёт')
+    if (!copy62) perCur62 = perPage62
+    else {
+      if (perPage62 !== perCur62) bad.push(`размер страницы профилей ${perPage62}, а в Current ${perCur62} — Y листает иначе, чем там`)
+      if (/^hex_file /m.test(body62)) bad.push('на странице копии есть hex_file — частота и eBAL обязаны браться из выбранной копии, а не из kip')
+      if (!body62.includes("ini_file '{ini_file(Restore,Path)}'")) bad.push('страница копии не читает выбранную копию (нет ini_file на {ini_file(Restore,Path)})')
+    }
     for (const s of secs.slice(1)) {
       const name = s.split(/\r?\n/)[0]
       if (!has(s, FEAT62)) bad.push(`${name}: нет engine_feature pages — на движке автора таблица покажется`)
@@ -4115,9 +4293,78 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
       else nAll++
     }
     if (!nCur || !nAll) bad.push(`видов на странице: текущие ${nCur}, все профили ${nAll} — один из видов пропал`)
-    if (bad.length) problems.push({ sev: 'CRITICAL', what: `третья страница Current видна не только нашему движку (${bad.length}):\n     ${bad.slice(0, 6).join('\n     ')}` })
-    else ok.push(`the Magician page carries engine_feature pages everywhere (${secs.length} sections: ${nCur} current-view, ${nAll} all-profiles, marker with page_toggle, profiles paged by ${perPage62})`)
+    let src62 = ''
+    if (!copy62) {
+      // Current: a table that touches the kip names one revision and reads that revision's clock.
+      const clock62 = { mariko: 0, erista: 0 }
+      for (const s of secs.slice(1)) {
+        if (!has(s, CUR62)) continue
+        const ls = s.split(/\r?\n/).map(l => l.trim())
+        const name = ls[0]
+        const offs = new Set(ls.flatMap(l => [...l.matchAll(/^;visibility_condition=!?matching_hex_val_custom \S+ CUST (\d+) |\{hex_file\(CUST,(\d+),/g)].map(m => Number(m[1] ?? m[2]))))
+        if (!offs.size) continue
+        const sys = ls.filter(l => l.startsWith(';system=')).map(l => l.slice(8))
+        if (sys.length !== 1 || !(sys[0] in FREQ62)) {
+          bad.push(`${name}: читает kip (CUST ${[...offs].join(', ')}), но ревизия не задана одним ;system= (${sys.join(', ') || 'нет'}) — частоту одной ревизии покажет на другой`)
+          continue
+        }
+        const rev = sys[0], own = FREQ62[rev]
+        const alien = [...offs].filter(o => o !== own && !SHARED62.includes(o))
+        if (alien.length) bad.push(`${name} (;system=${rev}): читает CUST ${alien.join(', ')} — частота ${rev} лежит в CUST ${own}, eBAL и E-Boost в CUST ${SHARED62.join(' и ')}`)
+        const reads = new Set(ls.flatMap(l => [...l.matchAll(/\{hex_file\(CUST,(\d+),/g)].map(m => Number(m[1]))))
+        if (!reads.size) continue
+        clock62[rev]++
+        if (!ls.includes("hex_file '/atmosphere/kips/loader.kip'")) bad.push(`${name} (;system=${rev}): читает CUST без hex_file на loader.kip`)
+        if (!reads.has(own) || !reads.has(SHARED62[0])) bad.push(`${name} (;system=${rev}): таблица читает CUST ${[...reads].join(', ')} — нет частоты CUST ${own} или eBAL CUST ${SHARED62[0]}`)
+      }
+      // blind lines go first: the headline shows only six
+      for (const rev in FREQ62) if (!clock62[rev]) bad.splice(from62, 0, `ни одна таблица вида «текущие» с ;system=${rev} не читает kip — сверка смещений ослепла`)
+      src62 = `, kip read by ${clock62.mariko} Mariko / ${clock62.erista} Erista tables`
+    } else {
+      // Backup page: revision from the file name. A table with no source and no substitution
+      // (the A/Y hint) shows nothing from a file and is skipped; gaps and footnotes do read the
+      // backup - each decides through ;skip_null whether it is drawn - so they are checked too.
+      const rev = rel62.match(/restore-(\w+)\.ini$/)[1], own = FREQ62[rev]
+      const want = [own, ...SHARED62].join(',')
+      let data62 = 0, plain62 = 0
+      for (const s of secs.slice(1)) {
+        if (!has(s, CUR62)) continue
+        const ls = s.split(/\r?\n/).map(l => l.trim())
+        const name = ls[0]
+        if (!ls.some(l => /^(ini_file|hex_file|list) /.test(l) || /\{(ini_file|list)\(/.test(l))) { plain62++; continue }
+        data62++
+        const srcs = ls.filter(l => /^(ini_file|hex_file) /.test(l))
+        if (srcs[0] !== CFG62 || srcs[1] !== BIND62 || srcs.length > 3 || (srcs.length === 3 && srcs[2] !== TIM62)) {
+          bad.push(`${name}: не привязана к выбранной копии — источники «${srcs.join(' → ') || 'нет'}» вместо «${CFG62} → ${BIND62} → ${TIM62}»`)
+          continue
+        }
+        const iBind = ls.indexOf(BIND62), iTim = srcs.length === 3 ? ls.indexOf(TIM62) : ls.length
+        // one line per table per fault, so one broken table does not hide the others
+        const iFm = ls.findIndex((l, i) => !/^(ini_file|hex_file) /.test(l) && /\{ini_file\((Fields|Meta),/.test(l) && !(i > iBind && i < iTim))
+        const iTr = ls.findIndex((l, i) => !/^(ini_file|hex_file) /.test(l) && /\{ini_file\((?!Fields,|Meta,)/.test(l) && i < iTim)
+        if (iFm >= 0) bad.push(`${name}, строка ${iFm + 1}: Fields/Meta читаются не из выбранной копии`)
+        if (iTr >= 0) bad.push(`${name}, строка ${iTr + 1}: тайминги читаются до перепривязки к emc_timings.ini — из копии или config.ini`)
+        const offs = [...new Set(ls.flatMap(l => [...l.matchAll(/\{ini_file\(Fields,(\d+)\)\}/g)].map(m => Number(m[1]))))].sort((a, b) => a - b).join(',')
+        if (offs !== want) bad.push(`${name}: читает Fields ${offs || 'ничего'} вместо ${want} — частота ${rev} в копии лежит в Fields ${own}, eBAL и E-Boost в ${SHARED62.join(' и ')}`)
+      }
+      if (!data62) bad.splice(from62, 0, 'ни одна таблица вида «текущие» не читает копию — сверка привязки и смещений ослепла')
+      src62 = `, ${data62} backup-bound tables + ${plain62} plain, clock Fields ${own}`
+    }
+    // Button hint (14.09.2026): both views name A and Y by the system-font glyphs, as the footer
+    // does; the old letters read as plain text on the console.
+    for (const [view62, cond62] of [['текущие', CUR62], ['все профили', ALL62]]) {
+      const rows62 = secs.slice(1).filter(x => has(x, cond62)).flatMap(x => x.split(/\r?\n/))
+      if (!rows62.some(l => l.includes('\uE0E0') && l.includes('\uE0E3')))
+        bad.push(`вид «${view62}»: нет подсказки с глифами кнопок A (U+E0E0) и Y (U+E0E3)`)
+    }
+    if (/\bA MC\b/.test(body62)) bad.push('осталась старая подсказка «A MC» — A и Y на консоли читаются как буквы')
+    if (bad.length > from62) broken62.add(LABEL62[rel62])
+    for (let k = from62; k < bad.length; k++) bad[k] = `${LABEL62[rel62]}, ${rel62}: ${bad[k]}`
+    said62.push(`${rel62} ${secs.length} sections, ${nCur} current-view, ${nAll} all-profiles${src62}`)
   }
+  }
+  if (bad.length) problems.push({ sev: 'CRITICAL', what: `страница Magician сломана — ${[...broken62].join(', ')} (${bad.length}):\n     ${bad.slice(0, 6).join('\n     ')}` })
+  else ok.push(`the Magician page carries engine_feature pages everywhere, marker with page_toggle, profiles paged by ${perCur62}, each table on its revision's offsets backup tables bound to the backup and glyph hints in both views (${said62.join('; ')})`)
 }
 
 // ---------------- 63. one-shot footers and the backup choice do not outlive a new entry
@@ -4292,6 +4539,57 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   else ok.push(`result footers and the backup choice rebuild the page at once (${blocks} blocks, ${choosers} choosers); Create backup reads back before saved (${creates} sections)`)
 }
 
+// ---------------- 65. the short RAM model is one rule on every screen that shows it
+//
+// Operator, 14.09.2026: System Info "Model" and the backup passport "Memory" show the short model
+// (NEE, AA-MGCL) exactly like the RAM heading. All three come from ramShort() in generate.mjs;
+// here the other two are derived from the heading found in dist, so a hand edit or a second copy
+// of the rule turns red. The passport reads Meta ram once into `list`; Meta ram stays full.
+{
+  const bad = []
+  const read = rel => existsSync(join(DIST, rel)) ? readFileSync(join(DIST, rel), 'utf8').split(/\r?\n/) : null
+  const heads = []
+  for (const rel of ['current.ini', 'service/reset.ini']) {
+    const ls = read(rel)
+    if (!ls) { bad.push(`${rel}: файла нет`); continue }
+    ls.forEach(l => { const m = l.match(/^'RAM' = '\{ram_vendor\} (.+)'$/); if (m) heads.push({ rel, v: m[1] }) })
+  }
+  const H = heads[0]?.v
+  for (const h of heads) if (h.v !== H) bad.push(`${h.rel}: шапка RAM построена иначе, чем в ${heads[0].rel}`)
+  if (H && !H.includes('{split({ram_model}," ",1)}')) bad.push('шапка RAM не похожа на правило ramShort — нет второго пробельного токена модели')
+
+  let sys = 0
+  const svc = read('service/package.ini') ?? []
+  svc.forEach((l, i) => {
+    const m = l.match(/^'Model'\s*=\s*'(.*)'$/)
+    if (!m) return
+    sys++
+    if (m[1] !== H) bad.push(`service/package.ini:${i + 1} System Info Model не по правилу шапки RAM: «${m[1].slice(0, 60)}»`)
+  })
+
+  const S = '{list(0)}'
+  const want = H && `{if_null({split(${S},"-",1)},${S},{split(${S}," ",0)} ${H.split('{ram_model}').join(S).split(`{split(${S}," ",1)}`).join(`{split(${S}," ",2)}`)})}`
+  let pass = 0
+  for (const rev of ['mariko', 'erista']) {
+    const rel = `service/restore-${rev}.ini`
+    const ls = read(rel)
+    if (!ls) continue
+    ls.forEach((l, i) => {
+      const m = l.match(/^'Memory'\s*=\s*'(.*)'$/)
+      if (!m) return
+      pass++
+      if (ls[i - 1] !== `list '[{ini_file(Meta,ram)}]'`) bad.push(`${rel}:${i + 1} паспорт Memory не читает Meta ram один раз в list перед строкой`)
+      if (m[1] !== want) bad.push(`${rel}:${i + 1} паспорт Memory не по правилу шапки RAM: «${m[1].slice(0, 60)}»`)
+    })
+    if (!ls.some(l => l.includes(`Meta ram '{ram_vendor} {ram_model}'`))) bad.push(`${rel}: Meta ram больше не пишется целиком — копия потеряет полную модель (решение 07.09.2026)`)
+  }
+  if (heads.length < 4 || !sys || pass < 2)
+    problems.push({ sev: 'CRITICAL', what: `проверка короткой модели RAM не нашла предмета (шапок ${heads.length}, System Info ${sys}, паспортов ${pass}) — она смотрит в пустоту, ничего не проверив` })
+  else if (bad.length)
+    problems.push({ sev: 'CRITICAL', what: `короткая модель RAM разошлась с правилом шапки (${bad.length}):\n     ${bad.slice(0, 6).join('\n     ')}` })
+  else ok.push(`the short RAM model is one rule: ${heads.length} headings, System Info and ${pass} passports; Meta ram written in full`)
+}
+
 // ---------------- 61. guard numbers are unique, gapless-or-retired, and every doc reference lands
 //
 // A block number is the only address DECISIONS.md, NOTES.md and ANCHORS.md use to name a
@@ -4410,7 +4708,8 @@ const RETIRED61 = new Map([
   // 13.09.2026: 63 -> 64 for check 62 (Magician page hides on the author's engine).
   // 13.09.2026: 64 -> 65 for check 63 (one-shot footers cleared on entry).
   // 13.09.2026: 65 -> 66 for check 64 (result footers shown at once, page rebuilt).
-  const EXPECTED = 66
+  // 14.09.2026: 66 -> 67 for check 65 (short RAM model, one rule on three screens).
+  const EXPECTED = 67
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,

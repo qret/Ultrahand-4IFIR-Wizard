@@ -53,8 +53,8 @@ was solvable at all.
   revision without a single condition.
 - **System Info** — a screen showing revision, memory and the console's calibration
   constants. A simple thought: show the person what hardware they are dealing with.
-- **Presets by memory chip model** rather than universal ones. Ours is still a stub, but
-  the direction is his.
+- **Presets by memory chip model** rather than universal ones. This tuner ships no
+  presets at all, but the reasoning — a set "for everyone" makes no sense — is his.
 - And the general tone: short phrases written by hand, not generated.
 
 Worth saying separately: **his help text is written by a human for a human.** We tried

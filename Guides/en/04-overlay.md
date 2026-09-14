@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/04-overlay.md sha=dcb0d87b7ab3 self=3d8f267282ce -->
+<!-- i18n: source=Guides/ru/04-overlay.md sha=a12413c24c1f self=3d8f267282ce -->
 # The 4IFIR overlay: where clocks are set
 
 <!-- nav:begin -->
