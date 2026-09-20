@@ -92,6 +92,8 @@
 | Advanced → GPU → vMin Offset | `pMeh 19 vMINetune ST` | обе | 31 | +75 mV, +70 mV … -75 mV |
 | Advanced → GPU → vMin Offset (max RAM) | `pMeh 21 gVMINDick` | обе | 31 | +75 mV, +70 mV … -75 mV |
 | Advanced → RAM → Optimized Mode (1600 MHz) → Optimized Target | `sMeh 16 SYK-LOH` | обе | 2 | 0, 1 - Default |
+| Advanced → RAM → Optimized Mode (1600 MHz) → VDDQ | `eVDQ → /config/4IFIR/emc_timings.ini` | обе | 92 | eBAMATIC, 300 mV … 750 mV |
+| Advanced → RAM → Optimized Mode (1600 MHz) → VDD2 | `eVD2 → /config/4IFIR/emc_timings.ini` | обе | 20 | eBAMATIC, 950 mV … 1400 mV |
 | Advanced → RAM → Optimized Mode (1600 MHz) → VDDQ-VDD2 Voltage | `pMeh 20 rVDDick` | обе | 7 | 0, 1 … 6 |
 | Advanced → RAM → Optimized Mode (1600 MHz) → Efficiency Stages | `sMeh 8 E-Boost` | обе | 3 | 0 - Default, 1, 2 |
 | Advanced → RAM → Core Timings → Core Timings 1 | `Core Timings 1` | обе | 10 | 1, 2 … 0 - DEBUG |

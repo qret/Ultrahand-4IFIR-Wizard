@@ -1692,6 +1692,40 @@
                   "help": "Sets the RAM Optimized target to 1600 MHz. The safe, low-heat mode the other two settings here belong to. Same field is sMeh 16 in Micro-Enhance Logic and in the hekate KIP tool."
                 },
                 {
+                  "id": "emc_evdq",
+                  "title": "VDDQ",
+                  "ini_write": {
+                    "file": "/config/4IFIR/emc_timings.ini",
+                    "key": "eVDQ",
+                    "section": "emc_e_state",
+                    "units": "mV",
+                    "from": 300,
+                    "to": 750,
+                    "step": 5
+                  },
+                  "visible_when": "!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000",
+                  "help": "Memory bus voltage for the Optimized (E) profile. It is not a kip field: the value goes into /config/4IFIR/emc_timings.ini, the file the 4IFIR system module keeps, under the profile of the current Optimized Target and eBAL. What you pick here applies after a restart, and eBAMATIC puts the automatic calculation back. A number set here is used as given: it also overrides the ceiling the firmware would otherwise hold when the memory heats up. Range 300-750 mV, step 5 mV.",
+                  "help_source": "emc_timings.ini <profile> eVDQ (4IFIR system module)",
+                  "note": "Пункт пишет не kip, а ключ сисмодуля в /config/4IFIR/emc_timings.ini — секция профиля Optimized E собирается из kip (Optimized Target 12524 + eBAL 12352). Разбор — docs/MAGICIAN-PAGE.md §1.7, решение оператора 20.09.2026."
+                },
+                {
+                  "id": "emc_evd2",
+                  "title": "VDD2",
+                  "ini_write": {
+                    "file": "/config/4IFIR/emc_timings.ini",
+                    "key": "eVD2",
+                    "section": "emc_e_state",
+                    "units": "mV",
+                    "from": 950,
+                    "to": 1400,
+                    "step": 25
+                  },
+                  "visible_when": "!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000",
+                  "help": "Memory supply voltage for the Optimized (E) profile. It is not a kip field: the value goes into /config/4IFIR/emc_timings.ini, the file the 4IFIR system module keeps, under the profile of the current Optimized Target and eBAL. What you pick here applies after a restart, and eBAMATIC puts the automatic calculation back. A number set here is used as given: it also overrides the ceiling the firmware would otherwise hold when the memory heats up, and a supply voltage that never steps down is heat and wear. Range 950-1400 mV, step 25 mV.",
+                  "help_source": "emc_timings.ini <profile> eVD2 (4IFIR system module)",
+                  "note": "Пункт пишет не kip, а ключ сисмодуля в /config/4IFIR/emc_timings.ini — секция профиля Optimized E собирается из kip (Optimized Target 12524 + eBAL 12352). Разбор — docs/MAGICIAN-PAGE.md §1.7, решение оператора 20.09.2026."
+                },
+                {
                   "id": "ram_vddq_vdd2",
                   "title": "VDDQ-VDD2 Voltage",
                   "offsets": [

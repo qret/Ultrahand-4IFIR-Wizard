@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/09-timings.md sha=532668a94216 self=f2a40991fff0 -->
+<!-- i18n: source=Guides/ru/09-timings.md sha=a9045bcd07fd self=845c080b2cfa -->
 # Timings and fine tuning
 
 <!-- nav:begin -->
@@ -221,8 +221,10 @@ The factory setting for the top band is a hundred per cent: once the console rea
 > and set the sliders again: writing them lays a correct curve down.
 >
 > **`Service → Restore Factory Defaults` will not help here** — the fan curve is not in
-> the file a reset touches. A reset only writes into `loader.kip`, while the curve lives
-> in `atmosphere\config\system_settings.ini`. Setting the sliders again is the only way.
+> the file a reset touches. A reset writes into `loader.kip`, and on the way it also puts
+> the two memory voltages in `/config/4IFIR/emc_timings.ini` back to automatic; it never
+> reaches `atmosphere\config\system_settings.ini`, where the curve lives. Setting the
+> sliders again is the only way.
 
 A fan that stays quiet under load is almost always a setting rather than wear. Check this
 curve before you take the console apart.

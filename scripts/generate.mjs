@@ -43,6 +43,92 @@ const KIPVER_HEX = KIPVER.toString(16).toUpperCase().padStart(2, '0')
 const KIP_OK = `matching_hex_val_custom ${KIP} CUST 4 ${KIPVER_HEX}`
 
 /**
+ * EMC MAGICIAN PROFILE OF THE OPTIMIZED (E) STATE — ONE RECIPE FOR MENU AND PAGE.
+ *
+ * The 4IFIR system module keeps its timings and voltages in `/config/4IFIR/emc_timings.ini`,
+ * one section per profile, named `<MHz>CL<eBAL*2+8>` and matched by name exactly.
+ * The E-state base clock is NOT always 1600: `Optimized Target` (CUST 12524, `sMeh[16]`)
+ * gives 1600 at `01` and 1331 at `00` (semantics-src/dependencies.json). pMeh 2 lowers the
+ * effective clock but not the one timings are computed from, so it does not enter here.
+ * Both users need `hex_file` on loader.kip in scope.
+ */
+const EMC_FILE = '/config/4IFIR/emc_timings.ini'
+const EMC_KIP_DEC = off => `{hex_to_decimal({hex_to_rhex({hex_file(CUST,${off},3)})})}`
+const EMC_E_BASE = `{if_==({hex_file(CUST,12524,1)},01,1600,1331)}`
+const EMC_CL = `{math(${EMC_KIP_DEC(12352)}*2+8,true)}`
+const EMC_E_SECTION = `${EMC_E_BASE}CL${EMC_CL}`
+/**
+ * `0` IS NOT "unset", IT IS eBAMATIC — one word for the list, the footer and both pages.
+ * The system module reads a zero key as "work it out yourself", which is the same automatic
+ * calculation the console runs when eBAL is on eBAMATIC; the nought of `EMC DVB Mode`
+ * (CUST 56) and of eBAL itself carry that very name, so the reader has seen it before.
+ * Operator, 20.09.2026: the way back to automatic must be named the way it is named elsewhere.
+ */
+const EMC_AUTO = 'eBAMATIC'
+
+/**
+ * THE TWO MAGICIAN VOLTAGES ARE SHOWN WHERE THEY BELONG, NOT AMONG THE TIMINGS.
+ *
+ * Operator, 20.09.2026: "in the timings table this is out of place, it is not a timing" —
+ * so the rows ride with the `Optimized Mode (1600 MHz)` block on page 2, in Current Settings
+ * and in the backup preview, between `Optimized Target` and `VDDQ-VDD2 Voltage`.
+ *
+ * The value always comes from THIS console's emc_timings.ini — a backup does not carry that
+ * file — while the profile is named by the page's own source: the kip in Current, the backup's
+ * `Fields` in the preview. `list` carries it: 0 = base clock or null, 1 = eBAL, 2 = section.
+ * No base, or eBAL on eBAMATIC, means the profile cannot be named, and `;skip_null` drops the
+ * two rows while the block keeps its other three.
+ */
+const OPT_GROUP = 'Optimized Mode (1600 MHz)'
+const EMC_VOLT_ROWS = (listLines, after = []) => {
+  const out = [...listLines, `ini_file '${EMC_FILE}'`]
+  for (const [nm, key] of [['VDDQ', 'eVDQ'], ['VDD2', 'eVD2']]) {
+    const v = `{ini_file({list(2)},${key})}`
+    const shown = `{if_null(${v},${EMC_AUTO},{if_==(${v},0,${EMC_AUTO},${v} mV)})}`
+    out.push(`'${nm}' = '{if_null({list(0)},null,{if_==({list(1)},0,null,${shown})})}'`)
+  }
+  return [...out, ...after]
+}
+// Current reads the kip directly; the preview reads the chosen backup and needs three steps,
+// because a missing key there is `null` and must not turn into a profile name.
+const EMC_VOLT_LIST_KIP = [`list '[${EMC_E_BASE},${EMC_KIP_DEC(12352)},${EMC_E_SECTION}]'`]
+const EMC_VOLT_LIST_COPY = [
+  `list '[{ini_file(Fields,12524)},{ini_file(Fields,12352)}]'`,
+  `list '[{if_null({list(0)},null,{if_==({list(0)},01,1600,1331)})},`
+    + `{hex_to_decimal({hex_to_rhex({if_null({list(1)},000000,{list(1)})})})}]'`,
+  `list '[{list(0)},{list(1)},{list(0)}CL{math({list(1)}*2+8,true)}]'`,
+]
+
+/**
+ * FACTORY RESET PUTS BOTH VOLTAGES BACK TO eBAMATIC (operator, 20.09.2026).
+ *
+ * The reset page answers "what will be written", so its block shows the word the reset
+ * applies, not the value standing in the file now: two fixed rows, never read from disk.
+ *
+ * The write itself has one hard condition — WHICH PROFILE. The section is named after the
+ * LIVE kip (`<base from 12524>CL<eBAL*2+8>`), and the reset puts eBAL back to `000000`,
+ * after which the name cannot be built at all. So the two writes must run BEFORE the kip
+ * is touched: `interpretAndExecuteCommands` resolves every placeholder right before the
+ * command it belongs to (fork `source/utils.hpp`, the `hasPlaceholders` block), so their
+ * order in the section IS the order of reading.
+ *
+ * And when eBAL is ALREADY eBAMATIC nothing is written: the name would degrade to `CL8`,
+ * a profile the firmware never reads, and we would litter a file we do not own. The gate is
+ * a `try:` branch — a failed condition skips the rest of the branch — and `force_failure`
+ * closes it, so the common tail runs on both paths instead of being written out twice.
+ */
+const EMC_RESET_ROWS = [`'VDDQ' = '${EMC_AUTO}'`, `'VDD2' = '${EMC_AUTO}'`]
+const EMC_RESET_WRITES = kip => [
+  `hex_file '${kip}'`,
+  'try:',
+  `!matching_hex_val_custom ${kip} CUST 12352 000000`,
+  `set-ini-val '${EMC_FILE}' '${EMC_E_SECTION}' eVDQ '0'`,
+  `set-ini-val '${EMC_FILE}' '${EMC_E_SECTION}' eVD2 '0'`,
+  'force_failure',
+  'try:',
+]
+
+/**
  * ЗНАЧОК «УДЕРЖИВАТЬ A» — два глифа приватной области шрифта Nintendo Extended:
  * дуга-удержание и кнопка A. Пишутся сырыми символами, не escape-последовательностью:
  * разбор ini их не понимает, а файлы мы пишем в UTF-8 без метки порядка байтов.
@@ -1262,6 +1348,60 @@ function emitItem(item, lines) {
 }
 
 /**
+ * AN OPTION ITEM THAT WRITES AN INI KEY INSTEAD OF A KIP CELL.
+ *
+ * The EMC Magician voltages have no cell in the kip: the 4IFIR system module keeps them in
+ * `emc_timings.ini`, one profile per section, and reads `0` as "not set, decide yourself".
+ * So the item picks from a generated dictionary of plain millivolts and writes them with
+ * `set-ini-val`; the section name is built from the kip by the same recipe the Magician page
+ * uses (EMC_E_SECTION). No offset, no field, hence no kip write and no `[boot]` json map —
+ * the footer is re-seeded from the ini file itself.
+ */
+function emitIniOption(item, lines) {
+  const w = item.ini_write
+  const title = safeName(item.title ?? item.id)
+  if (usedTitles.has(title)) { stats.skipped.push({ id: item.id ?? title, why: `section name "${title}" is already taken` }); return }
+  usedTitles.add(title)
+
+  // eBAMATIC first and apart from the scale: it is not a voltage, it is "no override".
+  // Its value is a literal zero — the way back to the firmware's own calculation.
+  const list = [{ name: EMC_AUTO, short: EMC_AUTO, mv: '0' }]
+  for (let v = w.from; v <= w.to; v += w.step) {
+    const label = `${v} ${w.units}`
+    list.push({ name: label, short: label, mv: String(v) })
+  }
+  const dir = currentDir ? `${currentDir}/json` : 'json'
+  const base = safeName(item.id)
+  write(`${dir}/${base}.json`, JSON.stringify(list, null, 2))
+  stats.dicts++
+
+  const val = `{ini_file(${EMC_E_SECTION},${w.key})}`
+  // What the item shows when the package opens: the key as it lies in the file. Missing key
+  // and a stored zero are the same thing on screen — the firmware is deciding.
+  const foot = `{if_null(${val},${EMC_AUTO},{if_==(${val},0,${EMC_AUTO},${val} ${w.units})})}`
+
+  lines.push(`[*${title}]`)
+  lines.push(';mode=option')
+  const vc = visCond(item.visible_when)
+  if (vc) { lines.push(`;visibility_condition=${vc}`); stats.guards++ }
+  lines.push(`json_file_source './json/${base}.json' name`)
+  lines.push(`hex_file '${KIP}'`)
+  lines.push(`set-ini-val '${w.file}' '${EMC_E_SECTION}' ${w.key} '{json_file_source(*,mv)}'`)
+  lines.push(`set-footer '{json_file_source(*,short)}'`)
+  lines.push('')
+
+  // The footer on entry comes from the same file and the same key, so the two writers of it
+  // cannot disagree (check 53 compares them through `short`).
+  const cfg = currentDir ? `./${currentDir}/config.ini` : './config.ini'
+  bootLines.push(`hex_file '${KIP}'`, `ini_file '${w.file}'`,
+                 `set-ini-val '${cfg}' '*${title}' footer '${foot}'`)
+  stats.bootLines++
+  stats.items++
+
+  if (item.help) infoRows.push({ title: item.title ?? item.id, warns: [], help: item.help, platform: item.platform })
+}
+
+/**
  * СЕКЦИИ СОЗДАНИЯ КОПИИ, ОТЛОЖЕННЫЕ ДО СТРАНИЦЫ `Backup manager`.
  *
  * Пункт «Create backup» больше НЕ стоит в разделе Service. Решение оператора: всё про
@@ -1936,12 +2076,13 @@ function emitSeries(item, lines) {
 
 function emitSection(node, lines, depth = 0) {
   // only groups need a separator heading; items with commands print their own
-  const printsOwnHeader = node.offsets || node.series || node.commands || node.info_table || node.reset_from_defaults || node.backup_restore || node.forwarder_to
+  const printsOwnHeader = node.offsets || node.series || node.commands || node.info_table || node.reset_from_defaults || node.backup_restore || node.forwarder_to || node.ini_write
   if (node.title && depth > 0 && !printsOwnHeader) {
     lines.push(`[${safeName(node.title)}]`)
     lines.push('')
   }
   if (node.offsets?.length === 1) emitItem(node, lines)
+  if (node.ini_write) emitIniOption(node, lines)
   if (node.series) emitSeries(node, lines)
   if (node.commands || node.info_table || node.reset_from_defaults || node.backup_restore || node.forwarder_to) emitAction(node, lines)
   for (const k of node.children ?? []) emitSection(k, lines, depth + 1)
@@ -2036,6 +2177,7 @@ function emitPackage(node, dirPath, depth = 0) {
 
   // the node's own content
   if (node.offsets?.length === 1) emitItem(node, lines)
+  if (node.ini_write) emitIniOption(node, lines)
   if (node.series) emitSeries(node, lines)
   if (node.commands || node.info_table || node.reset_from_defaults || node.backup_restore || node.forwarder_to) emitAction(node, lines)
   for (const k of ownKids) emitSection(k, lines, depth + 1)
@@ -2321,7 +2463,7 @@ if (kipRows.length) {
   // уровне, потому что тем же значением подписывается и пункт меню, а он порождается
   // раньше этого места.
 
-  const emitGroupRows = (kl, rows, valueOf = FROM_KIP, scoped = false) => {
+  const emitGroupRows = (kl, rows, valueOf = FROM_KIP, scoped = false, after = null) => {
     const order = { both: 0, erista: 1, mariko: 2 }
     // `scoped` — таблица уже ограничена одной ревизией через `;system=`, метки внутри
     // не нужны, а значит и сортировка по платформе не нужна: порядок строк свободен.
@@ -2348,6 +2490,9 @@ if (kipRows.length) {
       // that is what the reference does, and extra declarations only slow the parse down.
       if (r.map !== lastMap) { kl.push(`json_file '${r.map}'`); lastMap = r.map }
       kl.push(`'${safeName(r.title)}' = '{json_file(0,${valueOf(r)})}'`)
+      // Rows that are not kip fields at all go in by offset of the row they follow: the order
+      // inside this block is the operator's, and it is not the order of the field map.
+      if (after?.has(r.offset)) kl.push(...after.get(r.offset))
     }
   }
 
@@ -2376,8 +2521,11 @@ if (kipRows.length) {
       kl.push('[Gap]', ';mode=table', ';background=false', ...sys, ...gate, `;gap=${HEAD_GAP}`, '')
       kl.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ...sys, ...gate,
               `'${safeName(g.name)}' = '${g.ctx ?? ''}'`, '')
-      kl.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ...sys, ...gate, ...src)
-      emitGroupRows(kl, rows, valueOf, scoped)
+      // The Optimized block carries two rows that are not kip fields (see EMC_VOLT_ROWS);
+      // `;skip_null` is what lets them leave when the profile cannot be named.
+      const opt = g.name === OPT_GROUP
+      kl.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ...(opt ? [';skip_null=true'] : []), ...sys, ...gate, ...src)
+      emitGroupRows(kl, rows, valueOf, scoped, opt ? new Map([[12524, EMC_VOLT_ROWS(EMC_VOLT_LIST_KIP)]]) : null)
       kl.push('')
     }
 
@@ -2697,17 +2845,22 @@ if (kipRows.length) {
       note([...cur, sys, kipIs(off, '000000')], [INI], EBAMATIC.map(hasFile))
       note([...cur, sys, kipIs(off, '000000', true), kipIs(12352, '000000')], [INI], EBAMATIC.map(hasFile))
 
-      // 1600 (state E): operator's rule, only with sMeh 8 E-Boost = 02 and a pinned eBAL.
-      // list: 0 = [1600CL..], 1 = the S section (old format keeps e keys there), 2 = eBAL.
+      // State E: operator's rule, only with sMeh 8 E-Boost = 02 and a pinned eBAL.
+      // THE BASE CLOCK IS NOT ALWAYS 1600. Optimized Target (CUST 12524, sMeh[16]) gives 1600
+      // at 01 and 1331 at 00, and the profile is named after that number -- a literal 1600 read
+      // a profile the firmware never writes on a console left at 00. EMC_E_SECTION is the same
+      // recipe the menu items use to write eVDQ/eVD2.
+      // list: 0 = base MHz, 1 = its section, 2 = the S section (old format keeps e keys there),
+      // 3 = eBAL.
       const eConds = [...cur, sys, kipIs(12492, '02'), kipIs(12352, '000000', true)]
-      const eSrc = [`hex_file '${KIP}'`, INI, `list '[1600CL${CL},${MHZ(off)}CL${CL},${EBAL}]'`]
+      const eSrc = [`hex_file '${KIP}'`, INI, `list '[${EMC_E_BASE},${EMC_E_SECTION},${MHZ(off)}CL${CL},${EBAL}]'`]
       gap(eConds, '{ini_file(0)}')
-      // A second list line reads the first one: 3 = any e key in [1600CL..] or null.
-      header(eConds, [...eSrc, `list '[${L(0)},${L(1)},${L(2)},${anyKey(L(0), 'e')}]'`], '1600 MHz',
-             hasFile(`eBAL ${L(2)}{if_==(${L(3)},null,{if_null(${anyKey(L(1), 'e')}, · not saved, · old format)},)}`))
+      // A second list line reads the first one: 4 = any e key in the E section or null.
+      header(eConds, [...eSrc, `list '[${L(0)},${L(1)},${L(2)},${L(3)},${anyKey(L(1), 'e')}]'`], `${L(0)} MHz`,
+             hasFile(`eBAL ${L(3)}{if_==(${L(4)},null,{if_null(${anyKey(L(2), 'e')}, · not saved, · old format)},)}`))
       info(eConds, eSrc, TIMINGS.map(t => {
-        const v = `{if_null(${ini(L(0), 'e' + t)},{if_null(${ini(L(1), 'e' + t)},Auto)})}`
-        const mc = `{if_null(${ini(L(0), 'ae' + t)},${ini(L(1), 'ae' + t)})}`
+        const v = `{if_null(${ini(L(1), 'e' + t)},{if_null(${ini(L(2), 'e' + t)},Auto)})}`
+        const mc = `{if_null(${ini(L(1), 'ae' + t)},${ini(L(2), 'ae' + t)})}`
         return `'${t}' = '${hasFile(cell(v, mc))}'`
       }))
 
@@ -2731,26 +2884,29 @@ if (kipRows.length) {
       const hex = i => `{if_null(${L(i)},000000,${L(i)})}`
       const dec = i => `{hex_to_decimal({hex_to_rhex(${hex(i)})})}`
       const keep = n => Array.from({ length: n }, (_, i) => L(i)).join(',')
-      // 1600 applies with E-Boost 02, a pinned eBAL and a readable state (Current: eConds).
-      const eOn = `{if_==(${L(5)},02,{if_==(${L(2)},0,null,{if_==(${L(0)},ok,y,{if_==(${L(0)},eb,y,null)})})},null)}`
+      // State E applies with E-Boost 02, a pinned eBAL, a readable state (Current: eConds) and a
+      // known Optimized Target: without Fields 12524 the base clock cannot be named, and a profile
+      // cannot be addressed by a number nobody recorded, so the whole block stays away.
+      const eOn = `{if_null(${L(7)},null,{if_==(${L(5)},02,{if_==(${L(2)},0,null,{if_==(${L(0)},ok,y,{if_==(${L(0)},eb,y,null)})})},null)})}`
       const src = [
         `ini_file './config.ini'`, `ini_file '{ini_file(Restore,Path)}'`,
-        `list '[{ini_file(Meta,revision)},{ini_file(Fields,${off})},{ini_file(Fields,12352)},{ini_file(Fields,12492)}]'`,
-        // 0 nc (no backup) | nr (no clock or eBAL) | ok, 1 kHz, 2 eBAL, 3 E-Boost
-        `list '[{if_null(${L(0)},nc,{if_null(${L(1)},nr,{if_null(${L(2)},nr,ok)})})},${dec(1)},${dec(2)},${L(3)}]'`,
+        `list '[{ini_file(Meta,revision)},{ini_file(Fields,${off})},{ini_file(Fields,12352)},{ini_file(Fields,12492)},{ini_file(Fields,12524)}]'`,
+        // 0 nc (no backup) | nr (no clock or eBAL) | ok, 1 kHz, 2 eBAL, 3 E-Boost, 4 Optimized Target
+        `list '[{if_null(${L(0)},nc,{if_null(${L(1)},nr,{if_null(${L(2)},nr,ok)})})},${dec(1)},${dec(2)},${L(3)},${L(4)}]'`,
         INI,
-        // 0 state, adds nf (no Magician file) and eb (eBAMATIC clock or eBAL), 1 MHz, 2 eBAL, 3 CL, 4 E-Boost
+        // 0 state, adds nf (no Magician file) and eb (eBAMATIC clock or eBAL), 1 MHz, 2 eBAL, 3 CL,
+        // 4 E-Boost, 5 E base clock: Optimized Target 01 -> 1600, 00 -> 1331, absent -> null
         `list '[{if_==(${L(0)},ok,{if_null({ini_file(0)},nf,{if_==(${L(1)},0,eb,{if_==(${L(2)},0,eb,ok)})})},${L(0)})},`
-          + `{math(${L(1)}/1000,true)},${L(2)},{math(${L(2)}*2+8,true)},${L(3)}]'`,
-        // 3 S section, 4 1600 section, 5 E-Boost, 6 any s key; one key scan per line (check 48)
-        `list '[${keep(3)},${L(1)}CL${L(3)},1600CL${L(3)},${L(4)},${anyKey(`${L(1)}CL${L(3)}`, 's')}]'`,
-        `list '[${keep(7)},${anyKey(L(4), 'e')}]'`,
-        `list '[${keep(8)},${anyKey(L(3), 'e')}]'`,
-        // 0 state, 1 MHz, 2 eBAL, 3 S section, 4 1600 section, 5 S shown, 6 S missing,
-        // 7 1600 shown, 8 1600 missing, 9 any e key in the 1600 section
-        `list '[${keep(5)},{if_==(${L(0)},ok,{if_null(${L(6)},null,y)},null)},{if_==(${L(0)},ok,{if_null(${L(6)},y,null)},null)},`
-          + `{if_==(${eOn},y,{if_null(${L(7)},{if_null(${L(8)},null,y)},y)},null)},`
-          + `{if_==(${eOn},y,{if_null(${L(7)},{if_null(${L(8)},y,null)},null)},null)},${L(7)}]'`,
+          + `{math(${L(1)}/1000,true)},${L(2)},{math(${L(2)}*2+8,true)},${L(3)},{if_null(${L(4)},null,{if_==(${L(4)},01,1600,1331)})}]'`,
+        // 3 S section, 4 E section, 5 E-Boost, 6 any s key, 7 E base; one key scan per line (check 48)
+        `list '[${keep(3)},${L(1)}CL${L(3)},${L(5)}CL${L(3)},${L(4)},${anyKey(`${L(1)}CL${L(3)}`, 's')},${L(5)}]'`,
+        `list '[${keep(8)},${anyKey(L(4), 'e')}]'`,
+        `list '[${keep(9)},${anyKey(L(3), 'e')}]'`,
+        // 0 state, 1 MHz, 2 eBAL, 3 S section, 4 E section, 5 E base, 6 S shown, 7 S missing,
+        // 8 E shown, 9 E missing, 10 any e key in the E section
+        `list '[${keep(5)},${L(7)},{if_==(${L(0)},ok,{if_null(${L(6)},null,y)},null)},{if_==(${L(0)},ok,{if_null(${L(6)},y,null)},null)},`
+          + `{if_==(${eOn},y,{if_null(${L(8)},{if_null(${L(9)},null,y)},y)},null)},`
+          + `{if_==(${eOn},y,{if_null(${L(8)},{if_null(${L(9)},y,null)},null)},null)},${L(8)}]'`,
       ]
       const when = (i, rows) => rows.map(bare).map(r => `{if_null(${L(i)},null,${r})}`)
       const state = (s, rows) => rows.map(bare).map(r => `{if_==(${L(0)},${s},${r},null)}`)
@@ -2763,23 +2919,24 @@ if (kipRows.length) {
         ...state('eb', EBAMATIC),
       ])
 
-      // 1600 (state E): 1600 section first, old-format e keys from the S section second.
-      gap(cur, `{if_null(${L(7)},${L(8)},y)}`, src)
-      header(cur, src, '1600 MHz', `{if_null(${L(7)},null,eBAL ${L(2)}{if_null(${L(9)}, · old format,)})}`)
+      // State E: its own section first, old-format e keys from the S section second. The heading
+      // prints the base clock the backup's Optimized Target names, not a hard-coded 1600.
+      gap(cur, `{if_null(${L(8)},${L(9)},y)}`, src)
+      header(cur, src, `${L(5)} MHz`, `{if_null(${L(8)},null,eBAL ${L(2)}{if_null(${L(10)}, · old format,)})}`)
       info(cur, src, TIMINGS.map(t => {
         const v = `{if_null(${ini(L(4), 'e' + t)},{if_null(${ini(L(3), 'e' + t)},Auto)})}`
         const mc = `{if_null(${ini(L(4), 'ae' + t)},${ini(L(3), 'ae' + t)})}`
-        return `'${t}' = '{if_null(${L(7)},null,${cell(v, mc)})}'`
+        return `'${t}' = '{if_null(${L(8)},null,${cell(v, mc)})}'`
       }))
       // Two fixed rows: wrap() would count the placeholder, not the number, and split "MHz".
-      note(cur, src, when(8, ['No Magician timings saved for', `1600 MHz eBAL ${L(2)}.`]))
+      note(cur, src, when(9, ['No Magician timings saved for', `${L(5)} MHz eBAL ${L(2)}.`]))
 
       // State S
-      gap(cur, `{if_null(${L(5)},${L(6)},y)}`, src)
-      header(cur, src, `${L(1)} MHz`, `{if_null(${L(5)},null,eBAL ${L(2)})}`)
+      gap(cur, `{if_null(${L(6)},${L(7)},y)}`, src)
+      header(cur, src, `${L(1)} MHz`, `{if_null(${L(6)},null,eBAL ${L(2)})}`)
       info(cur, src, TIMINGS.map(t =>
-        `'${t}' = '{if_null(${L(5)},null,${cell(`{if_null(${ini(L(3), 's' + t)},Auto)}`, ini(L(3), 'as' + t))})}'`))
-      note(cur, src, when(6, ['No Magician timings saved for', `${L(1)} MHz eBAL ${L(2)}.`]))
+        `'${t}' = '{if_null(${L(6)},null,${cell(`{if_null(${ini(L(3), 's' + t)},Auto)}`, ini(L(3), 'as' + t))})}'`))
+      note(cur, src, when(7, ['No Magician timings saved for', `${L(1)} MHz eBAL ${L(2)}.`]))
     }
 
     // ---- view "all saved profiles", natural order of section names, SLOTS per page
@@ -3245,6 +3402,14 @@ if (kipRows.length) {
         // снятый когда угодно и где угодно, а speedo и модель памяти читаются здесь и сейчас.
         const ctx = rev ? '' : (g.ctx ?? '')
 
+        // THE TWO MAGICIAN VOLTAGES ARE ON BOTH PREVIEWS, BUT THEY ANSWER DIFFERENT QUESTIONS.
+        // The backup preview shows what stands in THIS console's emc_timings.ini under the
+        // backup's profile, and carries the same caveat the timings do — the file is this
+        // console's, the clock and eBAL are the backup's. The factory-reset page answers "what
+        // will be written", and since 20.09.2026 the reset writes both keys back to eBAMATIC,
+        // so it prints that word flat: the current value would be a different question.
+        const optHere = g.name === OPT_GROUP && !!rev
+        const optReset = g.name === OPT_GROUP && factory
         for (const t of tables) {
           // The manual GPU table of a Mariko backup is one of the mode variants (see gpuVariants).
           const gate = gpuGated(g.name) ? gpuGate('03') : null
@@ -3256,7 +3421,8 @@ if (kipRows.length) {
           out.push('[Gap]', ';mode=table', ';background=false', ...t.sys, `;gap=${HEAD_GAP}`, '')
           out.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ...t.sys,
                   `'${safeName(g.name)}' = '${ctx}'`, '')
-          out.push('[Info]', ';mode=table', ...(pollHere ? poll : []), ';spacing=0', ';gap=0', ...t.sys, ...source)
+          out.push('[Info]', ';mode=table', ...(pollHere ? poll : []), ';spacing=0', ';gap=0',
+                   ...(optHere ? [';skip_null=true'] : []), ...t.sys, ...source)
           }
           // ОБЪЯВЛЕНИЕ СЛОВАРЯ — ОДНО НА ТАБЛИЦУ, А НЕ НА СТРОКУ, и это не косметика.
           // В нашем форке движка разобранный json кэшируется на время сборки ОДНОЙ таблицы
@@ -3303,9 +3469,21 @@ if (kipRows.length) {
             const mapPath = probeInSrc || !r.flatMap ? r.map : r.flatMap
             if (mapPath !== lastMap) { sink.push(`json_file '${mapPath}'`); lastMap = mapPath }
             sink.push(`'${safeName(label)}' = '{json_file(0,${key})}'`)
+            // The two voltage rows sit right after Optimized Target, and they read a DIFFERENT
+            // ini file — so the binding has to go back to the backup for the rows below them.
+            if (optHere && r.offset === 12524) sink.push(...EMC_VOLT_ROWS(EMC_VOLT_LIST_COPY, source))
+            else if (optReset && r.offset === 12524) sink.push(...EMC_RESET_ROWS)
           }
           if (gate) out.push(...gpuTable(gate, g.name, [], body))
           else out.push('')
+        }
+        // The block mixes two sources, so it says so. Everything else in it is the backup's;
+        // the two voltages are keys of THIS console's emc_timings.ini, which a backup does not
+        // carry. Gated by the same list, so the line leaves with the rows it explains.
+        if (optHere) {
+          out.push('[Note]', ';mode=table', ';background=false', ';alignment=left', ';offset=10',
+                   ';spacing=4', ';gap=0', ';skip_null=true', ...source, ...EMC_VOLT_LIST_COPY,
+                   `''='{if_null({list(0)},null,{if_==({list(1)},0,null,VDDQ/VDD2: this console - not the backup)})}'`, '')
         }
       }
 
@@ -3642,6 +3820,8 @@ if (kipRows.length) {
     const applyFor = rev => [
       `[${resetHead(rev)}]`, ';hold=true', `;system=${rev}`,
       ...src,
+      // eVDQ/eVD2 back to eBAMATIC, BEFORE the kip loses the eBAL this profile is named after.
+      ...EMC_RESET_WRITES(KIP),
       /**
        * СБРОС ФИЛЬТРУЕТСЯ ПО РЕВИЗИИ — И У ЭТОГО ЕСТЬ ОДНО ИСКЛЮЧЕНИЕ.
        *

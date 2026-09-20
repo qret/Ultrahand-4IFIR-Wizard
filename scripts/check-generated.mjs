@@ -431,7 +431,7 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       name: 'страница Magician копии Erista читает частоту Mariko',
       file: join(DIST, 'service', 'restore-erista.ini'),
       hurt: s => { const at = s.indexOf('[@Magician]'); return at < 0 ? s : s.slice(0, at) + s.slice(at).split('{ini_file(Fields,24)}').join('{ini_file(Fields,32)}') },
-      expect: /страница Magician сломана — Backup manager Erista[^]*читает Fields 32,12352,12492 вместо 24,12352,12492/,
+      expect: /страница Magician сломана — Backup manager Erista[^]*читает Fields 32,12352,12492,12524 вместо 24,12352,12492,12524/,
     },
     {
       // Check 62, revision offset: E-Boost read from a wrong offset on the Mariko backup page.
@@ -558,6 +558,229 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       file: join(DIST, 'service', 'restore-mariko.ini'),
       hurt: s => s.replace("\n'{if_null({list(0)},null,)}'=''\n;gap=6\n\n[Header]", "\n''=''\n;gap=6\n\n[Header]"),
       expect: /Fields 44 = 000000: строка «» секции \[Gap\] без затвора из копии/,
+    },
+    {
+      // Check 62, Optimized Target: the E block goes back to a hard-coded 1600 profile, which on
+      // a console left at Target 0 is a profile the firmware never writes.
+      name: 'блок E на Current собран литералом 1600CL',
+      file: join(DIST, 'current.ini'),
+      hurt: s => s.split('{if_==({hex_file(CUST,12524,1)},01,1600,1331)}CL').join('1600CL'),
+      expect: /Current, current\.ini: секция блока E собрана литералом 1600/,
+    },
+    {
+      // Check 62, Optimized Target: the same on the backup page, where the target comes from the copy.
+      name: 'блок E на странице копии собран литералом 1600CL',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.split('{list(5)}CL{list(3)}').join('1600CL{list(3)}'),
+      expect: /Backup manager Mariko, service\/restore-mariko\.ini: секция блока E собрана литералом 1600/,
+    },
+    {
+      // Check 62: a voltage row comes back into the timings table, where the operator said it
+      // does not belong — and where `Auto` and `eBAMATIC` would then sit side by side.
+      name: 'строка VDDQ вернулась в таблицу таймингов Magician',
+      file: join(DIST, 'current.ini'),
+      hurt: s => { const at = s.indexOf('[@Magician]'); const j = s.indexOf("\n'RP' = '", at); return at < 0 || j < 0 ? s : s.slice(0, j) + "\n'VDDQ' = 'x'" + s.slice(j) },
+      expect: /Current, current\.ini: в таблице таймингов стоит строка «VDDQ»/,
+    },
+    {
+      // Check 66: the Optimized block loses a voltage row, and the value can be set but not seen.
+      name: 'из блока Optimized Mode пропала строка VDD2',
+      file: join(DIST, 'current.ini'),
+      hurt: s => s.split('\n').filter(l => !l.startsWith("'VDD2' = '")).join('\n'),
+      expect: /current\.ini: блок Optimized Mode идёт «[^»]*» вместо «Optimized Target · VDDQ · VDD2/,
+    },
+    {
+      // Check 66: the order the operator set is permuted — the two voltages slide to the end.
+      name: 'порядок строк блока Optimized Mode переставлен',
+      file: join(DIST, 'current.ini'),
+      hurt: s => {
+        const ls = s.split('\n')
+        const i = ls.findIndex(l => l.startsWith("'VDDQ' = '"))
+        const j = ls.findIndex(l => l.startsWith("'Efficiency Stages' = '"))
+        if (i < 0 || j < 0 || j < i) return s
+        const moved = ls.splice(i, 2)
+        ls.splice(ls.findIndex(l => l.startsWith("'Efficiency Stages' = '")) + 1, 0, ...moved)
+        return ls.join('\n')
+      },
+      expect: /current\.ini: блок Optimized Mode идёт «Optimized Target · VDDQ-VDD2 Voltage/,
+    },
+    {
+      // Check 66: the block names a zero `Auto` while the menu item calls it eBAMATIC — one
+      // value, two names on two screens (operator's decision 20.09.2026).
+      name: 'строка VDD2 блока Optimized Mode зовёт ноль Auto',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.split('\n').map(l => l.startsWith("'VDD2' = '") ? l.split('eBAMATIC').join('Auto') : l).join('\n'),
+      expect: /restore-erista\.ini: строка «VDD2» не зовёт ноль eBAMATIC/,
+    },
+    {
+      // Check 66: the block addresses a literal profile again — wrong on a console at Target 0.
+      name: 'блок Optimized Mode копии собран литералом 1600CL',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.split('{list(0)}CL{math({list(1)}*2+8,true)}').join('1600CL12'),
+      expect: /restore-mariko\.ini: имя профиля в блоке Optimized Mode несёт литерал частоты/,
+    },
+    {
+      // Check 66: the backup page loses the line that says the two voltages are this console's.
+      name: 'у блока Optimized Mode копии пропала оговорка про эту консоль',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.split('VDDQ/VDD2: this console - not the backup').join('VDDQ and VDD2'),
+      expect: /restore-mariko\.ini: у блока Optimized Mode нет оговорки/,
+    },
+    {
+      // Check 21: the copy page loses the rebind back to the backup after the VDD2 row, and the
+      // two rows below it ask emc_timings.ini for [Fields]. Reproduced 20.09.2026 — the whole
+      // gate stayed green on it before check 21 started tracking the binding itself.
+      name: 'блок Optimized Mode копии не вернул привязку к копии после VDD2',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => {
+        const i = s.indexOf("'VDD2' = '{if_null({list(0)}")
+        if (i < 0) return s
+        const eol = s.indexOf('\n', i) + 1
+        const drop = "ini_file './config.ini'\nini_file '{ini_file(Restore,Path)}'\n"
+        return s.slice(eol, eol + drop.length) === drop ? s.slice(0, eol) + s.slice(eol + drop.length) : s
+      },
+      expect: /«'VDDQ-VDD2 Voltage'[^»]*» спрашивает \[Fields\], а привязка на этой строке — к \/config\/4IFIR\/emc_timings\.ini/,
+    },
+    {
+      // Check 21: the same block binds emc_timings.ini one line too early, and `Optimized Target`
+      // — with both `list` lines that name the profile — reads [Fields] out of the wrong file.
+      // The caveat below keeps standing, so the screen contradicts itself. Reproduced 20.09.2026.
+      name: 'привязка к emc_timings.ini поднята выше Optimized Target',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => {
+        const tim = "ini_file '/config/4IFIR/emc_timings.ini'\n"
+        const tgt = "'Optimized Target' = '{json_file(0,{ini_file(Fields,12524)})}'"
+        const at = s.indexOf("'Optimized Mode (1600 MHz)' = ''")
+        const i = at < 0 ? -1 : s.indexOf(tim, at)
+        if (i < 0) return s
+        const cut = s.slice(0, i) + s.slice(i + tim.length)
+        const j = cut.indexOf(tgt, at)
+        return j < 0 ? s : cut.slice(0, j) + tim + cut.slice(j)
+      },
+      expect: /«'Optimized Target'[^»]*» спрашивает \[Fields\], а привязка на этой строке — к \/config\/4IFIR\/emc_timings\.ini/,
+    },
+    {
+      // Check 66: the rows go and the caveat explaining them stays — the screen says the
+      // voltages are this console's while showing none.
+      name: 'оговорка блока Optimized Mode осталась без строк напряжений',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.split('\n').filter(l => !/^'VDDQ' = '\{if_null/.test(l) && !/^'VDD2' = '\{if_null/.test(l)).join('\n'),
+      expect: /restore-erista\.ini: оговорка «VDDQ\/VDD2: this console - not the backup» стоит без строк напряжений/,
+    },
+    {
+      // Check 66: the factory-reset page loses the two rows, so the screen stops naming half of
+      // what the button will write (operator's decision reversed 20.09.2026).
+      name: 'со страницы сброса пропали строки напряжений',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.split('\n').filter(l => l !== "'VDDQ' = 'eBAMATIC'" && l !== "'VDD2' = 'eBAMATIC'").join('\n'),
+      expect: /reset\.ini: блок Optimized Mode идёт «[^»]*» вместо «Optimized Target · VDDQ · VDD2/,
+    },
+    {
+      // Check 66: the reset page starts reading the live file instead of naming what it writes —
+      // the screen answers a different question than the button.
+      name: 'страница сброса показывает нынешнее напряжение вместо eBAMATIC',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.split("'VDDQ' = 'eBAMATIC'").join("'VDDQ' = '{ini_file(1600CL12,eVDQ)} mV'"),
+      expect: /reset\.ini: строка «VDDQ» на странице сброса это «[^»]*» — она обязана печатать ровно eBAMATIC/,
+    },
+    {
+      // Check 66: the reset stops putting the keys back, and the page keeps promising it does.
+      name: 'сброс перестал возвращать напряжения в eBAMATIC',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.split('\n').filter(l => !/^set-ini-val '\/config\/4IFIR\/emc_timings\.ini'.* eVDQ '0'$/.test(l)).join('\n'),
+      expect: /«Apply factory defaults[^»]*»: сброс не возвращает eVDQ в eBAMATIC/,
+    },
+    {
+      // Check 66: the zero write slides below the kip writes. By then eBAL is 000000, the profile
+      // name degrades to CL8 and the zero lands in a section the firmware never reads. Nothing
+      // on the screen changes, and the kip is written correctly — the defect is invisible.
+      name: 'запись нулей сброса стоит после правки eBAL',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => {
+        const ls = s.split('\n')
+        const i = ls.findIndex(l => /^set-ini-val '\/config\/4IFIR\/emc_timings\.ini'.* eVD2 '0'$/.test(l))
+        const j = ls.findIndex(l => l.startsWith("set-footer 'restored'"))
+        if (i < 0 || j < 0) return s
+        const [moved] = ls.splice(i, 1)
+        ls.splice(ls.findIndex(l => l.startsWith("set-footer 'restored'")), 0, moved)
+        return ls.join('\n')
+      },
+      expect: /«Apply factory defaults[^»]*»: запись eVD2 стоит ПОСЛЕ правки kip/,
+    },
+    {
+      // Check 66: the gate goes, and a console already on eBAMATIC eBAL gets a junk `<base>CL8`
+      // section written into a file we do not own.
+      name: 'запись нулей сброса перестала быть под затвором eBAL',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.split('\n').filter(l => l !== '!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000').join('\n'),
+      expect: /«Apply factory defaults[^»]*»: запись нулей не закрыта затвором/,
+    },
+    {
+      // Check 66: force_failure goes, and the SECOND `try:` meets a successful branch — the
+      // engine drops every remaining command (fork, `interpretAndExecuteCommands`). The reset
+      // would then write the two zeros and nothing else, silently, on every console whose eBAL
+      // is set by hand: the button reports success and the kip is untouched.
+      name: 'после записи нулей сброса пропал force_failure',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.split('\n').filter((l, i, a) => l !== 'force_failure' || i !== a.indexOf('force_failure')).join('\n'),
+      expect: /«Apply factory defaults[^»]*»: после записи нулей нет force_failure/,
+    },
+    {
+      // Check 66, вторая половина той же конструкции: `force_failure` на месте, а второй
+      // `try:` убран. Флаг отказа поднять некому, и движок молча пропускает весь хвост
+      // секции (форк, `source/utils.hpp:4377`) — сброс запишет два нуля и не тронет kip.
+      // До 20.09.2026 эта порча проходила гейт зелёным: требовался только `force_failure`.
+      name: 'после force_failure пропал второй try:',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.split('force_failure\ntry:\n').join('force_failure\n'),
+      expect: /«Apply factory defaults[^»]*»: после force_failure нет второго «try:»/,
+    },
+    {
+      // Check 66: лишний `try:` встречает уже удавшуюся ветвь, и движок обрывает секцию
+      // целиком (`commands = {}; return true`, форк `source/utils.hpp:4344`). На экране —
+      // тот же отчёт об успехе, в kip — ничего.
+      name: 'в секции сброса появился третий try:',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.split('force_failure\ntry:\n').join('force_failure\ntry:\ntry:\n'),
+      expect: /«Apply factory defaults[^»]*»: «try:» в секции 3/,
+    },
+    {
+      // Check 66: the label promises one voltage and the item writes another — the very class
+      // check 19 catches for kip items, which cannot see an ini write.
+      name: 'подпись напряжения Magician обещает не то, что запишет',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'json', 'emc_evdq.json'),
+      hurt: s => s.split('"mv": "650"').join('"mv": "655"'),
+      expect: /строка «650 mV» запишет 655/,
+    },
+    {
+      // Check 66: the item writes into a hard-coded profile instead of the one the kip names.
+      name: 'пункт напряжения Magician пишет в литеральный профиль',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => s.split('{if_==({hex_file(CUST,12524,1)},01,1600,1331)}CL{math({hex_to_decimal({hex_to_rhex({hex_file(CUST,12352,3)})})}*2+8,true)}').join('1600CL12'),
+      expect: /имя профиля несёт литерал/,
+    },
+    {
+      // Check 66: the way back to automatic stops writing a zero, so it stops being a way back.
+      name: 'пункт eBAMATIC перестал писать ноль',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'json', 'emc_evd2.json'),
+      hurt: s => s.split('"mv": "0"').join('"mv": "5"'),
+      expect: /возврат в автоматику это eBAMATIC = 0/,
+    },
+    {
+      // Check 66: the footer written on entry names the zero differently from the list, and the
+      // open list loses its checkmark — check 53 cannot see it, there is no .map.json here.
+      name: 'подпись напряжения Magician зовёт ноль Auto, а список eBAMATIC',
+      file: join(DIST, 'advanced', 'ram', 'package.ini'),
+      hurt: s => s.split('\n').map(l => l.includes("'*VDDQ' footer") ? l.split('eBAMATIC').join('Auto') : l).join('\n'),
+      expect: /подпись не зовёт ноль eBAMATIC/,
+    },
+    {
+      // Check 66: the item stays visible on eBAMATIC eBAL, where the profile name cannot be built
+      // at all — the write would go into a section no Magician ever reads.
+      name: 'пункт напряжения Magician виден при eBAL = eBAMATIC',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => s.split('\n').filter(l => l.trim() !== ';visibility_condition=!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000').join('\n'),
+      expect: /виден при eBAL = eBAMATIC/,
     },
   ]
   let failed = 0, skipped = 0
@@ -1555,30 +1778,94 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // Дефект не даёт ни ошибки, ни пустоты — он даёт правдоподобное «недоступно», которое
 // читается как свойство копии, а не как поломка экрана. Поймать его можно только так:
 // после перепривязки ни одна строка не смеет спрашивать секции, живущие в `config.ini`.
+//
+// РАСШИРЕНО 20.09.2026 — ПРИВЯЗКА ВЕДЁТСЯ ПОЛНОСТЬЮ, А НЕ ОДНИМ ФЛАГОМ «была перепривязка».
+// Первая редакция знала ровно одно направление (config.ini → файл копии) и ровно один
+// набор секций. Блок `Optimized Mode` на второй странице сделал направлений три: одна
+// таблица по очереди привязана к `./config.ini`, к выбранной копии и к
+// `/config/4IFIR/emc_timings.ini`, и каждая строка читается под той привязкой, которая
+// объявлена ВЫШЕ неё. Две однострочные порчи проходили весь гейт молча:
+//   * убрать возврат привязки к копии после строки `VDD2` — `VDDQ-VDD2 Voltage`
+//     и `Efficiency Stages` спрашивают [Fields] у `emc_timings.ini`;
+//   * поднять `ini_file '…/emc_timings.ini'` выше `Optimized Target` — ту же [Fields]
+//     спрашивает уже он сам, и с ним обе строки `list`, из которых собрано имя профиля.
+// Класс тот же, что у `File` в 2026-08: секции в привязанном файле нет, движок отдаёт
+// `null`. Поэтому расширяется ЭТА проверка, а не заводится своя в №66.
+//
+// Модель ровно та, что у движка (`getSourceReplacement`, `buildTableDrawerLines` в
+// `source/utils.hpp` форка): `ini_file`/`hex_file`/`json_file`/`list` — независимые
+// последовательные объявления, каждое действует до следующего и не переживает границу
+// секции. Файлов три класса, и состав секций у каждого известен:
+//   `cfg`  — литерал с именем `config.ini`: наши [Restore]/[Backup]/[Import];
+//   `data` — копия (`{ini_file(Restore,Path)}`) или `Default.ini`: [Fields]/[Meta];
+//   `emc`  — `/config/4IFIR/emc_timings.ini`: только профили `<МГц>CL<n>`, ни тех, ни этих.
+// Читаются под привязкой не только строки таблицы, но и аргументы `list` — движок
+// разрешает подстановки в аргументе ДО того, как присвоит источник.
 {
   const OWN_SECTIONS = ['Restore', 'Backup', 'Import']   // секции нашего config.ini
+  const DATA_SECTIONS = ['Fields', 'Meta']               // секции копии и Default.ini
+  const EMC21 = '/config/4IFIR/emc_timings.ini'
   const strays = []
+  const mixed = []
+  let tables21 = 0, reads21 = 0
+  // `ini_file '<arg>'` → класс файла, или null, если судить не о чем (чужой ini, wildcard).
+  const classOf21 = arg => {
+    if (arg === EMC21) return 'emc'
+    if (arg.includes('{ini_file(Restore,Path)}')) return 'data'
+    if (arg.includes('{')) return null                      // иная подстановка — файл неизвестен
+    const base = arg.split('/').pop()
+    if (base === 'config.ini') return 'cfg'
+    if (base === 'Default.ini') return 'data'
+    return null
+  }
+  const SAY21 = { cfg: 'нашему config.ini', data: 'файлу данных (копия / Default.ini)', emc: EMC21 }
   for (const f of iniFiles) {
     let rebound = false
+    let bind = null, bindArg = '', isTable = false, secName = ''
     for (const raw of readFileSync(f, 'utf8').split('\n')) {
       const line = raw.trim()
-      if (line.startsWith('[')) { rebound = false; continue }   // привязка не переживает границу секции
-      // Перепривязка — это `ini_file` с аргументом-подстановкой, а не с литеральным путём.
-      if (/^ini_file\s+'\{/.test(line)) { rebound = true; continue }
-      if (!rebound) continue
+      if (line.startsWith('[')) {                              // привязка не переживает границу секции
+        rebound = false; bind = null; bindArg = ''; isTable = false
+        secName = line
+        continue
+      }
+      if (line === ';mode=table') { isTable = true; tables21++; continue }
+      const decl = line.match(/^ini_file\s+'([^']*)'$/)
+      if (decl) {
+        // Перепривязка — это `ini_file` с аргументом-подстановкой, а не с литеральным путём.
+        if (decl[1].startsWith('{')) rebound = true
+        bind = classOf21(decl[1]); bindArg = decl[1]
+        continue
+      }
       // Только СТРОКИ ТАБЛИЦЫ вида 'подпись' = 'значение'. Команды тоже принимают
       // `{ini_file(Restore,Path)}`, но там это аргумент-путь, а не чтение из привязки:
       // `matching_ini_val {ini_file(Restore,Path)} Meta kipver …` совершенно законно.
-      if (!/^'[^']*'\s*=\s*'/.test(line)) continue
-      for (const sec of OWN_SECTIONS) {
-        if (line.includes(`{ini_file(${sec},`)) {
-          strays.push(`${relative(ROOT, f)}: «${line}» читает [${sec}] уже из чужого файла`)
+      const isRow = /^'[^']*'\s*=\s*'/.test(line) || /^''\s*=\s*'/.test(line)
+      if (rebound && isRow) {
+        for (const sec of OWN_SECTIONS) {
+          if (line.includes(`{ini_file(${sec},`)) {
+            strays.push(`${relative(ROOT, f)}: «${line}» читает [${sec}] уже из чужого файла`)
+          }
         }
+      }
+      // Вторая половина: под КАКОЙ файл попала строка. Только таблицы — там движок
+      // не выполняет команд, и порядок строк равен порядку чтения.
+      if (!isTable || !bind) continue
+      const isList = /^list\s+'/.test(line)
+      if (!isRow && !isList) continue
+      const asked = [...line.matchAll(/\{ini_file\(([A-Za-z][^,{}]*),/g)].map(m => m[1])
+      if (!asked.length) continue
+      reads21++
+      for (const sec of new Set(asked)) {
+        const home = OWN_SECTIONS.includes(sec) ? 'cfg' : (DATA_SECTIONS.includes(sec) ? 'data' : null)
+        if (!home || home === bind) continue
+        const short = line.length > 90 ? line.slice(0, 90) + '…' : line
+        mixed.push(`${relative(ROOT, f)} ${secName}: «${short}» спрашивает [${sec}], а привязка на этой строке — к ${SAY21[bind]} (${bindArg})`)
       }
     }
   }
-  if (strays.length) problems.push({ sev: 'CRITICAL', what: `строка таблицы спрашивает секцию, которой в привязанном файле нет — на экране будет «Not available»: ${strays.join('; ')}` })
-  else ok.push(`no table row reads a config.ini section after the binding moved to a data file (${iniFiles.length} files)`)
+  if (strays.length || mixed.length) problems.push({ sev: 'CRITICAL', what: `строка таблицы спрашивает секцию, которой в привязанном файле нет — на экране будет «Not available» или пусто (${strays.length + mixed.length}):\n     ${[...strays, ...mixed].slice(0, 8).join('\n     ')}` })
+  else ok.push(`every table row and list argument is read under a binding whose file carries the section it asks for (${iniFiles.length} files, ${tables21} tables, ${reads21} named-section reads)`)
 }
 
 // ------------------------------------------- 22. GPU Min Voltage предлагает только ступени
@@ -4409,6 +4696,12 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // Revision offset (14.09.2026): the RAM clock is CUST 32 on Mariko and CUST 24 on Erista, eBAL
 // and E-Boost are 12352 and 12492 on both. Current picks the revision by ;system=, a backup
 // page by its file name; each current-view table reads its own clock offset and nothing else.
+// Optimized Target (20.09.2026): the E-state profile is named after the base clock the kip
+// picks - 1600 with CUST 12524 = 01, 1331 with 00 - so the page must build that name from the
+// field and never from a literal 1600. The menu items eVDQ/eVD2 write by the same name, so a
+// literal here would also mean writing into a profile the firmware never reads. The timings
+// table itself holds twelve timings and nothing else: the two Magician voltages belong to the
+// Optimized Mode block on page 2, not here (operator, 20.09.2026; guarded by check 66).
 // Button hint: each view carries a row with the A and Y glyphs (U+E0E0, U+E0E3); `A MC` is gone.
 // Backup binding: every current-view table that reads anything binds config.ini, then the
 // chosen backup (Fields/Meta read only there), then emc_timings.ini (timings only after it).
@@ -4417,11 +4710,12 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   const CUR62 = ';visibility_condition=!page_flag view'
   const ALL62 = ';visibility_condition=page_flag view'
   const FREQ62 = { mariko: 32, erista: 24 }
-  const SHARED62 = [12352, 12492]
+  const SHARED62 = [12352, 12492, 12524]
   const LABEL62 = { 'current.ini': 'Current', 'service/restore-mariko.ini': 'Backup manager Mariko', 'service/restore-erista.ini': 'Backup manager Erista' }
   const CFG62 = "ini_file './config.ini'"
   const BIND62 = "ini_file '{ini_file(Restore,Path)}'"
   const TIM62 = "ini_file '/config/4IFIR/emc_timings.ini'"
+  const SPLIT_NL = new RegExp('\r?\n')
   const said62 = []
   const bad = []
   const broken62 = new Set()
@@ -4452,6 +4746,16 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
     else if (paged62 !== reads62) bad.push(`${reads62 - paged62} из ${reads62} чтений {ini_file_sorted} идут мимо {page_view_first} — Y покажет одни и те же профили на каждой странице`)
     if (perPage62 && (slots62.size !== perPage62 || [...slots62].some(k => k >= perPage62))) bad.push(`слоты не покрывают страницу: слотов ${slots62.size}, в маркере по ${perPage62}`)
     if (/Only the first \d+ profiles/.test(body62)) bad.push('осталась сноска «Only the first N profiles» — при листании она лжёт')
+    // The E-state profile name comes from Optimized Target, never from a literal clock.
+    const TGT62 = copy62 ? '{ini_file(Fields,12524)}' : '{hex_file(CUST,12524,1)}'
+    if (/1600CL/.test(body62)) bad.push('секция блока E собрана литералом 1600 — при Optimized Target = 0 база 1331, и тайминги с напряжениями уедут в чужой профиль')
+    if (!body62.includes(TGT62)) bad.push(`блок E не читает Optimized Target (${TGT62}) — базовая частота профиля взята с потолка`)
+    // The two Magician voltages are NOT timings and must not sit in this table: the operator
+    // moved them to the Optimized Mode block on page 2, where check 66 guards them.
+    for (const nm62 of ['VDDQ', 'VDD2']) {
+      if (body62.split(SPLIT_NL).some(l => l.startsWith(`'${nm62}' = '`)))
+        bad.push(`в таблице таймингов стоит строка «${nm62}» — напряжения не тайминги, их место в блоке Optimized Mode на странице 2`)
+    }
     if (!copy62) perCur62 = perPage62
     else {
       if (perPage62 !== perCur62) bad.push(`размер страницы профилей ${perPage62}, а в Current ${perCur62} — Y листает иначе, чем там`)
@@ -4764,6 +5068,272 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   else ok.push(`the short RAM model is one rule: ${heads.length} headings, System Info and ${pass} passports; Meta ram written in full`)
 }
 
+// ---------------- 66. the Magician voltage items write what their label promises, into the right profile
+//
+// eVDQ and eVD2 are the first settings of this package that live OUTSIDE loader.kip: they are
+// keys of /config/4IFIR/emc_timings.ini, written by the 4IFIR system module and read by it under
+// the profile of the current base clock and eBAL. Nothing guarding kip items reaches them —
+// check 19 measures a `hex`, check 24 compares a factory byte, check 53 leans on the `.map.json`
+// these items do not have. So an item could promise 650 mV and write 655, or address a profile
+// the firmware never touches, and every guard would stay green.
+//
+// Five things, and each is a way the item breaks quietly:
+//   1. the profile name is built from Optimized Target (CUST 12524) and eBAL (CUST 12352), never
+//      from a literal — on a console left at Target 0 the base clock is 1331, not 1600;
+//   2. the section declares loader.kip, or the name resolves to `null` and the write lands in a
+//      section nobody reads;
+//   3. the item is hidden while eBAL is eBAMATIC — the profile name cannot be built at all then;
+//   4. every label is the number it writes plus the unit, the row is strictly ascending, and
+//      eBAMATIC stands first writing a zero (operator, 20.09.2026);
+//   5. the footer re-seeded on entry reads the same file, key and profile and names a zero
+//      eBAMATIC. The list and the footer are the two halves of check 53's comparison, and here
+//      they come from two different places in the generator, so they can drift apart.
+//
+// SECOND HALF (20.09.2026): WHERE THE VALUES ARE SHOWN. The operator put them in the
+// `Optimized Mode (1600 MHz)` block of page 2 — "in the timings table this is out of place, it
+// is not a timing" — in this exact order:
+//     Optimized Target · VDDQ · VDD2 · VDDQ-VDD2 Voltage · Efficiency Stages
+// Order is the decision, so it is guarded, not left to the order of the field map. The block
+// exists on four pages and the rule differs on each. Current and both backup previews read the
+// live file under the profile their own source names. On a backup page the block mixes two
+// sources, so it also carries the line that says so — and the line and the rows stand or fall
+// together: a screen that keeps the caveat after the rows are gone contradicts itself.
+//
+// THE FACTORY-RESET PAGE, 20.09.2026 — RULE REVERSED BY THE OPERATOR. It used to be forbidden
+// to print the voltages there, because the reset wrote the kip only. Now the reset puts both
+// keys back to eBAMATIC, so the page prints that word — flat, not read from the file: the page
+// answers "what will be written", and the value standing there now is a different question.
+// The write itself is guarded here too, because it has an order it cannot survive losing: the
+// profile is named after the LIVE eBAL, and the reset sets eBAL to 000000, so the two
+// `set-ini-val` lines must come BEFORE the first `hex-by-custom-offset`. They also must stay
+// behind the `try:` gate — with eBAL already on eBAMATIC the name degrades to `CL8`, a profile
+// the firmware never reads, and the write would litter a file we do not own.
+//
+// WHICH FILE EACH ROW IS READ FROM is guarded by check 21, not here: it tracks the binding
+// through every table in the package and knows which file carries [Fields], [Meta] and our own
+// [Restore]. What it cannot know is the block's own two rules, so they live here: the voltage
+// rows address the profile through `{list(N)}`, a section name no static check can attribute,
+// and they must sit under the emc_timings.ini binding; and on Current the kip rows of the same
+// block must sit under loader.kip, a channel check 21 does not follow at all.
+{
+  const EMC66 = '/config/4IFIR/emc_timings.ini'
+  const KIP66 = '/atmosphere/kips/loader.kip'
+  const WRITE66 = new RegExp("^set-ini-val '" + EMC66 + "' '([^']+)' (\\w+) '\\{json_file_source\\(\\*,(\\w+)\\)\\}'$", 'm')
+  const GATE66 = ';visibility_condition=!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000'
+  const bad = []
+  let items66 = 0, entries66 = 0
+  // Every footer written by name anywhere in the package, so an item can be asked for its own.
+  const footers66 = []
+  for (const f of iniFiles) {
+    for (const l of readFileSync(f, 'utf8').split('\n')) {
+      const m = l.match(/^set-ini-val '[^']*config\.ini' '\*([^']+)' footer '(.+)'$/)
+      if (m) footers66.push({ file: f, name: m[1], expr: m[2] })
+    }
+  }
+  for (const f of iniFiles) {
+    const dir = dirname(f)
+    for (const sec of readFileSync(f, 'utf8').split(/\n(?=\[)/)) {
+      const title = (sec.match(/^\[\*([^\]]+)]/) || [])[1]
+      if (!title || !sec.includes("set-ini-val '" + EMC66 + "'")) continue
+      items66++
+      const w = sec.match(WRITE66)
+      if (!w) { bad.push(`«${title}»: запись в ${EMC66} не той формы — ждали set-ini-val '<файл>' '<профиль>' <ключ> '{json_file_source(*,mv)}'`); continue }
+      const [, profile, key, valKey] = w
+      if (valKey !== 'mv') bad.push(`«${title}»: значение берётся ключом ${valKey}, а список несёт милливольты в mv`)
+      if (!profile.includes('{hex_file(CUST,12524,')) bad.push(`«${title}»: имя профиля не читает Optimized Target (CUST 12524) — при Target 0 база 1331, и значение уедет в профиль 1600`)
+      if (!profile.includes('{hex_file(CUST,12352,')) bad.push(`«${title}»: имя профиля не читает eBAL (CUST 12352) — CL профиля взят с потолка`)
+      if (/\d{3,4}CL\d/.test(profile)) bad.push(`«${title}»: имя профиля несёт литерал «${profile}» — профиль обязан собираться из kip`)
+      if (!sec.split('\n').some(l => l.trim() === "hex_file '/atmosphere/kips/loader.kip'"))
+        bad.push(`«${title}»: имя профиля читает CUST, а hex_file на loader.kip в секции нет — имя разрешится в null`)
+      if (!sec.split('\n').some(l => l.trim() === GATE66))
+        bad.push(`«${title}»: пункт виден при eBAL = eBAMATIC — имя профиля тогда не собрать, а запись всё равно пойдёт`)
+      // the dictionary
+      const src = sec.match(/^json_file_source\s+'([^']+)'\s+name\s*$/m)
+      if (!src) { bad.push(`«${title}»: нет списка значений`); continue }
+      const dictPath = resolve(dir, src[1])
+      if (!existsSync(dictPath)) { bad.push(`«${title}»: словаря ${src[1]} нет`); continue }
+      let list
+      try { list = JSON.parse(readFileSync(dictPath, 'utf8')) } catch { bad.push(`«${title}»: словарь ${src[1]} не читается`); continue }
+      if (!Array.isArray(list) || !list.length) { bad.push(`«${title}»: словарь ${src[1]} пуст`); continue }
+      if (list[0].name !== 'eBAMATIC' || list[0].mv !== '0')
+        bad.push(`«${title}»: первая строка списка «${list[0].name}» = ${list[0].mv}, а возврат в автоматику это eBAMATIC = 0 и стоит он первым`)
+      let prev = null
+      const seen = new Set()
+      for (const e of list.slice(1)) {
+        entries66++
+        const m = String(e.name).match(/^(\d+) mV$/)
+        if (!m) { bad.push(`«${title}»: строка «${e.name}» не названа числом милливольт`); continue }
+        if (m[1] !== String(e.mv)) bad.push(`«${title}»: строка «${e.name}» запишет ${e.mv}`)
+        if (e.short !== e.name) bad.push(`«${title}»: строка «${e.name}» несёт подпись «${e.short}» — курсор списка встанет не на неё`)
+        const n = Number(e.mv)
+        if (seen.has(n)) bad.push(`«${title}»: значение ${n} объявлено дважды`)
+        seen.add(n)
+        if (prev !== null && n <= prev) bad.push(`«${title}»: ${n} стоит после ${prev} — ряд не по возрастанию`)
+        prev = n
+      }
+      // the footer re-seeded when the section is entered
+      const foot = footers66.find(x => x.name === title)
+      if (!foot) { bad.push(`«${title}»: подпись при входе в раздел не пересевается — на экране останется прежнее значение`); continue }
+      if (!foot.expr.includes(`{ini_file(${profile},${key})}`))
+        bad.push(`«${title}»: подпись читает не тот профиль или не тот ключ, что пишет пункт`)
+      if (!foot.expr.includes('eBAMATIC'))
+        bad.push(`«${title}»: подпись не зовёт ноль eBAMATIC — курсор списка не найдёт строку, на которую вставать`)
+      if (!readFileSync(foot.file, 'utf8').split('\n').some(l => l.trim() === `ini_file '${EMC66}'`))
+        bad.push(`«${title}»: подпись читает ${EMC66}, а объявления ini_file на него в ${relative(ROOT, foot.file)} нет`)
+    }
+  }
+  // ---- where the values are shown
+  const OPT66 = "'Optimized Mode (1600 MHz)' = ''"
+  const SEC66 = /\n(?=\[)/
+  const NL66 = '\n'
+  const WANT66 = ['Optimized Target', 'VDDQ', 'VDD2', 'VDDQ-VDD2 Voltage', 'Efficiency Stages']
+  const RESET66 = 'service/reset.ini'
+  const CAVEAT66 = 'VDDQ/VDD2: this console - not the backup'
+  const PAGES66 = ['current.ini', 'service/restore-mariko.ini', 'service/restore-erista.ini']
+  let blocks66 = 0, writes66 = 0
+  for (const rel of [...PAGES66, RESET66]) {
+    const f = join(DIST, rel)
+    if (!existsSync(f)) { bad.push(`${rel}: файла нет — блок Optimized Mode искать негде`); continue }
+    const txt = readFileSync(f, 'utf8')
+    const at = txt.indexOf(OPT66)
+    if (at < 0) { bad.push(`${rel}: блока «Optimized Mode (1600 MHz)» нет — проверка состава смотрит в пустоту`); continue }
+    // The block is the [Info] table right after the heading, up to the next section.
+    const info = txt.slice(txt.indexOf('[Info]', at)).split(SEC66)[0].split(NL66)
+    const rows = info.map(l => (l.match(/^'([^']*)' = '/) || [])[1]).filter(x => x != null && x !== '')
+    const onReset = rel === RESET66
+    blocks66++
+    // The order is the operator's decision on every page, reset included (20.09.2026).
+    if (rows.join('|') !== WANT66.join('|'))
+      bad.push(`${rel}: блок Optimized Mode идёт «${rows.join(' · ')}» вместо «${WANT66.join(' · ')}» — порядок задан оператором 20.09.2026`)
+    const hasVolts = ['VDDQ', 'VDD2'].every(nm => info.some(l => l.startsWith(`'${nm}' = '`)))
+    if (onReset) {
+      // "What will be applied" — the word the reset writes, flat, never a read of the file:
+      // the value standing there now answers a different question.
+      for (const nm of ['VDDQ', 'VDD2']) {
+        const row = info.find(l => l.startsWith(`'${nm}' = '`))
+        if (!row) continue                             // already reported by the order check
+        if (row !== `'${nm}' = 'eBAMATIC'`)
+          bad.push(`${rel}: строка «${nm}» на странице сброса это «${row}» — она обязана печатать ровно eBAMATIC, то, что сброс ЗАПИШЕТ, а не то, что стоит в файле сейчас`)
+      }
+    } else {
+      if (!info.some(l => l.trim() === ';skip_null=true'))
+        bad.push(`${rel}: у блока Optimized Mode нет ;skip_null=true — при eBAMATIC-eBAL строки напряжений останутся с «null»`)
+      if (!info.some(l => l.trim() === `ini_file '${EMC66}'`))
+        bad.push(`${rel}: блок Optimized Mode не читает ${EMC66} — напряжения брать неоткуда`)
+      const tgt66 = rel === 'current.ini' ? '{hex_file(CUST,12524,1)}' : '{ini_file(Fields,12524)}'
+      const lists = info.filter(l => l.startsWith("list '["))
+      if (!lists.length || !lists.some(l => l.includes(tgt66)))
+        bad.push(`${rel}: имя профиля в блоке Optimized Mode не собрано из Optimized Target (${tgt66})`)
+      if (lists.some(l => /\d{3,4}CL\d/.test(l)))
+        bad.push(`${rel}: имя профиля в блоке Optimized Mode несёт литерал частоты — при Target 0 база 1331`)
+      for (const nm of ['VDDQ', 'VDD2']) {
+        const row = info.find(l => l.startsWith(`'${nm}' = '`))
+        const key = nm === 'VDDQ' ? 'eVDQ' : 'eVD2'
+        if (!row) continue                             // already reported by the order check
+        if (!row.includes(key)) bad.push(`${rel}: строка «${nm}» читает не ключ ${key}`)
+        if (!row.includes('eBAMATIC')) bad.push(`${rel}: строка «${nm}» не зовёт ноль eBAMATIC — на экране и в меню одно значение назовётся по-разному`)
+      }
+      // ПОРЯДОК ПРИВЯЗОК ВНУТРИ БЛОКА. `ini_file`/`hex_file`/`json_file` — независимые
+      // последовательные объявления (форк, `buildTableDrawerLines`), и строка читается под
+      // той привязкой, что объявлена ВЫШЕ неё. Проверка 21 ведёт это по всему пакету для
+      // именованных секций; сюда вынесено то, чего она знать не может: профиль у строк
+      // напряжений назван через `{list(N)}`, а `hex_file` она не отслеживает вовсе.
+      let ini66 = null, hex66 = null
+      for (const raw of info) {
+        const l = raw.trim()
+        const di = l.match(/^ini_file\s+'([^']*)'$/); if (di) { ini66 = di[1]; continue }
+        const dh = l.match(/^hex_file\s+'([^']*)'$/); if (dh) { hex66 = dh[1]; continue }
+        if (!/^'[^']*'\s*=\s*'/.test(l)) continue
+        const nm = l.match(/^'([^']*)'/)[1]
+        if (/\{ini_file\(\{list\(\d+\)\},(eVDQ|eVD2)\)\}/.test(l) && ini66 !== EMC66)
+          bad.push(`${rel}: строка «${nm}» читает профиль из ${EMC66}, а привязка на этой строке — «${ini66 ?? 'нет'}»: раздела с таким именем там нет, строка выпадет по ;skip_null`)
+        if (/\{hex_file\(CUST,/.test(l) && hex66 !== KIP66)
+          bad.push(`${rel}: строка «${nm}» читает kip, а hex_file на этой строке — «${hex66 ?? 'нет'}»`)
+      }
+    }
+    // ОГОВОРКА И СТРОКИ — ОДНО ЦЕЛОЕ. Экран, на котором оговорка пережила строки, которые
+    // она объясняет, противоречит сам себе: «здесь напряжения этой консоли, а не копии» —
+    // а напряжений нет вовсе. Оговорка законна ТОЛЬКО там, где блок смешивает два источника.
+    const saidCaveat = txt.slice(at).split(SEC66).slice(0, 3).join('\n').includes(CAVEAT66)
+    const needCaveat = !onReset && rel !== 'current.ini' && hasVolts
+    if (needCaveat && !saidCaveat)
+      bad.push(`${rel}: у блока Optimized Mode нет оговорки «VDDQ/VDD2: this console» — читатель примет напряжения за значения копии`)
+    if (!needCaveat && saidCaveat)
+      bad.push(`${rel}: оговорка «${CAVEAT66}» стоит ${hasVolts ? 'на странице, где блок ничего не смешивает' : 'без строк напряжений, которые она объясняет'} — экран противоречит сам себе`)
+  }
+  // ---- what the factory reset writes, and in which order
+  //
+  // The profile is named after the LIVE eBAL, and the reset sets eBAL to 000000. Placeholders
+  // are resolved per command, right before it runs (fork, `interpretAndExecuteCommands`), so
+  // the order of the lines IS the order of reading: a zero write below the first
+  // `hex-by-custom-offset` would address `<base>CL8` — a profile the firmware never reads.
+  {
+    const rf = join(DIST, RESET66)
+    const txt = existsSync(rf) ? readFileSync(rf, 'utf8') : ''
+    for (const sec of txt.split(SEC66)) {
+      const head = (sec.match(/^\[([^\]]+)]/) || [])[1]
+      if (!head || !/^Apply factory defaults/.test(head)) continue
+      writes66++
+      const ls = sec.split(NL66).map(l => l.trim())
+      const keys = ['eVDQ', 'eVD2']
+      const atW = keys.map(k => ls.findIndex(l => l.startsWith(`set-ini-val '${EMC66}' '`) && l.endsWith(`' ${k} '0'`)))
+      const atKip = ls.findIndex(l => l.startsWith('hex-by-custom-offset '))
+      keys.forEach((k, i) => {
+        if (atW[i] < 0) bad.push(`${RESET66} «${head}»: сброс не возвращает ${k} в eBAMATIC — записи set-ini-val '${EMC66}' … ${k} '0' нет`)
+        else if (atKip >= 0 && atW[i] > atKip) bad.push(`${RESET66} «${head}»: запись ${k} стоит ПОСЛЕ правки kip — к этому моменту eBAL уже 000000, и ноль уедет в раздел CL8, которого прошивка не читает`)
+      })
+      if (atW.every(i => i >= 0)) {
+        const prof = ls[atW[0]].match(/^set-ini-val '[^']*' '([^']*)'/)[1]
+        if (!prof.includes('{hex_file(CUST,12524,') || !prof.includes('{hex_file(CUST,12352,'))
+          bad.push(`${RESET66} «${head}»: раздел записи собран не из живого kip (12524 и 12352) — «${prof}»`)
+        if (/\d{3,4}CL\d/.test(prof)) bad.push(`${RESET66} «${head}»: раздел записи несёт литерал частоты — «${prof}»`)
+        if (!ls.includes(`hex_file '${KIP66}'`))
+          bad.push(`${RESET66} «${head}»: раздел записи читает CUST, а hex_file на ${KIP66} в секции нет — имя разрешится в null`)
+        const gate = ls.findIndex(l => l === `!matching_hex_val_custom ${KIP66} CUST 12352 000000`)
+        const tries = ls.reduce((a, l, i) => (l === 'try:' && a.push(i), a), [])
+        const tryAt = tries.length ? tries[0] : -1
+        if (gate < 0 || tryAt < 0 || tryAt > gate || gate > atW[0])
+          bad.push(`${RESET66} «${head}»: запись нулей не закрыта затвором «try: + !matching_hex_val_custom … CUST 12352 000000» — при eBAL = eBAMATIC ноль уедет в раздел CL8`)
+        // Проверяется только на исправном порядке: сдвинутая запись уже названа выше,
+        // и второе сообщение про force_failure о том же месте только сбивало бы с толку.
+        else if (Math.max(...atW) < (atKip < 0 ? Infinity : atKip) && ls.indexOf('force_failure') < Math.max(...atW))
+          bad.push(`${RESET66} «${head}»: после записи нулей нет force_failure — следующий try: оборвёт секцию, и сам сброс kip не выполнится`)
+        // `force_failure` И ВТОРОЙ `try:` — ОДНА КОНСТРУКЦИЯ, И ПРОВЕРЯТЬ НАДО ОБЕ ПОЛОВИНЫ.
+        //
+        // Первая редакция требовала только `force_failure`, и удаление второго `try:`
+        // проходило гейт зелёным. На консоли это отменяет ВЕСЬ сброс kip: `force_failure`
+        // роняет флаг (`setCommandFailed`, форк `source/utils.hpp:5382`), а внутри
+        // try-секции движок молча пропускает каждую следующую команду, пока флаг лежит
+        // (`:4377`). Поднимает его только `try:` (`:4344`). Без него кнопка отчитается
+        // успехом, записав два нуля и не тронув kip.
+        //
+        // Третий `try:` смертелен с другого конца: он встречает УЖЕ удавшуюся ветвь,
+        // и та же строка `:4344` обрывает секцию целиком (`commands = {}; return true`).
+        // Поэтому их ровно два: первый — перед затвором по eBAL, второй — между
+        // `force_failure` и первой правкой kip.
+        const ffAt = ls.indexOf('force_failure')
+        if (tries.length < 2)
+          bad.push(`${RESET66} «${head}»: после force_failure нет второго «try:» — флаг отказа никто не поднимет, и весь сброс kip будет пропущен молча`)
+        else if (tries.length > 2)
+          bad.push(`${RESET66} «${head}»: «try:» в секции ${tries.length}, а их обязано быть два — лишний встретит удавшуюся ветвь и оборвёт секцию целиком`)
+        else if (ffAt >= 0 && tries[1] < ffAt)
+          bad.push(`${RESET66} «${head}»: второй «try:» стоит ВЫШЕ force_failure — флаг уронит некому поднять, и сброс kip будет пропущен`)
+        else if (atKip >= 0 && tries[1] > atKip)
+          bad.push(`${RESET66} «${head}»: второй «try:» стоит ПОСЛЕ первой правки kip — команды до него выполнены не будут`)
+      }
+    }
+    if (!writes66) bad.push(`${RESET66}: нет ни одной секции «Apply factory defaults» — проверка записи нулей смотрит в пустоту`)
+  }
+  if (!blocks66) bad.push('ни одной страницы с блоком Optimized Mode — проверка места показа смотрит в пустоту')
+
+  if (!items66 || !entries66 || !blocks66 || !writes66)
+    problems.push({ sev: 'CRITICAL', what: `проверка пунктов, пишущих напряжения Magician, не нашла предмета надзора (пунктов ${items66}, значений ${entries66}, блоков показа ${blocks66}, ветвей сброса ${writes66}) — она смотрит в пустоту` })
+  else if (bad.length)
+    problems.push({ sev: 'CRITICAL', what: `пункт напряжения Magician пишет не то или не туда (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else
+    ok.push(`the Magician voltage items address the profile from the kip, write the millivolts they name, are shown in the Optimized block in the operator's order and are put back to eBAMATIC by the reset before it touches the kip (${items66} items, ${entries66} values, ${blocks66} blocks, ${writes66} reset branches)`)
+}
+
 // ---------------- 61. guard numbers are unique, gapless-or-retired, and every doc reference lands
 //
 // A block number is the only address DECISIONS.md, NOTES.md and ANCHORS.md use to name a
@@ -4883,7 +5453,8 @@ const RETIRED61 = new Map([
   // 13.09.2026: 64 -> 65 for check 63 (one-shot footers cleared on entry).
   // 13.09.2026: 65 -> 66 for check 64 (result footers shown at once, page rebuilt).
   // 14.09.2026: 66 -> 67 for check 65 (short RAM model, one rule on three screens).
-  const EXPECTED = 67
+  // 20.09.2026: 67 -> 68 for check 66 (Magician voltage items write what they name).
+  const EXPECTED = 68
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,

@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/08-ram.md sha=ddf2069ad3f4 self=6563fa73e3c4 -->
+<!-- i18n: source=Guides/ru/08-ram.md sha=2e65edfb09af self=e03de06a68ab -->
 # RAM
 
 <!-- nav:begin -->
@@ -107,9 +107,10 @@ should come down.
 
 ## Optimized Mode (1600 MHz)
 
-A sub-section with three fields belonging to the **4IFIR Optimized** profile. They are
-the same `sMeh 16`, `pMeh 20` and `sMeh 8` from `Micro-Enhance Logic`, just under
-readable names.
+A sub-section with five items belonging to the **4IFIR Optimized** profile. Three of
+them are firmware fields: the same `sMeh 16`, `pMeh 20` and `sMeh 8` from
+`Micro-Enhance Logic`, just under readable names. The other two are `VDDQ` and `VDD2`,
+the memory voltages of that profile — see below.
 
 They act **only in that profile** and are not a substitute for tuning the main clock.
 
@@ -117,6 +118,64 @@ They act **only in that profile** and are not a substitute for tuning the main c
 > `Efficiency Stages` in this sub-section is the very control that causes **stripes on
 > the screen in the dock**. If you see stripes, put it back to zero. It is one field with
 > `sMeh 8 E-Boost`; resetting either one does the job.
+
+### VDDQ and VDD2 — the Optimized profile voltages
+
+Two drop-down lists, right under `Optimized Target` and above the `VDDQ-VDD2 Voltage`
+switch. They name the memory voltages **of the Optimized profile** outright, in
+millivolts: `VDDQ` is the memory bus, 300–750 mV in steps of 5; `VDD2` is the memory
+supply, 950–1400 mV in steps of 25.
+
+These are **the only items in the tuner that put a memory setting somewhere other than
+the firmware**. They write to `/config/4IFIR/emc_timings.ini` — the file `EMC Magician`
+keeps its own settings in. (One more part of the tuner writes outside `loader.kip`:
+`Advanced → Fan Control`, but its target is `atmosphere\config\system_settings.ini` and
+has nothing to do with memory.) The value lands in the section of its own profile, and
+that section is named after the E-state clock (1600 or 1331, depending on
+`Optimized Target`) plus a number the firmware derives from `EMC Balance`.
+
+* **Applies after a restart.**
+* **`eBAMATIC` is the first entry and the way back to automatic.** It writes a zero,
+  and the firmware reads a zero as "not set" and works the voltage out itself, heat
+  included. When in doubt, pick `eBAMATIC`.
+* A number you set is used as given: it also **overrides the headroom the firmware
+  would otherwise keep**. A high `VDD2` that never steps down is heat and wear.
+* With `EMC Balance` on `eBAMATIC` both items are **hidden**: there is nothing to build
+  the profile name from — the firmware picks the balance at boot and records it nowhere.
+
+What you set shows up where the rest of this profile does: on the **second page** of
+`Current Settings`, in the `Optimized Mode (1600 MHz)` block, as the `VDDQ` and
+`VDD2` rows right under `Optimized Target`. The same block appears when you look at a saved
+backup — with a line next to it saying so: the clock and `eBal` come from the backup, the
+voltages from this console, because a backup does not keep the `EMC Magician` file.
+
+**`Service → Restore Factory Defaults` puts both voltages back to `eBAMATIC`** — its own
+second page shows that, in the same block. One caveat: with `EMC Balance` already on
+`eBAMATIC` the reset leaves the `EMC Magician` file alone entirely — in that mode both
+menu items are hidden too, so there was nothing to set from there. The `EMC Magician`
+timings the reset never touches.
+
+### If the console will not boot after a voltage you picked
+
+The voltage is applied at boot, so you cannot take it back from the menu: the console
+never gets there. It is fixed from a computer, in about two minutes.
+
+1. Switch the console off and take the memory card out.
+2. On the computer open `/config/4IFIR/emc_timings.ini` from the card — any plain text
+   editor will do.
+3. Find the section of your profile. Its name looks like `[1600CL12]`: before `CL` is
+   the E-state clock, and after `CL` is **not** `EMC Balance` itself but a number the
+   firmware derives from it (balance 2 gives `CL12`, balance 5 gives `CL18`). No need to
+   work it out: your section is the one holding the keys that start with `e` — `eRP`,
+   `eRCD`, `eVDQ`, `eVD2`. And if you want to check the clock and the balance, the third
+   page of `Current Settings` shows both, on the line above the timings table.
+4. Set `eVDQ=0` and `eVD2=0` in it. A zero means "work it out yourself" — the same thing
+   `eBAMATIC` does in the menu.
+5. Save the file, put the card back, switch the console on.
+
+If you can still reach the menu, `Service → Restore Factory Defaults` does the same
+(except with `EMC Balance` on `eBAMATIC`, where it leaves these keys alone) — but it also
+puts every other setting back to factory, so for one voltage editing the file is quicker.
 
 ## Timings
 

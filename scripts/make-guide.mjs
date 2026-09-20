@@ -191,6 +191,11 @@ const changed = []
       if ((m = line.match(/^;system=(\w+)/))) cur.system = m[1]
       else if ((m = line.match(/^json_file_source\s+'([^']+)'/))) cur.list = m[1]
       else if ((m = line.match(/^hex-by-custom(?:-rdecimal)?-offset\s+\S+\s+CUST\s+(\d+)/))) cur.offset ??= Number(m[1])
+      // An item may write an ini key instead of a kip cell (the EMC Magician voltages). It has no
+      // offset, so the "firmware field" column names the file key it writes, not a CUST cell.
+      // The path must be ABSOLUTE: a relative one is our own config.ini, and the footer re-seed
+      // written there is not a setting — it took pMeh 18's field name away on the first try.
+      else if ((m = line.match(/^set-ini-val\s+'(\/[^']+\.ini)'\s+'[^']*'\s+(\w+)\s/))) cur.iniKey ??= `${m[2]} → ${m[1]}`
       else if ((m = line.match(/^package_source\s+'([^']+)'/))) cur.forward = m[1]
     }
     return items
@@ -223,7 +228,7 @@ const changed = []
           rev,
           // Имя поля — из карты: оно про блок CUST, а в собранном пакете от поля осталось
           // одно смещение.
-          field: byOff.get(it.offset)?.name ?? `CUST+${it.offset}`,
+          field: it.iniKey ?? byOff.get(it.offset)?.name ?? `CUST+${it.offset}`,
           count: names.length,
           // Ряд из сотни ступеней напряжения первыми тремя пунктами не описывается: читателю
           // нужны концы шкалы, а не её начало.
