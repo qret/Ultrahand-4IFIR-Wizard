@@ -620,6 +620,76 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /restore-mariko\.ini: имя профиля в блоке Optimized Mode несёт литерал частоты/,
     },
     {
+      // Check 68: the presence test goes, and an older backup without [Optimized] writes the
+      // literal `null` into the profile - the very litter the operator ruled out (21.09.2026).
+      name: 'восстановление пишет напряжения и из старой копии',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.split('\n').filter(l => !/^!matching_ini_val \{ini_file\(Restore,Path\)\} Optimized eVD[Q2] ''$/.test(l)).join('\n'),
+      expect: /restore-mariko\.ini «Apply» \(старая копия без \[Optimized\]\)[^\n]*старая копия получила запись/,
+    },
+    {
+      // Check 68: force_failure goes, the voltage branch succeeds and the next `try:` ends the
+      // section - the voltages land and the kip is never restored, under no footer at all.
+      name: 'ветвь напряжений восстановления съела ветвь kip',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace('\nforce_failure\ntry:\nini_file \'./config.ini\'\n', '\ntry:\nini_file \'./config.ini\'\n'),
+      expect: /restore-erista\.ini «Apply» \([^)]*\)[^\n]*kip не восстановлен/,
+    },
+    {
+      // Check 68: the restore addresses 1600 always - wrong for a backup made at Target 00.
+      name: 'восстановление пишет напряжения в раздел с литералом 1600',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.split("set-ini-val '/config/4IFIR/emc_timings.ini' '{if_==({ini_file(Fields,12524)},01,1600,1331)}CL").join("set-ini-val '/config/4IFIR/emc_timings.ini' '1600CL"),
+      expect: /restore-erista\.ini «Apply»: раздел записи eVDQ не совпадает с формулой страницы Optimized Mode/,
+    },
+    {
+      // Check 68: the create stops saving the eBAL-0 zero and copies a CL8 section nobody reads.
+      name: 'копия при eBAL 0 уносит напряжения раздела CL8',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.split('\n').filter(l => !/^set-ini-val '\.\/config\.ini' Backup eVD[Q2] '\{if_==\(/.test(l)).join('\n'),
+      expect: /restore-mariko\.ini «Create backup» \(eBAL 0\): в копию легло eVDQ\/eVD2 = 999\/888/,
+    },
+    {
+      // Check 68: page 2 keeps the "this console" caveat under the backup's own values.
+      name: 'оговорка «this console» видна под напряжениями из копии',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.split('{if_null({list(3)},VDDQ/VDD2: this console - not the backup,null)}').join('VDDQ/VDD2: this console - not the backup'),
+      expect: /restore-erista\.ini стр\. 2 \(новая копия\): оговорка «this console - not the backup» видна/,
+    },
+    {
+      // Check 68: the "key already exists" gate goes, and a copy's zero creates the file on a
+      // clean console - Magician then shows a profile nobody saved (operator, 21.09.2026).
+      name: 'восстановление пишет ноль в несуществующий ключ',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.split('\n').filter(l => !l.startsWith("!matching_ini_val '/config/4IFIR/emc_timings.ini' ")).join('\n'),
+      expect: /restore-mariko\.ini «Apply» \(нет файла, копия 0\/0[^\n]*ноль создал файл/,
+    },
+    {
+      // Check 68: the "value is not 0" branch never writes, and a non-zero voltage of the copy
+      // reaches the file only where the key already stood.
+      name: 'ненулевое значение копии не записано',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.split('Optimized eVD2 0\n').join('Optimized eVD2 0\nforce_failure\n'),
+      expect: /restore-erista\.ini «Apply» \(раздел без ключей, копия 0\/1050\)/,
+    },
+    {
+      // Check 68: a voltage branch stops rebinding config.ini after `try:`. The previous branch
+      // left the backup bound, so `{ini_file(Restore,Path)}` reads null and every later branch
+      // fails its gate - caught by the model on 21.09.2026 in the first draft of this change.
+      name: 'ветвь напряжения не вернула привязку к config.ini',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.split("try:\nini_file './config.ini'\n!matching_ini_val {ini_file(Restore,Path)} Meta revision erista\nmatching_ini_val {ini_file(Restore,Path)} Meta kipver 27\n!matching_ini_val {ini_file(Restore,Path)} Fields 12352 000000\n")
+                  .join("try:\n!matching_ini_val {ini_file(Restore,Path)} Meta revision erista\nmatching_ini_val {ini_file(Restore,Path)} Meta kipver 27\n!matching_ini_val {ini_file(Restore,Path)} Fields 12352 000000\n"),
+      expect: /restore-mariko\.ini «Apply» \(ключи есть, копия 0\/1050 — поверх\)/,
+    },
+    {
+      // Check 66 and 68: the reset zeroes keys that are not there and creates the file.
+      name: 'сброс создал файл',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.split('\n').filter(l => !l.startsWith("!matching_ini_val '/config/4IFIR/emc_timings.ini' ")).join('\n'),
+      expect: /reset\.ini mariko \(нет файла, eBAL 2\)[^\n]*сброс создал файл/,
+    },
+    {
       // Check 66: the backup page loses the line that says the two voltages are this console's.
       name: 'у блока Optimized Mode копии пропала оговорка про эту консоль',
       file: join(DIST, 'service', 'restore-mariko.ini'),
@@ -742,7 +812,7 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       name: 'в секции сброса появился третий try:',
       file: join(DIST, 'service', 'reset.ini'),
       hurt: s => s.split('force_failure\ntry:\n').join('force_failure\ntry:\ntry:\n'),
-      expect: /«Apply factory defaults[^»]*»: «try:» в секции 3/,
+      expect: /«Apply factory defaults[^»]*»: «try:» в секции \d+, а их обязано быть 3/,
     },
     {
       // Check 66: the label promises one voltage and the item writes another — the very class
@@ -1841,7 +1911,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // разрешает подстановки в аргументе ДО того, как присвоит источник.
 {
   const OWN_SECTIONS = ['Restore', 'Backup', 'Import']   // секции нашего config.ini
-  const DATA_SECTIONS = ['Fields', 'Meta']               // секции копии и Default.ini
+  const DATA_SECTIONS = ['Fields', 'Meta', 'Optimized']  // секции копии и Default.ini ([Optimized] — с 21.09.2026)
   const EMC21 = '/config/4IFIR/emc_timings.ini'
   const strays = []
   const mixed = []
@@ -5353,45 +5423,37 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
         if (atW[i] < 0) bad.push(`${RESET66} «${head}»: сброс не возвращает ${k} в eBAMATIC — записи set-ini-val '${EMC66}' … ${k} '0' нет`)
         else if (atKip >= 0 && atW[i] > atKip) bad.push(`${RESET66} «${head}»: запись ${k} стоит ПОСЛЕ правки kip — к этому моменту eBAL уже 000000, и ноль уедет в раздел CL8, которого прошивка не читает`)
       })
-      if (atW.every(i => i >= 0)) {
-        const prof = ls[atW[0]].match(/^set-ini-val '[^']*' '([^']*)'/)[1]
-        if (!prof.includes('{hex_file(CUST,12524,') || !prof.includes('{hex_file(CUST,12352,'))
-          bad.push(`${RESET66} «${head}»: раздел записи собран не из живого kip (12524 и 12352) — «${prof}»`)
-        if (/\d{3,4}CL\d/.test(prof)) bad.push(`${RESET66} «${head}»: раздел записи несёт литерал частоты — «${prof}»`)
-        if (!ls.includes(`hex_file '${KIP66}'`))
-          bad.push(`${RESET66} «${head}»: раздел записи читает CUST, а hex_file на ${KIP66} в секции нет — имя разрешится в null`)
-        const gate = ls.findIndex(l => l === `!matching_hex_val_custom ${KIP66} CUST 12352 000000`)
-        const tries = ls.reduce((a, l, i) => (l === 'try:' && a.push(i), a), [])
-        const tryAt = tries.length ? tries[0] : -1
-        if (gate < 0 || tryAt < 0 || tryAt > gate || gate > atW[0])
-          bad.push(`${RESET66} «${head}»: запись нулей не закрыта затвором «try: + !matching_hex_val_custom … CUST 12352 000000» — при eBAL = eBAMATIC ноль уедет в раздел CL8`)
-        // Проверяется только на исправном порядке: сдвинутая запись уже названа выше,
-        // и второе сообщение про force_failure о том же месте только сбивало бы с толку.
-        else if (Math.max(...atW) < (atKip < 0 ? Infinity : atKip) && ls.indexOf('force_failure') < Math.max(...atW))
-          bad.push(`${RESET66} «${head}»: после записи нулей нет force_failure — следующий try: оборвёт секцию, и сам сброс kip не выполнится`)
-        // `force_failure` И ВТОРОЙ `try:` — ОДНА КОНСТРУКЦИЯ, И ПРОВЕРЯТЬ НАДО ОБЕ ПОЛОВИНЫ.
-        //
-        // Первая редакция требовала только `force_failure`, и удаление второго `try:`
-        // проходило гейт зелёным. На консоли это отменяет ВЕСЬ сброс kip: `force_failure`
-        // роняет флаг (`setCommandFailed`, форк `source/utils.hpp:5382`), а внутри
-        // try-секции движок молча пропускает каждую следующую команду, пока флаг лежит
-        // (`:4377`). Поднимает его только `try:` (`:4344`). Без него кнопка отчитается
-        // успехом, записав два нуля и не тронув kip.
-        //
-        // Третий `try:` смертелен с другого конца: он встречает УЖЕ удавшуюся ветвь,
-        // и та же строка `:4344` обрывает секцию целиком (`commands = {}; return true`).
-        // Поэтому их ровно два: первый — перед затвором по eBAL, второй — между
-        // `force_failure` и первой правкой kip.
-        const ffAt = ls.indexOf('force_failure')
-        if (tries.length < 2)
-          bad.push(`${RESET66} «${head}»: после force_failure нет второго «try:» — флаг отказа никто не поднимет, и весь сброс kip будет пропущен молча`)
-        else if (tries.length > 2)
-          bad.push(`${RESET66} «${head}»: «try:» в секции ${tries.length}, а их обязано быть два — лишний встретит удавшуюся ветвь и оборвёт секцию целиком`)
-        else if (ffAt >= 0 && tries[1] < ffAt)
-          bad.push(`${RESET66} «${head}»: второй «try:» стоит ВЫШЕ force_failure — флаг уронит некому поднять, и сброс kip будет пропущен`)
-        else if (atKip >= 0 && tries[1] > atKip)
-          bad.push(`${RESET66} «${head}»: второй «try:» стоит ПОСЛЕ первой правки kip — команды до него выполнены не будут`)
-      }
+      if (!atW.every(i => i >= 0)) continue
+      const prof = ls[atW[0]].match(/^set-ini-val '[^']*' '([^']*)'/)[1]
+      if (!prof.includes('{hex_file(CUST,12524,') || !prof.includes('{hex_file(CUST,12352,'))
+        bad.push(`${RESET66} «${head}»: раздел записи собран не из живого kip (12524 и 12352) — «${prof}»`)
+      if (/\d{3,4}CL\d/.test(prof)) bad.push(`${RESET66} «${head}»: раздел записи несёт литерал частоты — «${prof}»`)
+      if (!ls.includes(`hex_file '${KIP66}'`))
+        bad.push(`${RESET66} «${head}»: раздел записи читает CUST, а hex_file на ${KIP66} в секции нет — имя разрешится в null`)
+      // ONE BRANCH PER KEY (21.09.2026): `try:` → eBAL gate → "key exists" gate → the zero →
+      // `force_failure` → next `try:`. `force_failure` drops the flag (fork `setCommandFailed`),
+      // only `try:` raises it again, and a `try:` meeting a SUCCESSFUL branch ends the section
+      // (`commands = {}; return true`) — so exactly one `try:` per branch plus one for the kip.
+      const tries = ls.reduce((a, l, i) => (l === 'try:' && a.push(i), a), [])
+      const want = keys.length + 1
+      keys.forEach((k, i) => {
+        const w = atW[i]
+        const open = tries.filter(t => t < w).pop()
+        const close = ls.findIndex((l, j) => j > w && (l === 'try:' || l === 'force_failure' || l.startsWith('hex-by-custom-offset ')))
+        const branch = open === undefined ? [] : ls.slice(open, w)
+        if (open === undefined || !branch.includes(`!matching_hex_val_custom ${KIP66} CUST 12352 000000`))
+          bad.push(`${RESET66} «${head}»: запись нулей не закрыта затвором «try: + !matching_hex_val_custom … CUST 12352 000000» (${k}) — при eBAL = eBAMATIC ноль уедет в раздел CL8`)
+        else if (!branch.includes(`!matching_ini_val '${EMC66}' '${prof}' ${k} ''`))
+          bad.push(`${RESET66} «${head}»: ноль ${k} пишется без проверки «ключ уже есть» — на чистой консоли сброс создаст файл и профиль, которых никто не сохранял`)
+        if (close < 0 || ls[close] !== 'force_failure')
+          bad.push(`${RESET66} «${head}»: после записи нулей нет force_failure (${k}) — следующий try: оборвёт секцию, и сам сброс kip не выполнится`)
+        else if (ls[close + 1] !== 'try:')
+          bad.push(`${RESET66} «${head}»: после force_failure нет второго «try:» (${k}) — флаг отказа никто не поднимет, и весь сброс kip будет пропущен молча`)
+      })
+      if (tries.length !== want)
+        bad.push(`${RESET66} «${head}»: «try:» в секции ${tries.length}, а их обязано быть ${want} — по одному на ветвь ключа и один на сброс kip; лишний встретит удавшуюся ветвь и оборвёт секцию целиком`)
+      else if (atKip >= 0 && tries[want - 1] > atKip)
+        bad.push(`${RESET66} «${head}»: последний «try:» стоит ПОСЛЕ первой правки kip — команды до него выполнены не будут`)
     }
     if (!writes66) bad.push(`${RESET66}: нет ни одной секции «Apply factory defaults» — проверка записи нулей смотрит в пустоту`)
   }
@@ -5451,6 +5513,256 @@ const EBAMATIC_NOT_FIRST67 = new Map([
   else if (bad.length)
     problems.push({ sev: 'CRITICAL', what: `eBAMATIC не первым в списке выбора (${bad.length}):\n     ${bad.join('\n     ')}` })
   else ok.push(`eBAMATIC opens every option list that offers it (${lists.size} lists, field 48 in the map too, ${EBAMATIC_NOT_FIRST67.size ? `${EBAMATIC_NOT_FIRST67.size} excused` : 'none excused'})`)
+}
+
+// ---------------- 68. a backup carries the Magician voltages, and restore puts them where the page would
+//
+// Operator, 21.09.2026: timings from a backup without their own VDDQ/VDD2 are a combination no
+// one tested. So a backup made now saves the live profile's eVDQ/eVD2 under [Optimized] (a
+// missing key, or eBAL on eBAMATIC, saved as 0), restore writes them into the profile named by
+// the backup's own 12524 and 12352 - always, zero included - and an older backup without the
+// keys leaves emc_timings.ini alone. Page 2 shows the backup's values; the caveat "this console"
+// stays for older backups only.
+//
+// Read as text, all three places look right after most one-line breakages, so the sections are
+// RUN: a small model of the engine's command loop (try:/force_failure/skip, bindings per
+// command, placeholders innermost first - fork `interpretAndExecuteCommands`) plays Create and
+// Apply on made-up consoles and backups, and the page-2 rows are resolved the same way. The
+// profile recipe is also compared as text with the Optimized Mode page's own write.
+{
+  const EMC68 = '/config/4IFIR/emc_timings.ini'
+  const KIP68 = '/atmosphere/kips/loader.kip'
+  const bad = []
+  let runs68 = 0
+  const pageTxt = (() => { const f = join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'); return existsSync(f) ? readFileSync(f, 'utf8') : '' })()
+  const pageProf = (pageTxt.match(new RegExp("^set-ini-val '" + EMC68 + "' '([^']+)' eVDQ ", 'm')) || [])[1]
+  if (!pageProf) bad.push('на странице Optimized Mode нет записи eVDQ — сверять формулу раздела не с чем')
+  const copyProf = pageProf && pageProf.replace(/\{hex_file\(CUST,(\d+),\d+\)\}/g, '{ini_file(Fields,$1)}')
+
+  // ---- the engine model: tokens as parseCommandLine, placeholders innermost first
+  const tok68 = line => {
+    const out = []; let i = 0
+    while (i < line.length) {
+      while (line[i] === ' ' || line[i] === '\t') i++
+      if (i >= line.length) break
+      if (line[i] === "'" || line[i] === '"') { const q = line[i++]; const s = i; while (i < line.length && line[i] !== q) i++; out.push(line.slice(s, i)); i++ }
+      else { const s = i; while (i < line.length && !" \t'\"".includes(line[i])) i++; const t = line.slice(s, i); if (t !== '=') out.push(t) }
+    }
+    return out
+  }
+  const norm68 = p => (p || '').replace(/^sdmc:/, '')
+  const resolve68 = (arg, st) => {
+    const re = /\{([A-Za-z_=!<>]+)(?:\(([^{}]*)\))?\}/
+    for (let guard = 0; guard < 200; guard++) {
+      const m = arg.match(re)
+      if (!m) return arg
+      const [all, fn, a = ''] = m
+      const p = a.split(',')
+      let v
+      if (fn === 'hex_file') {
+        const [, off, len] = p
+        v = st.hex === KIP68 ? (st.kip[off] ?? '00'.repeat(Number(len))).slice(0, Number(len) * 2) : 'null'
+      } else if (fn === 'ini_file') v = st.files[norm68(st.ini)]?.[p[0]]?.[p.slice(1).join(',')] || 'null'
+      else if (fn === 'list') v = st.list[Number(p[0])] ?? 'null'
+      else if (fn === 'if_==') v = p[0] === p[1] ? p[2] : (p.length > 3 ? p.slice(3).join(',') : p[0])
+      else if (fn === 'if_null') v = p[0] === 'null' ? p[1] : (p.length > 2 ? p.slice(2).join(',') : p[0])
+      else if (fn === 'hex_to_rhex') v = (p[0].match(/../g) || []).reverse().join('')
+      else if (fn === 'hex_to_decimal') v = /^[0-9A-Fa-f]+$/.test(p[0]) ? String(parseInt(p[0], 16)) : 'null'
+      else if (fn === 'math') v = /^[\d+\-*/(). ]+$/.test(p[0]) ? String(Math.trunc(Function(`return (${p[0]})`)())) : 'null'
+      else v = 'X'                                             // timestamp, ram_*, json_file, slice
+      arg = arg.replace(all, v)
+    }
+    return arg
+  }
+  const run68 = (secText, st) => {
+    st.footer = null; st.kipWrites = 0
+    let inTry = false, okFlag = true
+    for (const raw of secText.split('\n').slice(1)) {
+      const line = raw.trim()
+      if (!line || line.startsWith(';')) continue
+      if (line === 'try:') { if (inTry && okFlag) return st; okFlag = true; inTry = true; continue }
+      if (inTry && !okFlag) continue
+      const [cmd, ...args] = tok68(line).map(t => resolve68(t, st))
+      const file = p => (st.files[norm68(p)] ??= {})
+      if (cmd === 'ini_file') st.ini = args[0]
+      else if (cmd === 'hex_file') st.hex = args[0]
+      else if (cmd === 'set-ini-val') { const f = file(args[0]); (f[args[1]] ??= {})[args[2]] = args[3] }
+      else if (cmd === 'matching_ini_val' || cmd === '!matching_ini_val') {
+        const act = st.files[norm68(args[0])]?.[args[1]]?.[args[2]] ?? ''
+        okFlag = (act === args.slice(3).join(' ')) === (cmd === 'matching_ini_val')
+      } else if (cmd === 'matching_hex_val_custom' || cmd === '!matching_hex_val_custom') {
+        const [kp, , off, hex = ''] = args
+        const act = norm68(kp) === KIP68 ? (st.kip[off] ?? '00'.repeat(hex.length / 2)).slice(0, hex.length) : ''
+        okFlag = (act.toUpperCase() === hex.toUpperCase()) === (cmd === 'matching_hex_val_custom')
+      } else if (cmd === 'force_failure') okFlag = false
+      else if (cmd === 'path_exists') okFlag = norm68(args[0]) in st.files
+      else if (cmd === 'delete') delete st.files[norm68(args[0])]
+      else if (cmd === 'set-footer') st.footer = args[0]
+      else if (cmd === 'hex-by-custom-offset') { if (args[3] !== 'null') { st.kip[args[2]] = args[3]; st.kipWrites++ } }
+    }
+    return st
+  }
+  const EMC_OTHER = { '1600CL12': { eVDQ: '1111', eVD2: '2222', tRAS: '7' }, '1866CL16': { tRCD: '9' } }
+  const clone = o => JSON.parse(JSON.stringify(o))
+
+  for (const rev of ['mariko', 'erista']) {
+    const rel = `service/restore-${rev}.ini`
+    const f = join(DIST, rel)
+    if (!existsSync(f)) { bad.push(`${rel}: файла нет`); continue }
+    const secs = readFileSync(f, 'utf8').split(/\n(?=\[)/)
+    const create = secs.find(s => s.startsWith(`[Create backup?${rev}]`))
+    const apply = secs.find(s => s.startsWith('[Apply this backup'))
+    if (!create || !apply) { bad.push(`${rel}: нет секции ${create ? 'Apply this backup' : 'Create backup'}`); continue }
+    const kipver = (create.match(/ Meta kipver '([^']+)'/) || [])[1]
+    const cls = create.split('\n').map(l => l.trim())
+    const als = apply.split('\n').map(l => l.trim())
+
+    // -- text: the recipe is the page's, nothing lands in Fields, the read-back covers the keys
+    if (pageProf) {
+      for (const k of ['eVDQ', 'eVD2']) {
+        if (!cls.includes(`set-ini-val './config.ini' Backup ${k} '{if_null({ini_file(${pageProf},${k})},0)}'`))
+          bad.push(`${rel} «Create backup»: ${k} читается не из раздела, который пишет страница Optimized Mode`)
+        // two branches per key: "value is not 0" and "key already exists" (21.09.2026)
+        const w = als.filter(l => l.startsWith(`set-ini-val '${EMC68}' `) && l.endsWith(` ${k} '{ini_file(Optimized,${k})}'`))
+        if (w.length !== 2) bad.push(`${rel} «Apply»: записей ${k} из [Optimized] копии ${w.length}, а ждали две — «не ноль» и «ключ уже есть»`)
+        else if (w.some(l => l !== `set-ini-val '${EMC68}' '${copyProf}' ${k} '{ini_file(Optimized,${k})}'`))
+          bad.push(`${rel} «Apply»: раздел записи ${k} не совпадает с формулой страницы Optimized Mode (12524/12352 из Fields копии)`)
+        if (!cls.some(l => l.startsWith('matching_ini_val {ini_file(Backup,Path)} Optimized ' + k + ' ')))
+          bad.push(`${rel} «Create backup»: ${k} копии не сверяется перед «saved»`)
+      }
+    }
+    if (cls.some(l => /Fields (eVDQ|eVD2) /.test(l))) bad.push(`${rel} «Create backup»: напряжения записаны в [Fields] — это не смещения kip`)
+    if (als.filter(l => l.startsWith(`set-ini-val '${EMC68}'`)).length !== 4)
+      bad.push(`${rel} «Apply»: в emc_timings.ini пишут ${als.filter(l => l.startsWith(`set-ini-val '${EMC68}'`)).length} строк, а ждали четыре (две ветви на ключ) — другие разделы и ключи не трогаем`)
+
+    // -- run: Create on three consoles
+    // emc = null: the file does not exist (a clean 4IFIR)
+    const baseSt = (kip, emc) => ({
+      kip: { ...kip }, hex: null, ini: null, list: [],
+      files: { './config.ini': {}, ...(emc ? { [EMC68]: clone(emc) } : {}) },
+    })
+    const kipOf = (bal, tgt) => ({ '12352': bal, '12524': tgt, '32': '00A41F' })
+    const creates = [
+      { name: 'eBAL 2, Target 01', kip: kipOf('020000', '01'), emc: { ...EMC_OTHER, '1600CL12': { eVDQ: '1100', eVD2: '0', tRAS: '7' } }, want: ['1100', '0'] },
+      { name: 'eBAL 2, ключей нет', kip: kipOf('020000', '01'), emc: { '1866CL16': { tRCD: '9' } }, want: ['0', '0'] },
+      { name: 'eBAL 0', kip: kipOf('000000', '01'), emc: { ...EMC_OTHER, '1600CL8': { eVDQ: '999', eVD2: '888' } }, want: ['0', '0'] },
+    ]
+    const made = []
+    for (const c of creates) {
+      runs68++
+      const st = run68(create, baseSt(c.kip, c.emc))
+      // the create path is forgotten after "saved", so the backup is found by its folder
+      const bak = Object.entries(st.files).find(([k]) => k.startsWith(`/atmosphere/kips/.bak/${rev}/`))?.[1]
+      const got = [bak?.Optimized?.eVDQ, bak?.Optimized?.eVD2]
+      if (st.footer !== 'saved') bad.push(`${rel} «Create backup» (${c.name}): подпись «${st.footer}», а ждали saved`)
+      if (got.join('/') !== c.want.join('/')) bad.push(`${rel} «Create backup» (${c.name}): в копию легло eVDQ/eVD2 = ${got.join('/')}, а ждали ${c.want.join('/')}`)
+      if (JSON.stringify(st.files[EMC68]) !== JSON.stringify(c.emc)) bad.push(`${rel} «Create backup» (${c.name}): создание копии изменило emc_timings.ini`)
+      made.push(bak ? clone(bak) : null)
+    }
+
+    // -- run: Apply of a new backup, one with eBAL 0, an older one, a foreign one
+    const P = `/atmosphere/kips/.bak/${rev}/x.ini`
+    const other = rev === 'mariko' ? 'erista' : 'mariko'
+    const nb = (bal, tgt, volts) => ({
+      Meta: { revision: rev, kipver },
+      Fields: { '12352': bal, '12524': tgt, '32': '00A41F' },
+      ...(volts ? { Optimized: { eVDQ: volts[0], eVD2: volts[1] } } : {}),
+    })
+    // NO EMPTY ZEROS (operator, 21.09.2026): a non-zero value is written always, a zero only
+    // into a key that already exists; no file, section or key is created to hold a zero.
+    const EMC_KEYS68 = { ...clone(EMC_OTHER), '1600CL12': { eVDQ: '1111', eVD2: '2222', tRAS: '7' } }
+    const EMC_NOKEY = { '1600CL12': { tRAS: '7' }, '1866CL16': { tRCD: '9' } }
+    const applies = [
+      { name: 'нет файла, копия 0/0, eBAL 6, Target 00', emc0: null, bak: nb('060000', '00', ['0', '0']), footer: 'restored', emc: null },
+      { name: 'нет файла, копия 1150/0, eBAL 6, Target 00', emc0: null, bak: nb('060000', '00', ['1150', '0']), footer: 'restored', emc: { '1331CL20': { eVDQ: '1150' } } },
+      { name: 'раздел без ключей, копия 0/1050', emc0: EMC_NOKEY, bak: nb('020000', '01', ['0', '1050']), footer: 'restored', emc: { '1600CL12': { tRAS: '7', eVD2: '1050' }, '1866CL16': { tRCD: '9' } } },
+      { name: 'ключи есть, копия 0/1050 — поверх', emc0: EMC_KEYS68, bak: nb('020000', '01', ['0', '1050']), footer: 'restored', emc: { ...clone(EMC_OTHER), '1600CL12': { eVDQ: '0', eVD2: '1050', tRAS: '7' } } },
+      { name: 'ключи есть, копия 0/0', emc0: EMC_KEYS68, bak: nb('020000', '01', ['0', '0']), footer: 'restored', emc: { ...clone(EMC_OTHER), '1600CL12': { eVDQ: '0', eVD2: '0', tRAS: '7' } } },
+      { name: 'новая копия, eBAL 0', emc0: EMC_KEYS68, bak: nb('000000', '01', ['650', '1100']), footer: 'restored', emc: EMC_KEYS68 },
+      { name: 'старая копия без [Optimized]', emc0: EMC_KEYS68, bak: nb('020000', '01', null), footer: 'restored', emc: EMC_KEYS68 },
+      { name: 'импортированная копия', emc0: EMC_KEYS68, bak: { ...nb('020000', '01', null), Meta: { revision: rev, kipver: 'imported' } }, footer: 'restored (import)', emc: EMC_KEYS68 },
+      { name: `копия с ${other}`, emc0: EMC_KEYS68, bak: { ...nb('020000', '01', ['1200', '1200']), Meta: { revision: other, kipver } }, footer: 'not applied', emc: EMC_KEYS68 },
+      { name: 'копия, созданная выше (eBAL 2)', emc0: EMC_OTHER, bak: made[0], footer: 'restored', emc: { ...clone(EMC_OTHER), '1600CL12': { eVDQ: '1100', eVD2: '0', tRAS: '7' } } },
+    ]
+    for (const a of applies) {
+      if (!a.bak) continue
+      runs68++
+      const st = baseSt({ '12352': '000000', '12524': '01' }, a.emc0)
+      st.files['./config.ini'] = { Restore: { Path: 'sdmc:' + P } }
+      st.files[P] = clone(a.bak)
+      run68(apply, st)
+      if (st.footer !== a.footer) bad.push(`${rel} «Apply» (${a.name}): подпись «${st.footer}», а ждали «${a.footer}»`)
+      if (a.footer === 'restored' && !st.kipWrites) bad.push(`${rel} «Apply» (${a.name}): kip не восстановлен — ветвь напряжений съела ветвь kip`)
+      if (a.footer === 'not applied' && st.kipWrites) bad.push(`${rel} «Apply» (${a.name}): kip записан при отказе`)
+      if (JSON.stringify(st.files[EMC68] ?? null) !== JSON.stringify(a.emc ?? null))
+        bad.push(`${rel} «Apply» (${a.name}): emc_timings.ini стал ${JSON.stringify(st.files[EMC68])}, а ждали ${JSON.stringify(a.emc)}${a.name.startsWith('старая') ? ' — старая копия получила запись' : ''}${a.emc0 || a.emc ? '' : ' — ноль создал файл'}`)
+    }
+
+    // -- run: factory reset (reset.ini, this revision's button), same rule for the zeros
+    {
+      const rf68 = join(DIST, 'service', 'reset.ini')
+      const rtxt = existsSync(rf68) ? readFileSync(rf68, 'utf8') : ''
+      const rsec = rtxt.split(/\n(?=\[)/).find(x => x.startsWith('[Apply factory defaults') && x.split('\n')[0].endsWith(`?${rev}]`))
+      if (!rsec) bad.push(`service/reset.ini: нет кнопки сброса для ${rev}`)
+      else {
+        const anyField = new Proxy({}, { get: (_, k) => typeof k === 'string' ? '000000' : undefined })
+        const resets = [
+          { name: 'нет файла, eBAL 2', kip: kipOf('020000', '01'), emc0: null, emc: null },
+          { name: 'раздел без ключей, eBAL 2', kip: kipOf('020000', '01'), emc0: EMC_NOKEY, emc: EMC_NOKEY },
+          { name: 'ключи есть, eBAL 2', kip: kipOf('020000', '01'), emc0: EMC_KEYS68, emc: { ...clone(EMC_OTHER), '1600CL12': { eVDQ: '0', eVD2: '0', tRAS: '7' } } },
+          { name: 'только eVD2 есть, eBAL 2', kip: kipOf('020000', '01'), emc0: { '1600CL12': { eVD2: '1200' } }, emc: { '1600CL12': { eVD2: '0' } } },
+          { name: 'eBAL 0', kip: kipOf('000000', '01'), emc0: { ...clone(EMC_OTHER), '1600CL8': { eVDQ: '999', eVD2: '888' } }, emc: { ...clone(EMC_OTHER), '1600CL8': { eVDQ: '999', eVD2: '888' } } },
+        ]
+        for (const r of resets) {
+          runs68++
+          const st = baseSt(r.kip, r.emc0)
+          st.files['./Default.ini'] = { Fields: anyField }
+          run68(rsec, st)
+          if (st.footer !== 'restored' || !st.kipWrites) bad.push(`service/reset.ini ${rev} (${r.name}): подпись «${st.footer}», записей kip ${st.kipWrites} — сброс kip не выполнен`)
+          if (JSON.stringify(st.files[EMC68] ?? null) !== JSON.stringify(r.emc ?? null))
+            bad.push(`service/reset.ini ${rev} (${r.name}): emc_timings.ini стал ${JSON.stringify(st.files[EMC68])}, а ждали ${JSON.stringify(r.emc)}${r.emc0 ? '' : ' — сброс создал файл'}`)
+        }
+      }
+    }
+
+    // -- page 2: the Optimized block and its caveat, resolved for each kind of backup
+    const at = secs.findIndex(s => s.includes("'Optimized Mode (1600 MHz)' = ''"))
+    const block = at < 0 ? null : secs.slice(at + 1).find(s => s.startsWith('[Info]'))
+    const note = block ? secs[secs.indexOf(block) + 1] : null
+    if (!block || !note || !note.includes('not the backup')) { bad.push(`${rel}: блок Optimized Mode страницы 2 или его оговорка не найдены`); continue }
+    const table = (sec, bak) => {
+      const st = baseSt({}, { '1600CL12': { eVDQ: '1111', eVD2: '2222' } })
+      st.files['./config.ini'] = { Restore: { Path: P } }
+      st.files[P] = clone(bak)
+      const rows = {}
+      for (const raw of sec.split('\n')) {
+        const l = raw.trim()
+        const d = l.match(/^(ini_file|list)\s+'(.*)'$/)
+        if (d) { const v = resolve68(d[2], st); if (d[1] === 'ini_file') st.ini = v; else st.list = v.replace(/^\[|\]$/g, '').split(',').map(x => x.trim()); continue }
+        const r = l.match(/^'([^']*)'\s*=\s*'(.*)'$/)
+        if (r) rows[r[1]] = resolve68(r[2], st)
+      }
+      return rows
+    }
+    const views = [
+      { name: 'новая копия', bak: nb('020000', '01', ['1100', '0']), vq: '1100 mV', v2: 'eBAMATIC', caveat: false },
+      { name: 'старая копия', bak: nb('020000', '01', null), vq: '1111 mV', v2: '2222 mV', caveat: true },
+      { name: 'копия с eBAL 0', bak: nb('000000', '01', ['0', '0']), vq: 'null', v2: 'null', caveat: false },
+    ]
+    for (const v of views) {
+      runs68++
+      const rows = table(block, v.bak)
+      const cav = table(note, v.bak)['']
+      if (rows.VDDQ !== v.vq || rows.VDD2 !== v.v2) bad.push(`${rel} стр. 2 (${v.name}): VDDQ/VDD2 = «${rows.VDDQ}»/«${rows.VDD2}», а ждали «${v.vq}»/«${v.v2}»`)
+      const shown = cav !== undefined && cav !== 'null'
+      if (shown !== v.caveat) bad.push(`${rel} стр. 2 (${v.name}): оговорка «this console - not the backup» ${shown ? 'видна' : 'не видна'}, а ${v.caveat ? 'нужна — строки читают эту консоль' : 'не нужна — строки из копии или скрыты'}`)
+    }
+  }
+  if (!runs68)
+    problems.push({ sev: 'CRITICAL', what: 'проверка напряжений в копии не нашла предмета надзора — она смотрит в пустоту, ничего не проверив' })
+  else if (bad.length)
+    problems.push({ sev: 'CRITICAL', what: `VDDQ/VDD2 в копии сохраняются, восстанавливаются или показываются не так (${bad.length}):\n     ${bad.join('\n     ')}` })
+  else ok.push(`a backup carries eVDQ/eVD2 of the live profile, restore writes them into the page's profile from the backup's Fields and leaves the file alone for an older backup, a zero (restore or reset) goes only into a key that exists, page 2 shows them with the caveat for older backups only (${runs68} runs of the engine model on both revisions)`)
 }
 
 // ---------------- 61. guard numbers are unique, gapless-or-retired, and every doc reference lands
@@ -5574,7 +5886,8 @@ const RETIRED61 = new Map([
   // 14.09.2026: 66 -> 67 for check 65 (short RAM model, one rule on three screens).
   // 20.09.2026: 67 -> 68 for check 66 (Magician voltage items write what they name).
   // 21.09.2026: 68 -> 69 for check 67 (eBAMATIC first in every option list).
-  const EXPECTED = 69
+  // 21.09.2026: 69 -> 70 for check 68 (backup carries VDDQ/VDD2, restore writes them).
+  const EXPECTED = 70
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,

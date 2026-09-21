@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/08-ram.md sha=8ac2b1e6c02c self=b861e6fbe72f -->
+<!-- i18n: source=Guides/ru/08-ram.md sha=87daae51ccb3 self=039b6b556892 -->
 # RAM
 
 <!-- nav:begin -->
@@ -160,9 +160,10 @@ Four things worth knowing before you touch them.
 **Where to see what you set.** Where the rest of this profile shows: on the **second
 page** of `Current Settings`, in the `Optimized Mode (1600 MHz)` block, as the `VDDQ`
 and `VDD2` rows under `Optimized Target`. The same block appears when you look at a
-saved backup — with a line next to it saying so: the clock and `eBal` come from the
-backup, the voltages from this console, because a backup does not keep the
-`EMC Magician` file.
+saved backup: a backup keeps both voltages and puts them back when restored
+([Profiles, backups and reset](10-profiles.md#restoring)). A backup made before the tuner
+started saving them has no voltages — there the block shows this console's values and
+says so with the line `VDDQ/VDD2: this console - not the backup`.
 
 **Where it is written.** These are the only items in the tuner that put a memory setting
 **somewhere other than the firmware**: they write to `/config/4IFIR/emc_timings.ini` —
@@ -185,7 +186,8 @@ never gets there. It is fixed from a computer, in about two minutes.
 5. Save the file, put the card back, switch the console on.
 
 If you can still reach the menu, `Service → Restore Factory Defaults` does the same
-(except with `EMC Balance` on `eBAMATIC`, where it leaves these keys alone) — but it also
+(it zeroes only those of the two lines that already exist in the section for this clock and
+`EMC Balance`, and leaves them alone with `EMC Balance` on `eBAMATIC`) — but it also
 puts every other setting back to factory, so for one voltage editing the file is quicker.
 
 ## Timings

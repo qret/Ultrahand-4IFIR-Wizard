@@ -58,6 +58,17 @@ const EMC_E_BASE = `{if_==({hex_file(CUST,12524,1)},01,1600,1331)}`
 const EMC_CL = `{math(${EMC_KIP_DEC(12352)}*2+8,true)}`
 const EMC_E_SECTION = `${EMC_E_BASE}CL${EMC_CL}`
 /**
+ * THE SAME PROFILE NAME, BUILT FROM A BACKUP'S `Fields` INSTEAD OF THE LIVE KIP.
+ *
+ * Restore writes the backup's 12524 and 12352 into the kip, so after it the Optimized Mode page
+ * names exactly this section. Derived by substitution, not written out twice: the two recipes
+ * cannot drift apart (check 68 compares them the same way).
+ */
+const EMC_COPY_SECTION = EMC_E_SECTION.replace(/\{hex_file\(CUST,(\d+),\d+\)\}/g, '{ini_file(Fields,$1)}')
+/** Backup section with the two Magician voltages (21.09.2026); keys named as in emc_timings.ini. */
+const BACKUP_EMC_SECTION = 'Optimized'
+const EMC_KEYS = ['eVDQ', 'eVD2']
+/**
  * `0` IS NOT "unset", IT IS eBAMATIC — one word for the list, the footer and both pages.
  * The system module reads a zero key as "work it out yourself", which is the same automatic
  * calculation the console runs when eBAL is on eBAMATIC; the nought of `EMC DVB Mode`
@@ -73,30 +84,38 @@ const EMC_AUTO = 'eBAMATIC'
  * so the rows ride with the `Optimized Mode (1600 MHz)` block on page 2, in Current Settings
  * and in the backup preview, between `Optimized Target` and `VDDQ-VDD2 Voltage`.
  *
- * The value always comes from THIS console's emc_timings.ini — a backup does not carry that
- * file — while the profile is named by the page's own source: the kip in Current, the backup's
- * `Fields` in the preview. `list` carries it: 0 = base clock or null, 1 = eBAL, 2 = section.
+ * The profile is named by the page's own source: the kip in Current, the backup's `Fields` in
+ * the preview. `list` carries it: 0 = base clock or null, 1 = eBAL, 2 = section; the preview
+ * adds 3/4 = the backup's own [Optimized] eVDQ/eVD2. Since 21.09.2026 a backup carries them
+ * and they are shown; an older backup without them shows this console's file, with the caveat.
  * No base, or eBAL on eBAMATIC, means the profile cannot be named, and `;skip_null` drops the
  * two rows while the block keeps its other three.
  */
 const OPT_GROUP = 'Optimized Mode (1600 MHz)'
-const EMC_VOLT_ROWS = (listLines, after = []) => {
+const EMC_VOLT_ROWS = (listLines, after = [], fromCopy = false) => {
   const out = [...listLines, `ini_file '${EMC_FILE}'`]
-  for (const [nm, key] of [['VDDQ', 'eVDQ'], ['VDD2', 'eVD2']]) {
+  EMC_KEYS.forEach((key, i) => {
+    const nm = ['VDDQ', 'VDD2'][i]
     const v = `{ini_file({list(2)},${key})}`
-    const shown = `{if_null(${v},${EMC_AUTO},{if_==(${v},0,${EMC_AUTO},${v} mV)})}`
+    let shown = `{if_null(${v},${EMC_AUTO},{if_==(${v},0,${EMC_AUTO},${v} mV)})}`
+    if (fromCopy) {
+      const c = `{list(${3 + i})}`
+      shown = `{if_null(${c},${shown},{if_==(${c},0,${EMC_AUTO},${c} mV)})}`
+    }
     out.push(`'${nm}' = '{if_null({list(0)},null,{if_==({list(1)},0,null,${shown})})}'`)
-  }
+  })
   return [...out, ...after]
 }
 // Current reads the kip directly; the preview reads the chosen backup and needs three steps,
-// because a missing key there is `null` and must not turn into a profile name.
+// because a missing key there is `null` and must not turn into a profile name. The backup's
+// own voltages are read here, while the backup is still bound, and ride in the list.
 const EMC_VOLT_LIST_KIP = [`list '[${EMC_E_BASE},${EMC_KIP_DEC(12352)},${EMC_E_SECTION}]'`]
+const EMC_COPY_VOLTS = EMC_KEYS.map(k => `{ini_file(${BACKUP_EMC_SECTION},${k})}`).join(',')
 const EMC_VOLT_LIST_COPY = [
-  `list '[{ini_file(Fields,12524)},{ini_file(Fields,12352)}]'`,
+  `list '[{ini_file(Fields,12524)},{ini_file(Fields,12352)},${EMC_COPY_VOLTS}]'`,
   `list '[{if_null({list(0)},null,{if_==({list(0)},01,1600,1331)})},`
-    + `{hex_to_decimal({hex_to_rhex({if_null({list(1)},000000,{list(1)})})})}]'`,
-  `list '[{list(0)},{list(1)},{list(0)}CL{math({list(1)}*2+8,true)}]'`,
+    + `{hex_to_decimal({hex_to_rhex({if_null({list(1)},000000,{list(1)})})})},{list(2)},{list(3)}]'`,
+  `list '[{list(0)},{list(1)},{list(0)}CL{math({list(1)}*2+8,true)},{list(2)},{list(3)}]'`,
 ]
 
 /**
@@ -116,17 +135,58 @@ const EMC_VOLT_LIST_COPY = [
  * a profile the firmware never reads, and we would litter a file we do not own. The gate is
  * a `try:` branch — a failed condition skips the rest of the branch — and `force_failure`
  * closes it, so the common tail runs on both paths instead of being written out twice.
+ *
+ * NO EMPTY ZEROS (operator, 21.09.2026): a zero goes only into a key that already exists in
+ * the profile. A missing key already means eBAMATIC, and creating the file or the section on a
+ * clean console makes Magician show a profile nobody saved. One branch per key, so each is
+ * decided on its own; `!matching_ini_val <file> <section> <key> ''` fails on a missing key
+ * or file (the engine reads it as an empty string).
  */
 const EMC_RESET_ROWS = [`'VDDQ' = '${EMC_AUTO}'`, `'VDD2' = '${EMC_AUTO}'`]
 const EMC_RESET_WRITES = kip => [
   `hex_file '${kip}'`,
-  'try:',
-  `!matching_hex_val_custom ${kip} CUST 12352 000000`,
-  `set-ini-val '${EMC_FILE}' '${EMC_E_SECTION}' eVDQ '0'`,
-  `set-ini-val '${EMC_FILE}' '${EMC_E_SECTION}' eVD2 '0'`,
-  'force_failure',
+  ...EMC_KEYS.flatMap(k => [
+    'try:',
+    `!matching_hex_val_custom ${kip} CUST 12352 000000`,
+    `!matching_ini_val '${EMC_FILE}' '${EMC_E_SECTION}' ${k} ''`,
+    `set-ini-val '${EMC_FILE}' '${EMC_E_SECTION}' ${k} '0'`,
+    'force_failure',
+  ]),
   'try:',
 ]
+
+/**
+ * RESTORE WRITES THE BACKUP'S eVDQ/eVD2 INTO THE PROFILE ITS OWN 12524 AND 12352 NAME
+ * (operator, 21.09.2026), over whatever stands there. Other sections and keys stay as they are.
+ * No keys (a backup older than this) or eBAL on eBAMATIC - nothing is written.
+ * A non-zero value is written always; a zero only into a key that already exists in the
+ * profile - no file, section or key is created to hold it (same rule as the reset).
+ * Two branches per key, both on the kip branch's own gate and each closed by `force_failure`:
+ * "value is not 0" and "key exists"; writing the same value twice is harmless.
+ * `src` = [bind config.ini, bind the backup]; path checks come while config.ini is bound, the
+ * profile check after the backup is bound (the section name reads its Fields).
+ */
+const restoreEmcWrites = (rev, src) => {
+  const path = '{ini_file(Restore,Path)}'
+  // Every branch binds config.ini first: a previous branch that passed its gates has bound the
+  // backup before its `force_failure`, and bindings outlive `try:`.
+  const gate = k => [
+    'try:',
+    src[0],
+    `!matching_ini_val ${path} Meta revision ${rev === 'mariko' ? 'erista' : 'mariko'}`,
+    `matching_ini_val ${path} Meta kipver ${KIPVER}`,
+    `!matching_ini_val ${path} Fields 12352 000000`,
+    // a profile named from a missing field would be a section nobody reads
+    `!matching_ini_val ${path} Fields 12352 ''`,
+    `!matching_ini_val ${path} Fields 12524 ''`,
+    `!matching_ini_val ${path} ${BACKUP_EMC_SECTION} ${k} ''`,
+  ]
+  const write = k => `set-ini-val '${EMC_FILE}' '${EMC_COPY_SECTION}' ${k} '{ini_file(${BACKUP_EMC_SECTION},${k})}'`
+  return EMC_KEYS.flatMap(k => [
+    ...gate(k), `!matching_ini_val ${path} ${BACKUP_EMC_SECTION} ${k} 0`, src[1], write(k), 'force_failure',
+    ...gate(k), src[1], `!matching_ini_val '${EMC_FILE}' '${EMC_COPY_SECTION}' ${k} ''`, write(k), 'force_failure',
+  ])
+}
 
 /**
  * ЗНАЧОК «УДЕРЖИВАТЬ A» — два глифа приватной области шрифта Nintendo Extended:
@@ -1570,6 +1630,13 @@ function emitBackup(item, lines) {
     mk.push(`set-ini-val './config.ini' Backup Mhz '{math({ini_file(Backup,Khz)}/1000,true)}'`)
     mk.push(`set-ini-val './config.ini' Backup Freq '{if_==({ini_file(Backup,Khz)},0,auto,{ini_file(Backup,Mhz)})}'`)
     mk.push(`set-ini-val './config.ini' Backup Bals '{if_==({ini_file(Backup,Bal)},0,auto,eBal{ini_file(Backup,Bal)})}'`)
+    // The two Magician voltages of the live profile (21.09.2026). Staged in config.ini because
+    // the backup's path is read from there: one binding per step. A missing key or file is the
+    // firmware's own choice, saved as 0 (eBAMATIC); so is eBAL on eBAMATIC, where no profile applies.
+    mk.push(`ini_file '${EMC_FILE}'`)
+    EMC_KEYS.forEach(k => mk.push(`set-ini-val './config.ini' Backup ${k} '{if_null({ini_file(${EMC_E_SECTION},${k})},0)}'`))
+    mk.push(`ini_file './config.ini'`)
+    EMC_KEYS.forEach(k => mk.push(`set-ini-val './config.ini' Backup ${k} '{if_==({ini_file(Backup,Bal)},0,0,{ini_file(Backup,${k})})}'`))
     // name first, values second — otherwise a second boundary splits the file in two
     mk.push(`set-ini-val './config.ini' Backup Path '${dir}/{ini_file(Backup,Freq)}-{ini_file(Backup,Bals)}-{timestamp(%d%m%y-%H%M%S)}.ini'`)
     // the backup's passport: where it came from and whether it fits this console
@@ -1593,6 +1660,8 @@ function emitBackup(item, lines) {
     for (const f of sideSet(rev)) {
       mk.push(`set-ini-val '${path}' Fields ${f.offset} '{hex_file(CUST,${f.offset},${f.length})}'`)
     }
+    // Not in Fields: these are not kip offsets and Meta fields does not count them.
+    EMC_KEYS.forEach(k => mk.push(`set-ini-val '${path}' ${BACKUP_EMC_SECTION} ${k} '{ini_file(Backup,${k})}'`))
     // ПОДПИСЬ ОБ УСПЕХЕ ОСТАЁТСЯ ПОДПИСЬЮ, а не превращается в `notify`.
     //
     // `set-footer` у обычного пункта садится на сам пункт, а не на родительский:
@@ -1614,6 +1683,7 @@ function emitBackup(item, lines) {
     // an unreadable kip reads `null` on both sides of the comparison
     mk.push(`!matching_ini_val ${path} Fields ${readBack[0][0]} null`)
     for (const [off, len] of readBack) mk.push(`matching_ini_val ${path} Fields ${off} '{hex_file(CUST,${off},${len})}'`)
+    EMC_KEYS.forEach(k => mk.push(`matching_ini_val ${path} ${BACKUP_EMC_SECTION} ${k} '{ini_file(Backup,${k})}'`))
     // The path lives only for one press: a stale one left by an unwritable config.ini
     // must never point the delete below at an older, good backup.
     const forget = forgetBackupPath(`'./config.ini'`)
@@ -3433,9 +3503,9 @@ if (kipRows.length) {
         const ctx = rev ? '' : (g.ctx ?? '')
 
         // THE TWO MAGICIAN VOLTAGES ARE ON BOTH PREVIEWS, BUT THEY ANSWER DIFFERENT QUESTIONS.
-        // The backup preview shows what stands in THIS console's emc_timings.ini under the
-        // backup's profile, and carries the same caveat the timings do — the file is this
-        // console's, the clock and eBAL are the backup's. The factory-reset page answers "what
+        // The backup preview shows the backup's own [Optimized] voltages; a backup older than
+        // 21.09.2026 has none, and then it shows THIS console's emc_timings.ini under the
+        // backup's profile with the caveat the timings carry. The factory-reset page answers "what
         // will be written", and since 20.09.2026 the reset writes both keys back to eBAMATIC,
         // so it prints that word flat: the current value would be a different question.
         const optHere = g.name === OPT_GROUP && !!rev
@@ -3501,19 +3571,19 @@ if (kipRows.length) {
             sink.push(`'${safeName(label)}' = '{json_file(0,${key})}'`)
             // The two voltage rows sit right after Optimized Target, and they read a DIFFERENT
             // ini file — so the binding has to go back to the backup for the rows below them.
-            if (optHere && r.offset === 12524) sink.push(...EMC_VOLT_ROWS(EMC_VOLT_LIST_COPY, source))
+            if (optHere && r.offset === 12524) sink.push(...EMC_VOLT_ROWS(EMC_VOLT_LIST_COPY, source, true))
             else if (optReset && r.offset === 12524) sink.push(...EMC_RESET_ROWS)
           }
           if (gate) out.push(...gpuTable(gate, g.name, [], body))
           else out.push('')
         }
-        // The block mixes two sources, so it says so. Everything else in it is the backup's;
-        // the two voltages are keys of THIS console's emc_timings.ini, which a backup does not
-        // carry. Gated by the same list, so the line leaves with the rows it explains.
+        // Only a backup made before 21.09.2026 lacks its own [Optimized] voltages: then the rows
+        // read THIS console's emc_timings.ini and the block says so. Gated by the same list, so
+        // the line leaves with the rows it explains and never shows under a backup's own values.
         if (optHere) {
           out.push('[Note]', ';mode=table', ';background=false', ';alignment=left', ';offset=10',
                    ';spacing=4', ';gap=0', ';skip_null=true', ...source, ...EMC_VOLT_LIST_COPY,
-                   `''='{if_null({list(0)},null,{if_==({list(1)},0,null,VDDQ/VDD2: this console - not the backup)})}'`, '')
+                   `''='{if_null({list(0)},null,{if_==({list(1)},0,null,{if_null({list(3)},VDDQ/VDD2: this console - not the backup,null)})})}'`, '')
         }
       }
 
@@ -3748,7 +3818,12 @@ if (kipRows.length) {
         // `commandSuccess` не трогает (`handleHexByCustom` возвращает void), так что
         // девяносто команд внутри блока цепочку не порвут.
         src[0],
+        // THE BACKUP'S MAGICIAN VOLTAGES (21.09.2026), before the kip branch and on its gate
+        // (see restoreEmcWrites). A branch that passed its gates has rebound to the backup
+        // before `force_failure`, so the kip branch binds config.ini again right after `try:`.
+        ...restoreEmcWrites(rev, src),
         'try:',
+        src[0],
         /**
          * Must come BEFORE `ini_file '{ini_file(Restore,Path)}'`: that rebinds reads to
          * the backup file, where section `Restore` does not exist, and the predicate would

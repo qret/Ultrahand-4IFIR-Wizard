@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/10-profiles.md sha=b7e431852408 self=c7a7f020a147 -->
+<!-- i18n: source=Guides/ru/10-profiles.md sha=317145f0bfd4 self=38b238f4f541 -->
 # Profiles, backups and reset
 
 <!-- nav:begin -->
@@ -21,6 +21,12 @@ nothing of your own set up, it is all you need.
 > table**. If you were on a half stage, what you get afterwards is a combination the
 > menu never offers. The tuner names it correctly, but if you want a clean state, pick
 > a stage again.
+
+The reset also puts the `VDDQ` and `VDD2` voltages of the Optimized profile back to
+`eBAMATIC` — for the memory clock and `EMC Balance` set right now. If nobody set them there,
+the `EMC Magician` file stays as it was: automatic is in effect anyway. With `EMC Balance` on
+`eBAMATIC` the reset leaves them alone, and the `EMC Magician` timings it never touches.
+[More in the RAM chapter](08-ram.md#vddq-and-vdd2--the-optimized-profile-voltages).
 
 ## Backups
 
@@ -60,6 +66,21 @@ Read it. The GPU stage line in particular names the stage, so you can see at a g
 whether you picked the right copy.
 
 Applying is a separate press; it will not happen by accident.
+
+**The `VDDQ` and `VDD2` voltages** (`Advanced → RAM → Optimized Mode`) are kept in the
+copy too: timings without their own voltages are a combination nobody has tested. The copy
+records the ones set, when it is made, for the current memory clock and `EMC Balance`; unset
+ones are recorded as `eBAMATIC`. On
+restore they are written to the `EMC Magician` file for the memory clock and `eBal` stored
+in the copy — over whatever is there. `eBAMATIC` (zero) is written only where the file
+already holds a value of its own for that clock and `eBal`: where it does not, the firmware
+is on automatic anyway, and the tuner does not create an empty profile there. Nothing else in
+that file is touched. If the copy has `EMC Balance` at `eBAMATIC`, the voltages do not apply and are not
+written. Copies made earlier, and profiles brought over by importing from the old wizard, do
+not hold the voltages and restore as before: the `EMC Magician` file stays as it is. As when
+picked in the menu, the voltages take effect after a restart. Page two of the preview shows which case it is: under
+the `Optimized Mode` block of an older copy stands the line
+`VDDQ/VDD2: this console - not the backup`.
 
 If the copy was taken on the other console model, a red line above the buttons names
 both sides outright. Such a copy cannot be applied: the Erista and Mariko setting lists

@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/02-first-run.md sha=33718d30251a self=e90882950c80 -->
+<!-- i18n: source=Guides/ru/02-first-run.md sha=efddc40ab642 self=df4f79368471 -->
 # First run
 
 <!-- nav:begin -->
@@ -39,7 +39,8 @@ The distinction matters. A menu entry shows **what is selected**. The summary sh
 those two are exactly what will disagree.
 
 The summary pages left and right: the second page holds the whole GPU voltage curve and
-the fine memory controls, the third one the EMC Magician timings.
+the fine memory controls (the `VDDQ`/`VDD2` voltages of the Optimized profile included),
+the third one the EMC Magician timings.
 
 ### Third page: EMC Magician timings
 
