@@ -4,19 +4,19 @@
     "name": "GPU Undervolt Mode (GPU Eco Mode)",
     "struct_field": "marikoGpuUV",
     "length": 1,
-    "what": "FACT: the GPU undervolt mode code, but the semantics are DIFFERENT on the two revisions. MARIKO: 0=AUTO ECO ST1, 1=AUTO ECO ST2, 2=AUTO ECO ST3, 3=MANUAL (use marikoGpuVoltArray @88..180). ERISTA: the value works as a MULTIPLIER of the -12500 uV step applied on top of eristaGpuDvfsTable — 'ERISTA = eristaGpuDvfsTable uV - (12500 uV * marikoGpuUV)' (customize.cpp:73). HYPOTHESIS: on Mariko it acts only on frequencies above the 'break point'; below it GPUv (52) rules — RU doc: 'GPU voltages are affected by 2 parameters - GPUv Min (1st priority) and Gpu Eco Mode (2nd priority)'. FACT (29.08.2026, disassembly of the shipped loader.kip, function 0x14DC0): the field is an INDEX into three physical tables - 0 selects marikoGpuDvfsTable @7128, 1 SLT @8864, 2 HiOPT @10600, 3 the marikoGpuVoltArray @88 overlay. Between the selection and the memcpy into PCV there is not a single arithmetic operation on voltages, so the 'computed by a formula' reading is disproved for Mariko; the -12.5 mV multiplier exists only in the Erista branch (0x10D90). Confirmed independently by the console snapshot Default.json and by the TABLE_BASE list in the original wizard. This fact is what the five undervolt stages are built on - see docs/NOTES.md 166-171. Do not soften it back to UNKNOWN.",
+    "what": "FACT: the GPU undervolt mode code, but the semantics are DIFFERENT on the two revisions. MARIKO: 0=AUTO ECO ST1, 1=AUTO ECO ST2, 2=AUTO ECO ST3, 3=MANUAL (use marikoGpuVoltArray @88..180). ERISTA: the value works as a MULTIPLIER of the -12500 uV step applied on top of eristaGpuDvfsTable — the source comment states this formula outright (customize.cpp:83). HYPOTHESIS: on Mariko it acts only on frequencies above the 'break point'; below it GPUv (52) rules — RU doc: 'GPU voltages are affected by 2 parameters - GPUv Min (1st priority) and Gpu Eco Mode (2nd priority)'. FACT (29.08.2026, disassembly of the shipped loader.kip, function 0x14DC0): the field is an INDEX into three physical tables - 0 selects marikoGpuDvfsTable @7128, 1 SLT @8864, 2 HiOPT @10600, 3 the marikoGpuVoltArray @88 overlay. Between the selection and the memcpy into PCV there is not a single arithmetic operation on voltages, so the 'computed by a formula' reading is disproved for Mariko; the -12.5 mV multiplier exists only in the Erista branch (0x10D90). Confirmed independently by the console snapshot Default.json and by the TABLE_BASE list in the original wizard. This fact is what the five undervolt stages are built on - see docs/NOTES.md 166-171. Do not soften it back to UNKNOWN.",
     "units": "code",
     "range": {
       "min": 0,
       "max": 3,
       "step": 1,
-      "note": "FACT for Mariko (customize.cpp:71-73, GPU_MODE.json). For Erista formally not limited; customize.cpp:186 gives 'MANUAL = -75000uV << Default >> +75000uV' → HYPOTHESIS: the practical ceiling is ≈6 (6*12500=75000 uV). DISCREPANCY: Wizard QuickTune (6GPU_MODE.json) offers only 0..2 — Custom Table cannot be enabled from QuickTune."
+      "note": "FACT for Mariko (customize.cpp:81-83, GPU_MODE.json). For Erista formally not limited; customize.cpp:213 documents a manual corridor of 75 mV either side of the default → HYPOTHESIS: the practical ceiling is ≈6 (6*12500=75000 uV). DISCREPANCY: Wizard QuickTune (6GPU_MODE.json) offers only 0..2 — Custom Table cannot be enabled from QuickTune."
     },
     "depends_on": [
       {
         "offset": null,
         "must_be": "SoC revision (Mariko / Erista)",
-        "why": "FACT (customize.cpp:71,73,186): on Mariko this is a mode selector with code 3=MANUAL; on Erista it is a linear multiplier of -12.5 mV, and the values 'Eco ST1/2/3' there correspond to -12500/-25000/-37500 uV."
+        "why": "FACT (customize.cpp:81,83,213): on Mariko this is a mode selector with code 3=MANUAL; on Erista it is a linear multiplier of -12.5 mV, and the values 'Eco ST1/2/3' there correspond to -12500/-25000/-37500 uV."
       }
     ],
     "affects": [
@@ -37,14 +37,14 @@
     ],
     "auto_value": "FACT: 0 = 'Eco ST1 - Default' (Wizard) = 'Default' (Ebal). DISCREPANCY: Ebal considers 01 the default (kipBackup/Backup Default.ini:13 'UVModeGPUm=01', Presets/Mariko/Default.ini 'GPUUv = 1').",
     "ram_relation": "NOT FOUND — no direct link between 44 and the RAM frequency. Indirectly — through 52, whose floor depends on the memory profile.",
-    "current_in_kip": "00 → Eco ST1 / Default (matches .marikoGpuUV = 0 in customize.cpp:72)",
+    "current_in_kip": "00 → Eco ST1 / Default (matches .marikoGpuUV = 0 in customize.cpp:82)",
     "danger": "HYPOTHESIS: a low-risk field, it does not brick anything. Too aggressive a stage → texture artefacts, 'sparkling dots', an orange screen (docs/WIZARD_GUIDE_UV.md). Test: Kirby and the Forgotten Land, 60fps, docked, 3-5 min at frequencies ABOVE the break point (TuningGuide.ini:32-38).",
     "help_quote": "GPU Undervolt Mode allows you to control the internal 4IFIR algorithms to either overvolt or undervolt GPU. The higher the value, the lower the consumption.",
     "sources": [
-      "Wizard/4IFIR-Wizard-update/customize.cpp:71",
-      "Wizard/4IFIR-Wizard-update/customize.cpp:72",
-      "Wizard/4IFIR-Wizard-update/customize.cpp:73",
-      "Wizard/4IFIR-Wizard-update/customize.cpp:186",
+      "customize.cpp:81",
+      "customize.cpp:82",
+      "customize.cpp:83",
+      "customize.cpp:213",
       "Wizard/4ifir Wizard source code/Help/GPU/GPU Undervolt Mode.txt:1",
       "Wizard/4ifir Wizard source code/4Advanced/GPU/config.ini:4",
       "Wizard/4ifir Wizard source code/4Advanced/GPU/json/GPU_MODE.json:1",
@@ -66,19 +66,19 @@
     "name": "GPU Minimal Voltage (GPUv / GPU Min Voltage)",
     "struct_field": "GPUv",
     "length": 3,
-    "what": "FACT: the lower clamp (floor) of the GPU voltage. The field is TWO-DOMAIN (customize.cpp:79): the numbers 1..3 are codes of automatic stages with REVERSED numbering (3=ST1 mild/default, 2=ST2, 1=ST3 the most aggressive); the numbers 430..970 are absolute millivolts. Ebal info: 'Stages set automatic Vmins for [optimized] and [max RAM] ram freqs, [xxx mV] options set the vmin for all ram freqs'. That is, a stage = an adaptive floor, individual for each RAM profile; absolute mV = one hard floor for all profiles.",
+    "what": "FACT: the lower clamp (floor) of the GPU voltage. The field is TWO-DOMAIN (customize.cpp:89): the numbers 1..3 are codes of automatic stages with REVERSED numbering (3=ST1 mild/default, 2=ST2, 1=ST3 the most aggressive); the numbers 430..970 are absolute millivolts. Ebal info: 'Stages set automatic Vmins for [optimized] and [max RAM] ram freqs, [xxx mV] options set the vmin for all ram freqs'. That is, a stage = an adaptive floor, individual for each RAM profile; absolute mV = one hard floor for all profiles.",
     "units": "mV|code",
     "range": {
       "min": 430,
       "max": 970,
       "step": 5,
-      "note": "FACT (customize.cpp:79): '430-970 MANUAL mV 5-10mV STEP', ':81' — '610mV DEFAULT'. DICTIONARY DISCREPANCIES: Wizard Mariko/gpuv.json = 500..800 step 5 (without stages); Ebal json/gpu_vmin.json = St1/St2/St3 + 515..850 step 5; Wizard Full Assist/8GPUv.json and Ebal json/8GPUv.json — stages only. No dictionary gives the full range from the source. The Ebal DISPLAY dictionary gpuVEM.json also knows the code 0400 = 'Stage 0', which is offered nowhere."
+      "note": "FACT (customize.cpp:89, 91): a manual range of 430-970 mV in 5-10 mV steps, default 610 mV. DICTIONARY DISCREPANCIES: Wizard Mariko/gpuv.json = 500..800 step 5 (without stages); Ebal json/gpu_vmin.json = St1/St2/St3 + 515..850 step 5; Wizard Full Assist/8GPUv.json and Ebal json/8GPUv.json — stages only. No dictionary gives the full range from the source. The Ebal DISPLAY dictionary gpuVEM.json also knows the code 0400 = 'Stage 0', which is offered nowhere."
     },
     "depends_on": [
       {
         "offset": 48,
         "must_be": "any (inherited at stage ST1)",
-        "why": "HYPOTHESIS of high confidence: 'MARIKO GPU VOLT MIN = CPUv, ERISTA GPU VOLT MIN = CPUv + 100mV' (customize.cpp:81). The neighbouring CPU agent considered this a possible typo; I found INDEPENDENT confirmation — the Ebal display dictionaries applied precisely to offset 52 label the values '000000'/'030000' as 'CPUv' (gpuVmM.json, Mariko) and 'CPUv + 100mv' (gpuVmE.json, Erista); they are used in info_backup.ini:42-43 for the key GPUMinVolt = hex_file(CUST,52,2). Consequence: lowering CPU Minimal Voltage silently pulls the GPU floor down as well."
+        "why": "HYPOTHESIS of high confidence: the source comment defines the GPU floor through CPUv — equal to it on Mariko, 100 mV above it on Erista (customize.cpp:91). The neighbouring CPU agent considered this a possible typo; I found INDEPENDENT confirmation — the Ebal display dictionaries applied precisely to offset 52 label the values '000000'/'030000' as 'CPUv' (gpuVmM.json, Mariko) and 'CPUv + 100mv' (gpuVmE.json, Erista); they are used in info_backup.ini:42-43 for the key GPUMinVolt = hex_file(CUST,52,2). Consequence: lowering CPU Minimal Voltage silently pulls the GPU floor down as well."
       },
       {
         "offset": 32,
@@ -88,7 +88,7 @@
       {
         "offset": null,
         "must_be": "SoC revision",
-        "why": "FACT (customize.cpp:81): on Erista the same code gives CPUv + 100 mV, that is, the dictionary labels in mV are correct only for Mariko. Neither package shows this in the UI."
+        "why": "FACT (customize.cpp:91): on Erista the same code gives CPUv + 100 mV, that is, the dictionary labels in mV are correct only for Mariko. Neither package shows this in the UI."
       }
     ],
     "affects": [
@@ -113,13 +113,13 @@
     ],
     "auto_value": "FACT: 3 = 'St1 - Default' = the automatic floor. HYPOTHESIS: at 3 (and, judging by the dictionaries, at 0) the floor equals CPUv (Mariko) / CPUv+100 mV (Erista).",
     "ram_relation": "FACT: the floor depends on the memory profile; fine tuning is done separately for the 'Optimised' profile (12440) and 'Optimised S' (12448).",
-    "current_in_kip": "03 00 00 00 → 3 = stage ST1 / Default (matches .GPUv = 3 in customize.cpp:80)",
+    "current_in_kip": "03 00 00 00 → 3 = stage ST1 / Default (matches .GPUv = 3 in customize.cpp:90)",
     "danger": "HYPOTHESIS: too low a floor → hangs and artefacts at LOW GPU frequencies. Protocol from the RU doc: find the 'maximum frequency at the minimum voltage' (monitoring GPU volt in 4IFIR Houdini > Miscellaneous or InfoNX) and test exactly at it, necessarily with the RAM overclock enabled.",
     "help_quote": "Lower bound for GPU consumption. The selected value will only work in EMC mode - 4IFIR optimized S",
     "sources": [
-      "Wizard/4IFIR-Wizard-update/customize.cpp:79",
-      "Wizard/4IFIR-Wizard-update/customize.cpp:80",
-      "Wizard/4IFIR-Wizard-update/customize.cpp:81",
+      "customize.cpp:89",
+      "customize.cpp:90",
+      "customize.cpp:91",
       "Wizard/4ifir Wizard source code/Help/GPU/GPU Minimal Voltage.txt:1",
       "Wizard/4ifir Wizard source code/4Advanced/GPU/config.ini:10",
       "Wizard/4ifir Wizard source code/4Advanced/GPU/json/Mariko/gpuv.json:1",
@@ -142,19 +142,19 @@
     "name": "GPU Max Voltage (GPU Overvolt / hGPUv)",
     "struct_field": "hGPUv",
     "length": 3,
-    "what": "FACT: the upper clamp of the GPU voltage in millivolts. 0 = automatic ('eBamatic'). customize.cpp:311: 'GPU OVER LOGIC // 0 AUTO // MARIKO: 750-1200 MANUAL // ERISTA: 850-1300 MANUAL'. RU doc: 'GPU Overvolt - the levels of the maximum consumption value of the graphics card'.",
+    "what": "FACT: the upper clamp of the GPU voltage in millivolts. 0 = automatic ('eBamatic'). customize.cpp:377: zero is automatic; the manual range is 750-1200 mV on Mariko and 850-1300 mV on Erista. RU doc: 'GPU Overvolt - the levels of the maximum consumption value of the graphics card'.",
     "units": "mV|code",
     "range": {
       "min": 750,
       "max": 1200,
       "step": 5,
-      "note": "FACT for Mariko (customize.cpp:311); Erista 850..1300. CRITICAL SAFETY DISCREPANCY (400 mV): Wizard GPU_OVER.json silently offers 750..1300 mV; Ebal json/gpu_vmax.json gives 800 mV as 'Max recommended' and marks EVERY higher value (805..890) as 'Caution', while the info page writes 'Dont raise above 800 mV'. For our tuner, take the Ebal position."
+      "note": "FACT for Mariko (customize.cpp:377); Erista 850..1300. CRITICAL SAFETY DISCREPANCY (400 mV): Wizard GPU_OVER.json silently offers 750..1300 mV; Ebal json/gpu_vmax.json gives 800 mV as 'Max recommended' and marks EVERY higher value (805..890) as 'Caution', while the info page writes 'Dont raise above 800 mV'. For our tuner, take the Ebal position."
     },
     "depends_on": [
       {
         "offset": null,
         "must_be": "SoC revision",
-        "why": "FACT (customize.cpp:311): the Mariko and Erista ranges differ (750-1200 versus 850-1300)."
+        "why": "FACT (customize.cpp:377): the Mariko and Erista ranges differ (750-1200 versus 850-1300)."
       }
     ],
     "affects": [
@@ -170,8 +170,8 @@
     "danger": "FACT (Ebal GPU.ini:82): 'No test. Dont raise above 800 mV' — it is not verified by a test, so the only protection is not to raise it. HYPOTHESIS: raising the ceiling gives no stability, only heat and degradation; the point of the field is rather to LOWER the ceiling to save power. SEPARATELY (HYPOTHESIS): the Ebal display dictionary json/mv.json ascribes to the values 1/2/3 the meaning 'ECO ST 1/2/3', which hGPUv does NOT have in the source (only 0=AUTO) — this looks like a copy-paste from the vmin dictionary; writing 1..3 here will probably set a ceiling of 1..3 mV or be discarded.",
     "help_quote": "Sets the maximum available GPU voltage. No test. Dont raise above 800 mV",
     "sources": [
-      "Wizard/4IFIR-Wizard-update/customize.cpp:311",
-      "Wizard/4IFIR-Wizard-update/customize.cpp:312",
+      "customize.cpp:377",
+      "customize.cpp:378",
       "Wizard/4ifir Wizard source code/4Advanced/GPU/json/GPU_OVER.json:1",
       "Wizard/4ifir Wizard source code/4Advanced/Full Assist/inis/19GPU_OVER.ini:6",
       "Wizard/4ifir Wizard source code/4Advanced/Full Assist/json/19GPU_OVER.json:1",
@@ -195,7 +195,7 @@
       "min": -70,
       "max": 20,
       "step": 5,
-      "note": "FACT in codes: 01 = neutral (0 mV). customize.cpp:331 declares the range '19 vMINetune ST 0-5' (that is 0..-20 mV) — DISCREPANCY: Ebal Micro-Enhance/json/pMeh19.json offers 0..14 (down to -65 mV), Wizard SmartMode/json/pMeh19.json — 0..9, the Ebal preset preset-GpuVmin — 0,2,4,6,8,10. The negative (in the sense of '+N mV') codes FD/FE/FF exist only in json/VminOff.json (not used) and in numbersOff.json (a display dictionary)."
+      "note": "FACT in codes: 01 = neutral (0 mV). customize.cpp:397 (⚠ this content is from an outdated revision, not in the current one) declares the range '19 vMINetune ST 0-5' (that is 0..-20 mV) — DISCREPANCY: Ebal Micro-Enhance/json/pMeh19.json offers 0..14 (down to -65 mV), Wizard SmartMode/json/pMeh19.json — 0..9, the Ebal preset preset-GpuVmin — 0,2,4,6,8,10. The negative (in the sense of '+N mV') codes FD/FE/FF exist only in json/VminOff.json (not used) and in numbersOff.json (a display dictionary)."
     },
     "depends_on": [
       {
@@ -221,14 +221,14 @@
         "why": "Not a conflict in the literal sense, but a mutual exclusion by context: 12440 acts in the Optimised profile, 12448 in Optimised S. At any moment only one of them works."
       }
     ],
-    "auto_value": "FACT: 01 = 0 mV (neutral). In customize.cpp:332 the default is .pMEH[19] = 3, in the shipped kip it is 1 — the versions diverge.",
+    "auto_value": "FACT: 01 = 0 mV (neutral). In customize.cpp:398 (⚠ this content is from an outdated revision, not in the current one) the default is .pMEH[19] = 3, in the shipped kip it is 1 — the versions diverge.",
     "ram_relation": "FACT: this is the very essence of the field — the trim is bound to a specific memory profile.",
     "current_in_kip": "01 → 0 mV (neutral)",
     "danger": "HYPOTHESIS: excessive lowering of the floor → artefacts/hangs at low GPU frequencies. A SEPARATE RISK (FACT + HYPOTHESIS): a pMEH[i] field occupies 4 bytes (array stride 12364,12368,...,12448), while all packages write 1 byte. The code FD ('+20 mV') will land as FD 00 00 00 = 253. If the kip reads pMEH as s32/u32, this gives (1-253)*5 = -1260 mV, i.e. the floor drops to zero. If it casts the low byte to s8, everything is correct. UNKNOWN. Until this is clarified, do not offer the codes FD/FE/FF.",
     "help_quote": "pMeh 19 vMINetune - GPU vMin for 4ifir Optimised (The higher the value, the lower the minimum voltage)",
     "sources": [
-      "Wizard/4IFIR-Wizard-update/customize.cpp:331",
-      "Wizard/4IFIR-Wizard-update/customize.cpp:332",
+      "customize.cpp:397",
+      "customize.cpp:398",
       "Wizard/4ifir Wizard source code/Help/MICRO-ENHANCE LOGIC/pMeh 19 vMINetune ST.txt:1",
       "Wizard/4ifir Wizard source code/Help/EMC-4IFIR Optimized/GPU vMin.txt:1",
       "Wizard/4ifir Wizard source code/SmartMode/EMC-4IFIR Optimized/config.ini:5",
@@ -256,7 +256,7 @@
       "min": -45,
       "max": 25,
       "step": 5,
-      "note": "FACT in codes: 02 = neutral (0 mV) — UNLIKE 12440, where the neutral is 01. Ebal json/pMeh21.json (the main GPU menu) offers 0..9; Ebal Micro-Enhance/json/pMeh21.json — from -3 to 9, and with a typo 'FDs' instead of 'FD'; the preset preset-GpuVminMaxMHZ — 0..5. In customize.cpp pMEH[21] is marked '>> RESERVED >>' (:333) — the field did not yet exist in that revision, although it is used in kip ver 27."
+      "note": "FACT in codes: 02 = neutral (0 mV) — UNLIKE 12440, where the neutral is 01. Ebal json/pMeh21.json (the main GPU menu) offers 0..9; Ebal Micro-Enhance/json/pMeh21.json — from -3 to 9, and with a typo 'FDs' instead of 'FD'; the preset preset-GpuVminMaxMHZ — 0..5. In customize.cpp pMEH[21] is marked '>> RESERVED >>' (line 333 of the outdated copy; ⚠ this content is from an outdated revision, not in the current one) — the field did not yet exist in that revision, although it is used in kip ver 27."
     },
     "depends_on": [
       {
@@ -293,7 +293,7 @@
     "danger": "HYPOTHESIS: as for 12440. PLUS A FACTUAL TRAP: in Ebal 4opt.ini:21-24 the item is labelled 'pMeh 20 rVDDick' (by meaning — the VDDQ/VDD2 of the memory), but it writes to 12448, i.e. into the GPU vmin. The real pMeh20 is offset 12444 (microP.ini:128). The user thinks he is tuning the memory voltage while he is tuning the GPU floor. Our tuner must not repeat this item. PLUS the risk of a 1-byte write into a 4-byte field (see 12440).",
     "help_quote": "pMeh 21 gVMINDick - GPU vMin for 4ifir Optimised S (The higher the value, the lower the minimum voltage)",
     "sources": [
-      "Wizard/4IFIR-Wizard-update/customize.cpp:333",
+      "customize.cpp:399",
       "Wizard/4ifir Wizard source code/Help/MICRO-ENHANCE LOGIC/pMeh 21 gVMINDick.txt:1",
       "Wizard/4ifir Wizard source code/4Advanced/Full Assist/config.ini:79",
       "Ebal/switch/.packages/Ebal Tuner/GPU.ini:44",
@@ -318,13 +318,13 @@
     "length": 3,
     "offsets_valid": "88..208, step 4 — 31 points (307.2 … 1459.2 MHz). The source declares only 24 elements (88..180), yet the kip's write loop takes its length from the DVFS table, which has 31 rows, and fills every one of them; on Mariko 184..208 are the upper seven points of the curve.",
     "offsets_shared": "184, 188, 192, 196, 200, 204, 208 — DUAL PURPOSE: on Erista these bytes are eristaCpuDvfsTable[0]; on Mariko they are the curve points 1228.8, 1267.2, 1305.6, 1344.0, 1382.4, 1420.8 and 1459.2 MHz. Our screen carries platform=mariko, so it is never shown on an Erista, and on a Mariko the Erista CPU table is dead — the write is safe on both.",
-    "what": "An array of GPU voltage values in MILLIVOLTS (not uV!), one per frequency of the Mariko grid. Index i corresponds to the frequency 307200 + 38400*i kHz: 88→307.2 MHz, 92→345.6, ..., 180→1190.4, 184→1228.8, ..., 208→1459.2 MHz (31 points in all). FACT, and still true: the declaration in the source is 24 elements — '.marikoGpuVoltArray = {395, 420, 445, 470, 495, 520, 545, 570, 595, 620, 645, 670, 695, 720, 750, 780, 810, 840, 870, 900, 930, 960, 990, 1020}' (customize.cpp:95) — and the kip bytes @88..180 match that list EXACTLY, which means the shipped kip has not been touched in the table. REFUTED 04.09.2026: what used to be written here as an equally hard FACT — that there are therefore only 24 usable points and the curve is capped at 1190.4 MHz — was our own misreading of the declaration. The declared length is not what the write loop uses. The real ceiling of the mode is 1459.2 MHz. See docs/NOTES.md #245.",
+    "what": "An array of GPU voltage values in MILLIVOLTS (not uV!), one per frequency of the Mariko grid. Index i corresponds to the frequency 307200 + 38400*i kHz: 88→307.2 MHz, 92→345.6, ..., 180→1190.4, 184→1228.8, ..., 208→1459.2 MHz (31 points in all). FACT, and still true: the declaration in the source is a table of 24 values, rising from just under 0.4 V to about 1 V (customize.cpp:106) — and the kip bytes @88..180 match that table EXACTLY, which means the shipped kip has not been touched in the table. REFUTED 04.09.2026: what used to be written here as an equally hard FACT — that there are therefore only 24 usable points and the curve is capped at 1190.4 MHz — was our own misreading of the declaration. The declared length is not what the write loop uses. The real ceiling of the mode is 1459.2 MHz. See docs/NOTES.md #245.",
     "units": "mV",
     "range": {
       "min": 400,
       "max": 1000,
       "step": 5,
-      "note": "FACT: the range is INDIVIDUAL for each row. Wizard and Ebal use five dictionaries: 307..537 MHz → lowest.json (400..600 mV); 576..883 → low.json (500..700); 921..1152 → mid.json (600..800); 1190..1305 → high.json (700..900); 1344..MAX → highest.json (770..1000). The step is 5 mV everywhere. The reason for the narrow corridors is probably a hidden clamp: customize.cpp:73 says '( -75mV << marikoGpuVoltArray ECO ST2 >> +75mV ) 5mV STEP'. BUT the default contents of the array do not fit into that corridor (1020 mV against the ECO ST2 value of 750 mV for 1190.4 MHz) — UNKNOWN how the clamp is implemented."
+      "note": "FACT: the range is INDIVIDUAL for each row. Wizard and Ebal use five dictionaries: 307..537 MHz → lowest.json (400..600 mV); 576..883 → low.json (500..700); 921..1152 → mid.json (600..800); 1190..1305 → high.json (700..900); 1344..MAX → highest.json (770..1000). The step is 5 mV everywhere. The reason for the narrow corridors is probably a hidden clamp: customize.cpp:83 describes the manual mode as a corridor of 75 mV either side of the ECO ST2 curve, in 5 mV steps. BUT the default contents of the array do not fit into that corridor (1020 mV against the ECO ST2 value of 750 mV for 1190.4 MHz) — UNKNOWN how the clamp is implemented."
     },
     "depends_on": [
       {
@@ -347,12 +347,12 @@
     ],
     "auto_value": "none — this is data, not a mode. The 'automatic' is the value 44 ≠ 03 itself.",
     "ram_relation": "NOT FOUND — no direct link between the table rows and the RAM frequency.",
-    "current_in_kip": "88..180 = 395,420,445,470,495,520,545,570,595,620,645,670,695,720,750,780,810,840,870,900,930,960,990,1020 (mV) — the source default. 184=408000, 188=0, 192=786986, 196..208=0 — these are the upper seven points of the curve, but they have never been seeded, so they still hold the eristaCpuDvfsTable[0] bytes the kip shipped with. Unseeded, not foreign: seed them (ST1 seeding writes all 31 cells) before reading the top of the curve as a voltage.",
+    "current_in_kip": "88..180 hold the source default table unchanged (24 values, customize.cpp:106). 184=408000, 188=0, 192=786986, 196..208=0 — these are the upper seven points of the curve, but they have never been seeded, so they still hold the eristaCpuDvfsTable[0] bytes the kip shipped with. Unseeded, not foreign: seed them (ST1 seeding writes all 31 cells) before reading the top of the curve as a voltage.",
     "danger": "HYPOTHESIS: values that are too low → texture artefacts and an orange screen at the corresponding frequencies; the check is to set in Houdini exactly the frequency whose row was edited, disable the GPU Freq Governor, and spend 5-10 minutes in a GPU-heavy game with the RAM overclock enabled. NOT a danger, refuted 04.09.2026: this line used to open with «FACT: 7 items write past the array boundary». They do not — see affects[184] and docs/NOTES.md #245.",
     "help_quote": "It is important not to forget that the voltages from GPU Undervolt (Gpu Eco Mode) will be applied only to frequencies above xxx MHz (This is the maximum frequency at the minimum voltage)",
     "sources": [
-      "Wizard/4IFIR-Wizard-update/customize.cpp:73",
-      "Wizard/4IFIR-Wizard-update/customize.cpp:95",
+      "customize.cpp:83",
+      "customize.cpp:106",
       "Wizard/4ifir Wizard source code/4Advanced/GPU/GPU custom table/config.ini:3",
       "Wizard/4ifir Wizard source code/4Advanced/GPU/GPU custom table/config.ini:173",
       "Wizard/4ifir Wizard source code/4Advanced/GPU/GPU custom table/config.ini:243",
@@ -386,7 +386,7 @@
       {
         "offset": 44,
         "must_be": "any — there is NO gate",
-        "why": "FACT: the Erista curve items (GPU custom table/config.ini:253-425) do NOT write '44 03', unlike Mariko. According to customize.cpp:73, on Erista the result = eristaGpuDvfsTable[i] - 12500 uV * marikoGpuUV, that is, the edited table and the mode in 44 act SIMULTANEOUSLY and add up."
+        "why": "FACT: the Erista curve items (GPU custom table/config.ini:253-425) do NOT write '44 03', unlike Mariko. According to customize.cpp:83, on Erista the result = eristaGpuDvfsTable[i] - 12500 uV * marikoGpuUV, that is, the edited table and the mode in 44 act SIMULTANEOUSLY and add up."
       },
       {
         "offset": null,
@@ -399,13 +399,13 @@
     "auto_value": "none.",
     "ram_relation": "NOT FOUND.",
     "current_in_kip": "5424=675000, 5480=687500, 5536=700000, ... step 12500 uV; 6768 (1113.6 MHz) = 1037500 uV",
-    "danger": "FACT (errors in the existing packages, must not be repeated): (1) Wizard — the 'Default' marks in the Erista dictionaries are shifted by one row, because in the previous revision the row 192000 did not exist (customize.cpp:189 — it is commented out). For '192MHz' the dictionary calls 687500 the default, while the kip holds 675000 there; for '768MHz' — 875000 against the real 862500. Not dangerous (choosing 'Default' raises the voltage by 12.5 mV), but the labels lie. (2) Wizard does not show the last 4 rows of the table (6824, 6880, 6936, 6992 — 1152.0..1266.2 MHz). (3) Ebal is broken: custom_table.ini:233-384 — the rows from 307 MHz and above write into 88,92,...,172, that is into the MARIKO array rather than into their own table; the dictionary json/gpuT.json contains 3-byte values in mV ('550 mV' = '260200') for a 4-byte field in uV, which yields 550 uV = 0.55 mV; the first element 'eBamatic' has the hex '2A020C, C03900, C03900, 2A0200, 030000, 000000' — six comma-separated values in a field where one is written. HYPOTHESIS: the Erista GPU curve in Ebal Tuner is non-functional and is not usable as a model.",
-    "help_quote": "ERISTA GPU ECO LOGIC // ECO ST1 = -12500uV // ECO ST2 = -25000uV // ECO ST3 = -37500uV // MANUAL = -75000uV << Default >> +75000uV",
+    "danger": "FACT (errors in the existing packages, must not be repeated): (1) Wizard — the 'Default' marks in the Erista dictionaries are shifted by one row, because in the previous revision the row 192000 did not exist (line 189 of the outdated copy — it is commented out; ⚠ this content is from an outdated revision, not in the current one, customize.cpp:219). For '192MHz' the dictionary calls 687500 the default, while the kip holds 675000 there; for '768MHz' — 875000 against the real 862500. Not dangerous (choosing 'Default' raises the voltage by 12.5 mV), but the labels lie. (2) Wizard does not show the last 4 rows of the table (6824, 6880, 6936, 6992 — 1152.0..1266.2 MHz). (3) Ebal is broken: custom_table.ini:233-384 — the rows from 307 MHz and above write into 88,92,...,172, that is into the MARIKO array rather than into their own table; the dictionary json/gpuT.json contains 3-byte values in mV ('550 mV' = '260200') for a 4-byte field in uV, which yields 550 uV = 0.55 mV; the first element 'eBamatic' has the hex '2A020C, C03900, C03900, 2A0200, 030000, 000000' — six comma-separated values in a field where one is written. HYPOTHESIS: the Erista GPU curve in Ebal Tuner is non-functional and is not usable as a model.",
+    "help_summary": "Erista: the three ECO stages lower the curve by 12.5, 25 and 37.5 mV; manual mode allows up to 75 mV either side of the default (customize.cpp:213). A summary, not a quote.",
     "sources": [
-      "Wizard/4IFIR-Wizard-update/customize.cpp:73",
-      "Wizard/4IFIR-Wizard-update/customize.cpp:186",
-      "Wizard/4IFIR-Wizard-update/customize.cpp:187",
-      "Wizard/4IFIR-Wizard-update/customize.cpp:189",
+      "customize.cpp:83",
+      "customize.cpp:213",
+      "customize.cpp:214",
+      "customize.cpp:219",
       "Wizard/4ifir Wizard source code/4Advanced/GPU/GPU custom table/config.ini:253",
       "Wizard/4ifir Wizard source code/4Advanced/GPU/json/Erista/192MHz.json:1",
       "Wizard/4ifir Wizard source code/4Advanced/GPU/json/Erista/768MHz.json:1",

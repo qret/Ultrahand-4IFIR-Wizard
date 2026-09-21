@@ -2341,7 +2341,7 @@
       "values": [
         {
           "hex": "000000",
-          "name": "Default - 0"
+          "name": "eBAMATIC"
         },
         {
           "hex": "01",
@@ -2849,7 +2849,7 @@
           }
         ]
       },
-      "name_fixed": "Was \"768MHz\" — a curve point name stuck to this field while merging sources: in the original packages the 44=03 gate was written as a side effect from every point. Per customize.cpp:72 this is marikoGpuUV."
+      "name_fixed": "Was \"768MHz\" — a curve point name stuck to this field while merging sources: in the original packages the 44=03 gate was written as a side effect from every point. Per customize.cpp:82 this is marikoGpuUV."
     },
     {
       "offset": 48,
@@ -2886,6 +2886,10 @@
       "confidence": "high",
       "values": [
         {
+          "hex": "000000",
+          "name": "Auto — eBAMATIC"
+        },
+        {
           "hex": "0300",
           "name": "Auto — Eco ST1 — Default",
           "name_ebal": "ST1 - Default"
@@ -2899,10 +2903,6 @@
           "hex": "0100",
           "name": "Auto — Eco ST3",
           "name_ebal": "ST3"
-        },
-        {
-          "hex": "000000",
-          "name": "Auto — eBAMATIC"
         },
         {
           "hex": "AE0100",
@@ -5877,7 +5877,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -6149,7 +6149,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -6446,7 +6446,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -6718,7 +6718,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -7015,7 +7015,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -7291,7 +7291,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -7604,7 +7604,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -7940,7 +7940,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -8289,7 +8289,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -8626,7 +8626,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -8967,7 +8967,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -9316,7 +9316,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -9673,7 +9673,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -10046,7 +10046,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -10443,7 +10443,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -10864,7 +10864,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -11265,7 +11265,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -11682,7 +11682,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -12123,7 +12123,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -12576,7 +12576,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -13029,7 +13029,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -13522,7 +13522,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -13939,7 +13939,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -14356,7 +14356,7 @@
           }
         ]
       },
-      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:95)",
+      "platform_source": "marikoGpuVoltArray[0..23] (customize.cpp:106)",
       "help_source": "marikoGpuVoltArray and the ST1/ST2/ST3 DVFS tables, read from the console kip"
     },
     {
@@ -19303,7 +19303,7 @@
       "values": [
         {
           "hex": "000000",
-          "name": "0 - Base undervolting"
+          "name": "eBAMATIC"
         },
         {
           "hex": "01",
@@ -20296,7 +20296,7 @@
           }
         ]
       },
-      "platform_source": "dCPUv — MARIKO CPU MIN-HIGH LOGIC (customize.cpp:314)"
+      "platform_source": "dCPUv — MARIKO CPU MIN-HIGH LOGIC (customize.cpp:380)"
     },
     {
       "offset": 12352,

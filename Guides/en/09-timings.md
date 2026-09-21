@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/09-timings.md sha=a9045bcd07fd self=845c080b2cfa -->
+<!-- i18n: source=Guides/ru/09-timings.md sha=8de5dd09fa02 self=0586c1a97243 -->
 # Timings and fine tuning
 
 <!-- nav:begin -->
@@ -110,7 +110,9 @@ The order comes from the 4IFIR guide, step by step:
 7. Make it stick — switch to `Optimized`, or put the console to sleep and wake it.
 
 Or, which comes to the same thing: delete the section matching your current memory
-profile from `/config/4IFIR/emc_timings.ini` and reboot.
+profile from `/config/4IFIR/emc_timings.ini` and reboot. Along with the timings, the
+`VDDQ`/`VDD2` voltages go back to automatic too, if you set them in the tuner —
+[see the RAM page](08-ram.md#vddq-and-vdd2--the-optimized-profile-voltages).
 
 > [!IMPORTANT]
 > **If Magician timings stop the console from booting, `KipTool` will not help** — it
@@ -232,8 +234,7 @@ curve before you take the console apart.
 ## What we do not do
 
 We do not do live tuning, and we will not — it lives in `EMC Magician`, [described above](#emc-magician--tuning-while-the-console-runs).
-This tuner writes values into the firmware's settings file, and they apply at the next
-boot.
+This tuner writes values into settings files, and they apply at the next boot.
 
 That is a boundary, not a shortcoming: we do not touch the other overlay and we do not
 duplicate it.

@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/02-first-run.md sha=44409d049c69 self=06a870fb18bf -->
+<!-- i18n: source=Guides/ru/02-first-run.md sha=33718d30251a self=e90882950c80 -->
 # First run
 
 <!-- nav:begin -->
@@ -46,12 +46,15 @@ the fine memory controls, the third one the EMC Magician timings.
 The `Magician` page shows the memory timings you saved in
 [`EMC Magician`](09-timings.md#emc-magician--tuning-while-the-console-runs). The tuner does
 not write them: the firmware keeps them in `/config/4IFIR/emc_timings.ini`, and the page
-only reads that file.
+only reads that file. The only things the tuner writes into that file are two voltages,
+`VDDQ` and `VDD2` —
+[see the memory chapter](08-ram.md#vddq-and-vdd2--the-optimized-profile-voltages).
 
 - **What you see.** The set for the memory clock and the `eBAL` currently written in the
   firmware. Magician names a profile by `CL`, the page shows `eBAL` instead — they are the
-  same thing: `CL = eBAL × 2 + 8`. The `1600 MHz` timings appear only when
-  `sMeh 8 E-Boost` is set to `2`. A timing you never touched in Magician reads `Auto`.
+  same thing: `CL = eBAL × 2 + 8`. The Optimized profile timings appear only when
+  `sMeh 8 E-Boost` is set to `2`; their heading reads `1600 MHz` or `1331 MHz`,
+  depending on `Optimized Target`. A timing you never touched in Magician reads `Auto`.
 - **The line on top** names the buttons the way the overlay's bottom bar does: a button
   icon and the action.
 - **Button `A`** (`Show MC` / `Hide MC`) shows or hides the arbiter (MC) values: they

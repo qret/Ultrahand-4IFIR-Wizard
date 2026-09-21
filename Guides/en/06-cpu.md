@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/06-cpu.md sha=7f760e7a0915 self=d89e654ee872 -->
+<!-- i18n: source=Guides/ru/06-cpu.md sha=86f384c90c17 self=71b96731f958 -->
 # CPU
 
 <!-- nav:begin -->
@@ -50,7 +50,8 @@ battery. But cut too much and the console will not reach its clocks — that is 
 
 Order on Mariko:
 
-1. `Low MHz Undervolt` — one level at a time.
+1. `Low MHz Undervolt` — one level at a time, starting from `eBAMATIC`: the zero in this
+   list is the automatic, the firmware's default.
 2. `High MHz Undervolt` — the same for high clocks. Test with a **heavy** game; a light
    one never reaches them.
 3. `Boost Clock` — if you want faster loading. It does not affect frames in a game.

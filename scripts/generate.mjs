@@ -637,10 +637,12 @@ function warningsFor(offset, plat) {
 
   // Paired switch: both fields have to be zero.
   for (const p of [DEPS.paired_switches].flat().filter(Boolean)) {
-    if ((p.offsets ?? []).includes(n)) {
-      push(`${p.name} turns on only when both undervolt fields are zero`)
-      if (p.scale_note) push('Scale is not linear: 1 / 3 / 5 = Eco ST1 / ST2 / ST3')
-    }
+    if ((p.offsets ?? []).includes(n)) push(`${p.name} turns on only when both undervolt fields are zero`)
+  }
+  // Level scale whose odd steps are the named Eco stages. Split from the pair on 21.09.2026:
+  // the 40/12340 pair came from an outdated source copy, the scale did not.
+  for (const s of [DEPS.stage_scales].flat().filter(Boolean)) {
+    if ((s.offsets ?? []).includes(n) && s.scale_note) push('Scale is not linear: 1 / 3 / 5 = Eco ST1 / ST2 / ST3')
   }
 
   // Arithmetic: what matters is THAT values are summed, not the addresses of the operands.
@@ -2309,6 +2311,28 @@ function emitPackage(node, dirPath, depth = 0) {
     lines.push('')
   }
 
+  /**
+   * The same hint for a section where only SOME items are gated (`hidden_hint` in the map).
+   * The condition is not written in the map: it is the negation of the items' own gate, so
+   * the hint shows exactly when they are hidden and cannot drift from them.
+   */
+  if (node.hidden_hint && lines.length) {
+    const h = node.hidden_hint
+    const gates = new Set((node.children ?? []).filter(k => h.for.includes(k.id)).map(k => visCond(k.visible_when)))
+    if (gates.size !== 1 || [...gates][0] == null)
+      throw new Error(`${node.id}: hidden_hint needs one common visible_when on ${h.for.join(', ')}`)
+    const gate = [...gates][0]
+    lines.push('[Not in use]')
+    lines.push(';mode=table')
+    lines.push(`;visibility_condition=${gate.startsWith('!') ? gate.slice(1) : '!' + gate}`)
+    lines.push(';alignment=left')
+    lines.push(';offset=10')
+    lines.push(';spacing=4')
+    lines.push(';gap=20')
+    for (const ln of wrap(h.text)) lines.push(`''='${ln}'`)
+    lines.push('')
+  }
+
   const body = [...links, ...lines]
   if (!body.length) return null
 
@@ -2719,12 +2743,18 @@ if (kipRows.length) {
   function emitModeVoltages(kl) {
     if (!SHOW_MODE_VOLTAGES) return
     const table = DEPS?.emc_mode_voltage_table
-    if (!table?.rows?.length) return
+    // The rows are firmware-source data and are not published; the map only points at them.
+    // Without the local file the display is skipped, as with the switch above.
+    let rows = table?.rows
+    if (!rows && table?.rows_file) {
+      try { rows = JSON.parse(readFileSync(join(ROOT, table.rows_file), 'utf8')).rows } catch {}
+    }
+    if (!rows?.length) return
 
     const hex = v => v.toString(16).toUpperCase().padStart(6, '0').match(/../g).reverse().join('')
     const vddq = {}
     const vdd2 = {}
-    for (const [, , khz, vq, ...byEbal] of table.rows) {
+    for (const [, , khz, vq, ...byEbal] of rows) {
       const speed = hex(khz)
       if (vq != null) vddq[speed] = `${vq} mV`
       byEbal.forEach((mv, i) => {

@@ -17,12 +17,12 @@ The table is generated from the **built package** — the same files that go ont
 |---|---|---|---|---|
 | eBAMATIC Stage | `pMeh 18 eBAMATIC ST` | both | 4 | 0 - Default, Stage 1 … Stage 3 |
 | Advanced → CPU → Boost Clock | `CPU Boost Clock` | both | 20 | eBAMATIC, 1400MHz … 3000MHz - S |
-| Advanced → CPU → Min Voltage | `CPU Minimal Voltage` | both | 53 | Eco ST1 - Auto — Default, Eco ST2 - Auto … 750 mV |
+| Advanced → CPU → Min Voltage | `CPU Minimal Voltage` | both | 53 | eBAMATIC - Auto, Eco ST1 - Auto — Default … 750 mV |
 | Advanced → CPU → Max Voltage | `CPU Maximum Voltage` | Mariko | 35 | eBAMATIC, 1100 mV … 1375mV |
 | Advanced → CPU → Voltage Limit | `CPU Voltage Limit` | Erista | 22 | eBAMATIC, 1180mV … 1375mV |
 | Advanced → CPU → dCPUv | `dCPUv` | Mariko | 24 | eBAMATIC, 1 - Eco ST 1 … 890mV |
-| Advanced → CPU → Low MHz Undervolt | `Low MHz Undervolt` | Mariko | 7 | 0 - Default, lvl 1 … lvl 6 |
-| Advanced → CPU → High MHz Undervolt | `High MHz Undervolt` | Mariko | 8 | 0 - Base undervolting, lvl 1 … lvl 7 |
+| Advanced → CPU → Low MHz Undervolt | `Low MHz Undervolt` | Mariko | 7 | eBAMATIC, lvl 1 … lvl 6 |
+| Advanced → CPU → High MHz Undervolt | `High MHz Undervolt` | Mariko | 8 | eBAMATIC, lvl 1 … lvl 7 |
 | Advanced → CPU → Speed Shift | `Speed Shift` | both | 8 | eBAMATIC, Default … Eco ST4 |
 | Advanced → GPU → GPU Voltage Table → 307MHz | `307MHz` | Mariko | 42 | 395 mV - Default, 400 mV … 600 mV |
 | Advanced → GPU → GPU Voltage Table → 345MHz | `345MHz` | Mariko | 41 | 400 mV, 405 mV … 600 mV |

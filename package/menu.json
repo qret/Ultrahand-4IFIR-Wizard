@@ -1681,6 +1681,14 @@
               "id": "ram_optimized",
               "title": "Optimized Mode (1600 MHz)",
               "note": "Three fields that belong not to overclocking in general but to one mode — Optimized. The operator asked for them to be split out: in the common list they looked like three more knobs for who knows what.",
+              "hidden_hint": {
+                "for": [
+                  "emc_evdq",
+                  "emc_evd2"
+                ],
+                "text": "Set EMC Balance to use VDDQ/VDD2",
+                "why": "VDDQ and VDD2 are hidden while EMC Balance is eBAMATIC. Operator, 21.09.2026: no popup, a short hint under the items instead, plain words for a non-native reader. The condition is the negation of the items' own gate, built by the generator."
+              },
               "children": [
                 {
                   "id": "ram_opt_1600",
@@ -1704,7 +1712,7 @@
                     "step": 5
                   },
                   "visible_when": "!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000",
-                  "help": "Memory bus voltage for the Optimized (E) profile. It is not a kip field: the value goes into /config/4IFIR/emc_timings.ini, the file the 4IFIR system module keeps, under the profile of the current Optimized Target and eBAL. What you pick here applies after a restart, and eBAMATIC puts the automatic calculation back. A number set here is used as given: it also overrides the ceiling the firmware would otherwise hold when the memory heats up. Range 300-750 mV, step 5 mV.",
+                  "help": "Memory bus voltage for the Optimized (E) profile. It is not a kip field: the value goes into /config/4IFIR/emc_timings.ini, the file the 4IFIR system module keeps, under the profile of the current Optimized Target and eBAL. What you pick here applies after a restart, and eBAMATIC puts the automatic calculation back. A number set here is used as given: it also overrides the ceiling the firmware would otherwise hold when the memory heats up. Range 300-750 mV, step 5 mV. VDDQ and VDD2 are shown only while EMC Balance is set to a fixed level, not eBAMATIC.",
                   "help_source": "emc_timings.ini <profile> eVDQ (4IFIR system module)",
                   "note": "Пункт пишет не kip, а ключ сисмодуля в /config/4IFIR/emc_timings.ini — секция профиля Optimized E собирается из kip (Optimized Target 12524 + eBAL 12352). Разбор — docs/MAGICIAN-PAGE.md §1.7, решение оператора 20.09.2026."
                 },

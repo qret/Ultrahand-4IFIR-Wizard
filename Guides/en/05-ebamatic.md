@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/05-ebamatic.md sha=9fa748507fab self=58feecbd651f -->
+<!-- i18n: source=Guides/ru/05-ebamatic.md sha=eed83cea3847 self=f9c52bcd7340 -->
 # eBAMATIC
 
 <!-- nav:begin -->
@@ -17,7 +17,8 @@ suited to it.
 It is not only about voltages. The memory clock, the balancing mode and the CPU boost
 clock are chosen the same way.
 
-That is why many entries have `eBAMATIC` or `Auto — eBAMATIC` as their first value. It
+That is why many entries have `eBAMATIC` (`eBAMATIC - Auto` in the CPU `Min Voltage`)
+as their first value. It
 does not mean "off" or "default" — it means "let the firmware decide, it knows what chips
 you have".
 
@@ -50,19 +51,12 @@ It is the fastest way to get an effect — one setting instead of a dozen.
 Your number **overrides the automatic choice** for that entry. The rest keep being
 chosen automatically.
 
-> [!NOTE]
-> One exception is worth knowing. For `Low MHz Undervolt` and `High MHz Undervolt` a
-> special economy mode of the firmware kicks in **only when both are zero**. Set a number
-> in one and the behaviour of both changes.
-
 Hence a common confusion: someone sets a voltage by hand, gets freezes, puts the
 automatic mode back and everything is fine. Not because the number was wrong, but because
 one number does not fit every clock and every chip.
 
 > [!TIP]
 > If you do not know what you broke, put everything you set by hand back to automatic.
-> `Low MHz Undervolt` and `High MHz Undervolt` have no `eBAMATIC` entry — for them, going
-> back means the value `0`.
 
 ## How eBAMATIC differs from GPU stages
 

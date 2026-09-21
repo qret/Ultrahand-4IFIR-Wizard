@@ -782,6 +782,44 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       hurt: s => s.split('\n').filter(l => l.trim() !== ';visibility_condition=!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000').join('\n'),
       expect: /виден при eBAL = eBAMATIC/,
     },
+    {
+      // Check 66: the hint's condition is flipped — it shows next to working items and is
+      // gone exactly when they are hidden.
+      name: 'подсказка «Set EMC Balance» показывается по условию пунктов',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => s.split(';visibility_condition=matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000').join(';visibility_condition=!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000'),
+      expect: /подсказка показывается по .*обратному условию пунктов/,
+    },
+    {
+      // Check 66: the hint is gone — on eBAMATIC eBAL the items vanish without a word.
+      name: 'подсказка «Set EMC Balance» пропала',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => s.replace(/\[Not in use\][\s\S]*?\n\n/, ''),
+      expect: /подсказок «Set EMC Balance to use VDDQ\/VDD2» 0/,
+    },
+    {
+      // Check 66: the items lose their gate while the hint stays — the page says "set the
+      // balance" next to items that are right there.
+      name: 'пункты VDDQ/VDD2 без условия, подсказка на месте',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => s.split('\n').filter(l => l.trim() !== ';visibility_condition=!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000').join('\n'),
+      expect: /подсказка видна при eBAL = eBAMATIC, а пункт «VDDQ» не скрыт/,
+    },
+    {
+      // Check 67: exactly what happened on 03.09.2026 — eBAMATIC slid below the Eco steps
+      // of CPU Min Voltage, and the list on screen opened with Eco ST1.
+      name: 'eBAMATIC уехал вниз в списке CPU Min Voltage',
+      file: join(DIST, 'advanced', 'cpu', 'json', 'cpu_vmin.json'),
+      hurt: s => { const l = JSON.parse(s); const i = l.findIndex(e => e.short === 'eBAMATIC'); return JSON.stringify([...l.slice(0, i), ...l.slice(i + 1), l[i]], null, 2) },
+      expect: /eBAMATIC не первым/,
+    },
+    {
+      // Check 67, map half: the same slide in fields.json, before anyone regenerates dist.
+      name: 'eBAMATIC уехал вниз в карте поля 48',
+      file: join(ROOT, 'package', 'fields.json'),
+      hurt: s => { const d = JSON.parse(s); const f = d.fields.find(x => x.offset === 48); const i = f.values.findIndex(v => /eBAMATIC/.test(v.name)); f.values.push(...f.values.splice(i, 1)); return JSON.stringify(d, null, 2) + '\n' },
+      expect: /в карте у поля 48 первой стоит/,
+    },
   ]
   let failed = 0, skipped = 0
   console.log('отрицательный прогон: ' + PROBES.length + ' проб\n')
@@ -5088,6 +5126,8 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 //   5. the footer re-seeded on entry reads the same file, key and profile and names a zero
 //      eBAMATIC. The list and the footer are the two halves of check 53's comparison, and here
 //      they come from two different places in the generator, so they can drift apart.
+//   6. (21.09.2026) while they are hidden, a hint under them says exactly
+//      "Set EMC Balance to use VDDQ/VDD2", on the negation of their gate and nothing else.
 //
 // SECOND HALF (20.09.2026): WHERE THE VALUES ARE SHOWN. The operator put them in the
 // `Optimized Mode (1600 MHz)` block of page 2 — "in the timings table this is out of place, it
@@ -5182,6 +5222,37 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
         bad.push(`«${title}»: подпись читает ${EMC66}, а объявления ini_file на него в ${relative(ROOT, foot.file)} нет`)
     }
   }
+  // ---- the hint that stands in for the hidden items (operator, 21.09.2026)
+  //
+  // On eBAMATIC eBAL the two items are hidden, and the page must say why: one table under the
+  // items, visible exactly when they are not. The two conditions are a pair — a hint shown next
+  // to working items, or missing where the items vanished, reads as a broken page.
+  const HINT66 = 'Set EMC Balance to use VDDQ/VDD2'
+  const SHOW66 = GATE66.replace('=!', '=')
+  let hints66 = 0
+  for (const f of iniFiles) {
+    const secs = readFileSync(f, 'utf8').split(/\n(?=\[)/)
+    const writers = secs.filter(s => /^\[\*/.test(s) && s.includes("set-ini-val '" + EMC66 + "'"))
+    if (!writers.length) continue
+    const rel = relative(ROOT, f)
+    const hints = secs.filter(s => s.includes(`''='${HINT66}'`))
+    if (hints.length !== 1) { bad.push(`${rel}: подсказок «${HINT66}» ${hints.length}, а ждали одну — при eBAMATIC пункты VDDQ/VDD2 скрыты без объяснения`); continue }
+    hints66++
+    const h = hints[0].split('\n').map(l => l.trim())
+    const rows = h.filter(l => l.startsWith("''='")).map(l => l.slice(4, -1))
+    if (rows.join(' ') !== HINT66) bad.push(`${rel}: подсказка гласит «${rows.join(' ')}» вместо «${HINT66}»`)
+    const cond = h.filter(l => l.startsWith(';visibility_condition='))
+    if (cond.length !== 1 || cond[0] !== SHOW66)
+      bad.push(`${rel}: подсказка показывается по «${cond.join(' | ') || 'без условия'}», а обязана ровно по «${SHOW66}» — обратному условию пунктов`)
+    for (const w of writers) {
+      const title = (w.match(/^\[\*([^\]]+)]/) || [])[1]
+      if (!w.split('\n').some(l => l.trim() === GATE66))
+        bad.push(`${rel}: подсказка видна при eBAL = eBAMATIC, а пункт «${title}» не скрыт — экран говорит «настройте баланс» рядом с работающим пунктом`)
+      if (secs.indexOf(w) > secs.indexOf(hints[0])) bad.push(`${rel}: подсказка стоит выше пункта «${title}», а место ей под пунктами`)
+    }
+  }
+  if (!hints66) bad.push(`подсказки «${HINT66}» нет ни на одной странице с пунктами VDDQ/VDD2`)
+
   // ---- where the values are shown
   const OPT66 = "'Optimized Mode (1600 MHz)' = ''"
   const SEC66 = /\n(?=\[)/
@@ -5331,7 +5402,55 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   else if (bad.length)
     problems.push({ sev: 'CRITICAL', what: `пункт напряжения Magician пишет не то или не туда (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
   else
-    ok.push(`the Magician voltage items address the profile from the kip, write the millivolts they name, are shown in the Optimized block in the operator's order and are put back to eBAMATIC by the reset before it touches the kip (${items66} items, ${entries66} values, ${blocks66} blocks, ${writes66} reset branches)`)
+    ok.push(`the Magician voltage items address the profile from the kip, write the millivolts they name, are hidden on eBAMATIC eBAL with the hint shown exactly then, are shown in the Optimized block in the operator's order and are put back to eBAMATIC by the reset before it touches the kip (${items66} items, ${entries66} values, ${hints66} hints, ${blocks66} blocks, ${writes66} reset branches)`)
+}
+
+// ---------------- 67. eBAMATIC opens every option list that offers it
+//
+// Zero hands the choice back to the firmware - the most general pick, so it heads the list
+// (operator, 30.08.2026, for CPU Min Voltage). On 03.09.2026 a forced rerun of fix-vmin-scales
+// sorted it below the Eco steps of field 48 and nothing noticed for 18 days (NOTES №337).
+// Checked on the generated list, i.e. on screen; field 48 also in the map, where no sort
+// of the generator puts it back. Exceptions only by name, with date and whose decision.
+const EBAMATIC_NOT_FIRST67 = new Map([
+  // ['<offset> or <list path under package/dist>', 'date - why, whose decision']. Empty today.
+])
+{
+  const lists = new Map()   // rel -> {offsets, idx}
+  const bad = []
+  for (const file of iniFiles) {
+    const dir = dirname(file)
+    for (const sec of readFileSync(file, 'utf8').split(/\r?\n(?=\[)/)) {
+      if (!/^;mode=option\s*$/m.test(sec)) continue
+      const src = sec.match(/^json_file_source\s+'([^']+)'\s+name\s*$/m)
+      if (!src) continue
+      const listPath = resolve(dir, src[1])
+      const rel = relative(DIST, listPath).split(String.fromCharCode(92)).join('/')
+      let list
+      try { list = JSON.parse(readFileSync(listPath, 'utf8')) } catch { continue }   // check 53 reports it
+      if (!Array.isArray(list)) continue
+      const idx = list.findIndex(e => e && e.short === 'eBAMATIC')
+      if (idx === -1) continue
+      const e = lists.get(rel) ?? { offsets: new Set(), idx, first: list[0]?.name }
+      for (const m of sec.matchAll(/CUST (\d+) \{json_file_source/g)) e.offsets.add(Number(m[1]))
+      lists.set(rel, e)
+    }
+  }
+  for (const [rel, e] of lists) {
+    if (e.idx === 0) continue
+    const excused = EBAMATIC_NOT_FIRST67.has(rel) || [...e.offsets].some(o => EBAMATIC_NOT_FIRST67.has(o))
+    if (!excused) bad.push(`${rel} (${[...e.offsets].join(', ') || 'без смещения'}): eBAMATIC не первым, а ${e.idx + 1}-м — список открывается с «${e.first}»`)
+  }
+  const has48 = [...lists.values()].some(e => e.offsets.has(48))
+  const f48 = byOffset.get(48)
+  const map48 = (f48?.values ?? []).findIndex(v => /eBAMATIC/.test(v.name))
+  if (map48 > 0) bad.push(`в карте у поля 48 первой стоит «${f48.values[0].name}», eBAMATIC — ${map48 + 1}-м (решение 30.08.2026)`)
+
+  if (!lists.size || !has48 || map48 === -1)
+    problems.push({ sev: 'CRITICAL', what: `проверка «eBAMATIC первым» не нашла предмета надзора (списков с eBAMATIC ${lists.size}, CPU Min Voltage ${has48 ? 'найден' : 'не найден'}, в карте поля 48 ${map48 === -1 ? 'нет eBAMATIC' : 'есть'}) — она смотрит в пустоту, ничего не проверив` })
+  else if (bad.length)
+    problems.push({ sev: 'CRITICAL', what: `eBAMATIC не первым в списке выбора (${bad.length}):\n     ${bad.join('\n     ')}` })
+  else ok.push(`eBAMATIC opens every option list that offers it (${lists.size} lists, field 48 in the map too, ${EBAMATIC_NOT_FIRST67.size ? `${EBAMATIC_NOT_FIRST67.size} excused` : 'none excused'})`)
 }
 
 // ---------------- 61. guard numbers are unique, gapless-or-retired, and every doc reference lands
@@ -5454,7 +5573,8 @@ const RETIRED61 = new Map([
   // 13.09.2026: 65 -> 66 for check 64 (result footers shown at once, page rebuilt).
   // 14.09.2026: 66 -> 67 for check 65 (short RAM model, one rule on three screens).
   // 20.09.2026: 67 -> 68 for check 66 (Magician voltage items write what they name).
-  const EXPECTED = 68
+  // 21.09.2026: 68 -> 69 for check 67 (eBAMATIC first in every option list).
+  const EXPECTED = 69
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,

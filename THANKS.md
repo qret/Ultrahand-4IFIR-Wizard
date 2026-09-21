@@ -18,12 +18,13 @@ comments in `customize.cpp` that turned out to be the best documentation on the 
 in existence.
 
 **What we took:** `customize.cpp` became our primary source. When the two existing tuner
-packages disagreed, we went there and found the answer. The comment
-`// ERISTA = eristaGpuDvfsTable uV - (12500 uV * marikoGpuUV)` explained why one field
-behaves differently on two revisions. The `mariko*` / `erista*` / `common*` prefixes in
-field names gave us an exact revision map — more exact than the markup in either package.
-The line `// ! drochr05 = drochr01 + drochr05` saved us a day and kept us from shipping
-advice that was the reverse of the truth.
+packages disagreed, we went there and found the answer. A one-line comment giving the
+Erista GPU voltage formula (`customize.cpp:83`) explained why one field behaves differently
+on two revisions. The `mariko*` / `erista*` / `common*` prefixes in field names gave us
+an exact revision map — more exact than the markup in either package.
+A note flagged with an exclamation mark — that the kip adds the first memory timing into the
+fifth (`customize.cpp:101`) — saved us a day and kept us from shipping advice that was
+the reverse of the truth.
 
 The overclocking itself, `loader.kip` and everything that makes 4IFIR a firmware are
 Nadir's work and that of the Switch-OC-Suite authors. We did not touch it and do not
