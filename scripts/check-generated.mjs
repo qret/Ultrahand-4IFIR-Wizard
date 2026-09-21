@@ -113,6 +113,21 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /откроется на первой строке/,
     },
     {
+      // Check 53, extended 21.09.2026: the em dash sat in the TAIL of the name, right of
+      // " - ", where the left-part comparison never looked. Exactly the shipped row.
+      name: 'длинное тире в хвосте имени пункта CPU Min Voltage',
+      file: join(DIST, 'advanced', 'cpu', 'json', 'cpu_vmin.json'),
+      hurt: s => s.split('Eco ST1 - Auto - Default').join('Eco ST1 - Auto — Default'),
+      expect: /cpu_vmin\.json: «Eco ST1 - Auto — Default» — длинное тире в имени строки/,
+    },
+    {
+      // Check 53 at the source: an em dash back in a fields.json name.
+      name: 'длинное тире в имени значения fields.json',
+      file: join(ROOT, 'package', 'fields.json'),
+      hurt: s => s.split('"0 - Default"').join('"0 — Default"'),
+      expect: /package\/fields\.json: поле \d+, «0 — Default» — длинное тире в имени/,
+    },
+    {
       // Вторая беда того же сторожа: левые части совпали. Галочку получает ПЕРВЫЙ
       // однофамилец, и курсор встаёт не на то значение, что лежит в kip.
       name: 'два пункта с одной левой частью — галочка достанется первому',
@@ -720,7 +735,7 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       hurt: s => {
         const tim = "ini_file '/config/4IFIR/emc_timings.ini'\n"
         const tgt = "'Optimized Target' = '{json_file(0,{ini_file(Fields,12524)})}'"
-        const at = s.indexOf("'Optimized Mode (1600 MHz)' = ''")
+        const at = s.indexOf("'Optimized Mode ({list(0)} MHz)' = ''")
         const i = at < 0 ? -1 : s.indexOf(tim, at)
         if (i < 0) return s
         const cut = s.slice(0, i) + s.slice(i + tim.length)
@@ -876,19 +891,131 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /подсказка видна при eBAL = eBAMATIC, а пункт «VDDQ» не скрыт/,
     },
     {
-      // Check 67: exactly what happened on 03.09.2026 — eBAMATIC slid below the Eco steps
-      // of CPU Min Voltage, and the list on screen opened with Eco ST1.
-      name: 'eBAMATIC уехал вниз в списке CPU Min Voltage',
-      file: join(DIST, 'advanced', 'cpu', 'json', 'cpu_vmin.json'),
+      // Check 67: the 03.09.2026 slide, on a list that still offers eBAMATIC (Boost Clock).
+      name: 'eBAMATIC уехал вниз в списке Boost Clock',
+      file: join(DIST, 'advanced', 'cpu', 'json', 'cpu_boost.json'),
       hurt: s => { const l = JSON.parse(s); const i = l.findIndex(e => e.short === 'eBAMATIC'); return JSON.stringify([...l.slice(0, i), ...l.slice(i + 1), l[i]], null, 2) },
       expect: /eBAMATIC не первым/,
     },
     {
-      // Check 67, map half: the same slide in fields.json, before anyone regenerates dist.
-      name: 'eBAMATIC уехал вниз в карте поля 48',
+      // Check 69: the import writes the old pMeh 17 again - the value lands in WL-Set.
+      name: 'импорт старой копии снова пишет 12432',
+      file: join(DIST, 'service', 'package.ini'),
+      hurt: s => s.replace(/(set-ini-val '\{ini_file\(Import,Path\)\}' Meta fields '\d+'\n)/, "$1set-ini-val '{ini_file(Import,Path)}' Fields 12432 '03'\n"),
+      expect: /пишет Fields 12432/,
+    },
+    {
+      // Check 69: restore of an imported copy writes WL-Set and DBI from its Fields.
+      name: 'восстановление импортированной копии пишет WL-Set и DBI',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace("set-footer 'restored (import)'", 'hex-by-custom-offset /atmosphere/kips/loader.kip CUST 12432 {ini_file(Fields,12432)}\nhex-by-custom-offset /atmosphere/kips/loader.kip CUST 12528 {ini_file(Fields,12528)}\n' + "set-footer 'restored (import)'"),
+      expect: /импортированная копия не должна его трогать/,
+    },
+    {
+      // Check 69: our own copy stops restoring DBI.
+      name: 'своя копия перестала восстанавливать DBI',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace('hex-by-custom-offset /atmosphere/kips/loader.kip CUST 12528 {ini_file(Fields,12528)}\n', ''),
+      expect: /DBI \(12528\) стал/,
+    },
+    {
+      // Check 69: the note loses its null branch and shows under every backup.
+      name: 'пометка про DBI/WL-Set видна у своей копии',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace('not carried over from an old backup,null)}', 'not carried over from an old backup,DBI/WL-Set: not carried over from an old backup)}'),
+      expect: /не нужна — это своя копия/,
+    },
+    {
+      // Check 69: page 2 reads WL-Set straight from Fields again - an old import shows its DBI as WL-Set.
+      name: 'страница 2 показывает старый DBI как WL-Set',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(/^'pMeh 17 WL-Set' = .*$/m, "'pMeh 17 WL-Set' = '{json_file(0,{ini_file(Fields,12432)})}'"),
+      expect: /WL-Set\/DBI показаны/,
+    },
+    {
+      // Check 69: the DBI row loses its kipver condition - a valid DBI of an imported copy shows.
+      name: 'страница 2 показывает DBI импортированной копии',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace(/^'sMeh 17 DBI' = .*$/m, "'sMeh 17 DBI' = '{json_file(0,{ini_file(Fields,12528)})}'"),
+      expect: /импорт с валидным 12528 = 02\): WL-Set\/DBI показаны «—\/2»/,
+    },
+    {
+      // Check 66: the Optimized heading goes back to a literal base - wrong at Target 0.
+      name: 'заголовок Optimized Mode снова с литералом 1600',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace("'Optimized Mode ({list(0)} MHz)' = ''", "'Optimized Mode (1600 MHz)' = ''"),
+      expect: /restore-mariko\.ini: заголовок «'Optimized Mode \(1600 MHz\)' = ''» несёт литерал базы/,
+    },
+    {
+      // Check 66: Current's heading reads the base from a backup's Fields instead of the kip.
+      name: 'заголовок Optimized Mode в Current читает не kip',
+      file: join(DIST, 'current.ini'),
+      hurt: s => s.replace(/^list '\[\{if_null\(\{hex_file\(CUST,12524,1\)\},—,\{if_==\(\{hex_file\(CUST,12524,1\)\},01,1600,1331\)\}\)\}\]'$/m,
+                           "list '[{if_null({ini_file(Fields,12524)},—,{if_==({ini_file(Fields,12524)},01,1600,1331)})}]'"),
+      expect: /current\.ini: заголовок блока Optimized Mode не берёт базу из \{hex_file\(CUST,12524,1\)\}/,
+    },
+    {
+      // Check 68: the heading swaps the two bases - a backup at Target 0 is titled 1600.
+      name: 'заголовок Optimized Mode копии путает 1600 и 1331',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace("{if_==({ini_file(Fields,12524)},01,1600,1331)})}]'\n'Optimized Mode", "{if_==({ini_file(Fields,12524)},00,1600,1331)})}]'\n'Optimized Mode"),
+      expect: /restore-erista\.ini стр\. 2 \(копия с Target 0\): заголовок блока «Optimized Mode \(1600 MHz\)», а ждали «Optimized Mode \(1331 MHz\)»/,
+    },
+    {
+      // Check 70: the reset baseline gets zero for field 48 - reset would write eBAMATIC.
+      name: 'эталон сброса пишет 0 в поле 48',
+      file: join(ROOT, 'package', 'factory-defaults.json'),
+      hurt: s => s.replace('"48": "030000"', '"48": "000000"'),
+      expect: /factory-defaults\.json: заводское поля 48 = 000000/,
+    },
+    {
+      // Check 70: Default.ini alone drifts to zero.
+      name: 'Default.ini пишет 0 в поле 48',
+      file: join(DIST, 'service', 'Default.ini'),
+      hurt: s => s.replace(/^48=030000$/m, '48=000000'),
+      expect: /service\/Default\.ini: заводское поля 48 = 000000/,
+    },
+    {
+      // Check 70: the donor's second mark comes back - check 24 lets this through.
+      name: 'вторая метка Default у 620 мВ в карте поля 48',
       file: join(ROOT, 'package', 'fields.json'),
-      hurt: s => { const d = JSON.parse(s); const f = d.fields.find(x => x.offset === 48); const i = f.values.findIndex(v => /eBAMATIC/.test(v.name)); f.values.push(...f.values.splice(i, 1)); return JSON.stringify(d, null, 2) + '\n' },
-      expect: /в карте у поля 48 первой стоит/,
+      hurt: s => { const d = JSON.parse(s); const v = d.fields.find(x => x.offset === 48).values.find(x => x.name === '620mV'); v.name = '620mV - Default'; return JSON.stringify(d, null, 2) + String.fromCharCode(10) },
+      expect: /fields\.json: «Default» у поля 48 стоит на/,
+    },
+    {
+      // Check 70: Default slides to another step in the list on screen.
+      name: 'Default у Eco ST2 в списке CPU Min Voltage',
+      file: join(DIST, 'advanced', 'cpu', 'json', 'cpu_vmin.json'),
+      hurt: s => { const l = JSON.parse(s); l.find(e => e.hex === '030000').name = 'Eco ST1'; l.find(e => e.hex === '020000').name += ' - Default'; return JSON.stringify(l, null, 2) },
+      expect: /cpu_vmin\.json: «Default» у поля 48 стоит на «Eco ST2/,
+    },
+    {
+      // Check 70: zero is offered again, first, as before 21.09.2026.
+      name: 'ноль вернулся в список CPU Min Voltage',
+      file: join(DIST, 'advanced', 'cpu', 'json', 'cpu_vmin.json'),
+      hurt: s => JSON.stringify([{ name: 'eBAMATIC - Auto', short: 'eBAMATIC', hex: '000000' }, ...JSON.parse(s)], null, 2),
+      expect: /ноль в списке выбора/,
+    },
+    {
+      // Check 70: the map loses not_in_menu - the next generate puts zero back in the list.
+      name: 'ноль поля 48 снова предлагается в карте',
+      file: join(ROOT, 'package', 'fields.json'),
+      hurt: s => { const d = JSON.parse(s); delete d.fields.find(x => x.offset === 48).values.find(v => v.hex === '000000').not_in_menu; return JSON.stringify(d, null, 2) + String.fromCharCode(10) },
+      expect: /ноль поля 48 .* предлагается в меню/,
+    },
+    {
+      // Check 70: Current and backups name zero something other than 0 - Unknown.
+      name: 'подпись нуля поля 48 не «0 - Unknown»',
+      file: join(DIST, 'advanced', 'cpu', 'json', 'cpu_vmin.map.json'),
+      hurt: s => s.replace('"000000": "0 - Unknown"', '"000000": "eBAMATIC"'),
+      expect: /cpu_vmin\.map\.json: 000000 названо «eBAMATIC»/,
+    },
+    {
+      // Check 70: the subject vanishes - the list is empty.
+      name: 'список CPU Min Voltage пуст — сторож заводского обязан покраснеть',
+      file: join(DIST, 'advanced', 'cpu', 'json', 'cpu_vmin.json'),
+      hurt: () => '[]',
+      expect: /проверка заводского CPU Min Voltage нашла 4 из 5 мест/,
     },
   ]
   let failed = 0, skipped = 0
@@ -1548,12 +1675,13 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       const text2 = readFileSync(restorePath, 'utf8')
       const sections = [...text2.matchAll(/\[Apply [^\]]+\]([\s\S]*?)(?=\n\[|$)/g)].map(m => m[1])
       if (sections.length !== 1) bad.push(`${rev}: секций применения ${sections.length}, ожидается одна`)
-      const writesOf = t => [...t.matchAll(/CUST (\d+) \{ini_file/g)].map(m => Number(m[1]))
+      const writesOf = t => [...t.matchAll(/CUST (\d+) \{(?:ini_file|if_==)/g)].map(m => Number(m[1]))
       const blocks = (sections[0] ?? '').split(/^try:$/m).filter(b => writesOf(b).length)
       if (blocks.length !== 2) bad.push(`${rev}: блоков записи ${blocks.length}, ожидается 2 (своя раскладка и импортированная)`)
       const writes = writesOf(blocks[0] ?? '')
       const wrote = new Set(writes)
-      if (blocks[1] && String(writesOf(blocks[1])) !== String(writes)) {
+      // The one planned difference: an imported copy never writes WL-Set or DBI (check 69).
+      if (blocks[1] && String(writesOf(blocks[1])) !== String(writes.filter(o => o !== 12432 && o !== 12528))) {
         bad.push(`${rev}: блок для импортированных копий пишет не тот же набор`)
       }
       seenPairs += saved.size
@@ -2630,10 +2758,11 @@ function gateDomain(off) {
     }
     for (const { title, offs } of mine) {
       pairs++
-      const missing = [...keys].filter(o => !offs.has(o)).sort((a, b) => a - b)
-      if (!missing.length) continue
       // Что производитель В ПРИНЦИПЕ мог бы записать: для импорта — своя схема донора.
       const isImport = /Import/i.test(title)
+      // WL-Set and DBI rows show a dash for an imported copy on purpose (check 69).
+      const missing = [...keys].filter(o => !offs.has(o) && !(isImport && (o === 12432 || o === 12528))).sort((a, b) => a - b)
+      if (!missing.length) continue
       const available = new Set(isImport
         ? (impMap[rev] ?? []).flatMap(r => [...(r.offsets ?? []), ...(r.table_offsets ?? [])])
         : missing)                                   // копия читает живой kip: доступно всё
@@ -3267,7 +3396,8 @@ function gateDomain(off) {
     const hints = []
     secs.forEach(s => s.body.forEach((l, k) => {
       const m = rowOf(l)
-      if (m && m[2].includes('{ini_file(Meta,kipver)},imported,')) hints.push({ s, m, at: s.bodyAt[k] })
+      // a row that IS the condition; dictionary keys and the skip_null DBI/WL-Set note (check 69) are not
+      if (m && m[2].startsWith('{if_==({ini_file(Meta,kipver)},imported,') && !s.body.includes(';skip_null=true')) hints.push({ s, m, at: s.bodyAt[k] })
     }))
     if (p.here === 'Mariko') {
       for (const h of hints) bad.push(`${p.rel}:${h.at} подсказка про режим андервольта на Mariko — импорт там режим переносит, она только для Erista`)
@@ -3694,7 +3824,7 @@ function gateDomain(off) {
 // ---------------- 44. every script is decided: published on purpose, or withheld on purpose
 //
 // The publish whitelist alone keeps a private script out of GitHub, so a script missing
-// from BOTH lists leaks nothing - and that is exactly why it went unnoticed. NOTES 2414
+// from BOTH lists leaks nothing - and that is exactly why it went unnoticed. NOTES №80
 // promised every one-shot map-editing script was also in the deny list, as a second line;
 // two had quietly fallen out of both, and the promise had been false for weeks. A name in
 // neither list is an undecided name: nobody chose to keep it back, it was merely forgotten.
@@ -4082,7 +4212,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 //
 // RENUMBERED 53 -> 60 on 08.09.2026: two different guards shared 53. The number went to the
 // other one ("открытый список выбора встаёт на текущее значение"), which six references point
-// at against this one's single reference (NOTES.md:9798). 1…59 were all taken. NOTES №294.
+// at against this one's single reference (NOTES №271). 1…59 were all taken. NOTES №294.
 //
 // WHY THIS LIVES HERE AND NOT IN merge-fields. The platform of 43 fields was set BY HAND on
 // 13.08.2026 from customize.cpp, because the donors' own marking contradicted itself. No
@@ -4202,6 +4332,9 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
         // string while the cache keeps the untranslated one -- such a row loses its
         // checkmark for good, even right after being picked. Zero today; this keeps it so.
         if (/^(On|Off)$/.test(left)) bad.push(`${rel}: строка названа «${left}» — движок переводит это имя перед сравнением, но не перед записью в кэш, и галочка теряется навсегда`)
+        // DECISIONS 05.09.2026 bans the em dash in `name` outright, not only left of " - ":
+        // the tail escaped this guard and shipped «Eco ST1 - Auto — Default» (NOTES №344).
+        if (e.name.includes('—')) bad.push(`${rel}: «${e.name}» — длинное тире в имени строки, разделитель только ASCII " - "`)
         if (left !== e.short) bad.push(`${rel}: «${e.name}» → движок ищет «${left}», а футер несёт «${e.short}»`)
         else if (seenLeft.has(left)) bad.push(`${rel}: «${e.name}» и «${seenLeft.get(left)}» дают одну левую часть «${left}» — галочка достанется первой`)
         else seenLeft.set(left, e.name)
@@ -4221,6 +4354,11 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
       }
     }
   }
+
+  // The same ban at the source: fields.json names feed every list, so an em dash there is
+  // one generator change away from the screen.
+  for (const f of fields) for (const v of f.values ?? [])
+    if (typeof v.name === 'string' && v.name.includes('—')) bad.push(`package/fields.json: поле ${f.offset}, «${v.name}» — длинное тире в имени, разделитель только ASCII " - "`)
 
   // НОЛЬ НАЙДЕННЫХ СПИСКОВ — КРАСНЫЙ. Переименуйся ключ `json_file_source` или каталог
   // словарей, и проверка с этого дня стерегла бы пустоту, печатая зелёную строку.
@@ -5200,7 +5338,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 //      "Set EMC Balance to use VDDQ/VDD2", on the negation of their gate and nothing else.
 //
 // SECOND HALF (20.09.2026): WHERE THE VALUES ARE SHOWN. The operator put them in the
-// `Optimized Mode (1600 MHz)` block of page 2 — "in the timings table this is out of place, it
+// `Optimized Mode (<base> MHz)` block of page 2 — "in the timings table this is out of place, it
 // is not a timing" — in this exact order:
 //     Optimized Target · VDDQ · VDD2 · VDDQ-VDD2 Voltage · Efficiency Stages
 // Order is the decision, so it is guarded, not left to the order of the field map. The block
@@ -5324,7 +5462,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   if (!hints66) bad.push(`подсказки «${HINT66}» нет ни на одной странице с пунктами VDDQ/VDD2`)
 
   // ---- where the values are shown
-  const OPT66 = "'Optimized Mode (1600 MHz)' = ''"
+  const OPT66 = "'Optimized Mode ({list(0)} MHz)' = ''"
   const SEC66 = /\n(?=\[)/
   const NL66 = '\n'
   const WANT66 = ['Optimized Target', 'VDDQ', 'VDD2', 'VDDQ-VDD2 Voltage', 'Efficiency Stages']
@@ -5332,12 +5470,25 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   const CAVEAT66 = 'VDDQ/VDD2: this console - not the backup'
   const PAGES66 = ['current.ini', 'service/restore-mariko.ini', 'service/restore-erista.ini']
   let blocks66 = 0, writes66 = 0
+  // A literal base in a page-2 heading is forbidden: at Target 0 the base is 1331 (21.09.2026).
+  for (const f of iniFiles) {
+    const lit = readFileSync(f, 'utf8').split(NL66).find(l => /^'Optimized Mode \(\d+ MHz\)'\s*=/.test(l))
+    if (lit) bad.push(`${relative(DIST, f).replace(/\\/g, '/')}: заголовок «${lit}» несёт литерал базы — у консоли с Target 0 база 1331`)
+  }
   for (const rel of [...PAGES66, RESET66]) {
     const f = join(DIST, rel)
     if (!existsSync(f)) { bad.push(`${rel}: файла нет — блок Optimized Mode искать негде`); continue }
     const txt = readFileSync(f, 'utf8')
     const at = txt.indexOf(OPT66)
-    if (at < 0) { bad.push(`${rel}: блока «Optimized Mode (1600 MHz)» нет — проверка состава смотрит в пустоту`); continue }
+    if (at < 0) { bad.push(`${rel}: блока «Optimized Mode (<база> MHz)» нет — проверка состава смотрит в пустоту`); continue }
+    // THE HEADING NAMES THE BASE OF THIS PAGE'S SOURCE (operator, 21.09.2026): 1600 or 1331 by
+    // 12524 — the kip in Current, Fields of the backup or of the factory set elsewhere.
+    {
+      const head = txt.slice(txt.lastIndexOf('[Header]', at), at)
+      const src66 = rel === 'current.ini' ? '{hex_file(CUST,12524,1)}' : '{ini_file(Fields,12524)}'
+      if (!head.split(NL66).some(l => l.startsWith("list '[") && l.includes(`{if_==(${src66},01,1600,1331)}`)))
+        bad.push(`${rel}: заголовок блока Optimized Mode не берёт базу из ${src66} — число в нём не про эту страницу`)
+    }
     // The block is the [Info] table right after the heading, up to the next section.
     const info = txt.slice(txt.indexOf('[Info]', at)).split(SEC66)[0].split(NL66)
     const rows = info.map(l => (l.match(/^'([^']*)' = '/) || [])[1]).filter(x => x != null && x !== '')
@@ -5472,8 +5623,9 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // Zero hands the choice back to the firmware - the most general pick, so it heads the list
 // (operator, 30.08.2026, for CPU Min Voltage). On 03.09.2026 a forced rerun of fix-vmin-scales
 // sorted it below the Eco steps of field 48 and nothing noticed for 18 days (NOTES №337).
-// Checked on the generated list, i.e. on screen; field 48 also in the map, where no sort
-// of the generator puts it back. Exceptions only by name, with date and whose decision.
+// Checked on the generated list, i.e. on screen. Exceptions only by name, with date and
+// whose decision. Since 21.09.2026 field 48 offers no zero at all (operator; check 70), so
+// this check neither needs nor expects it there.
 const EBAMATIC_NOT_FIRST67 = new Map([
   // ['<offset> or <list path under package/dist>', 'date - why, whose decision']. Empty today.
 ])
@@ -5503,16 +5655,11 @@ const EBAMATIC_NOT_FIRST67 = new Map([
     const excused = EBAMATIC_NOT_FIRST67.has(rel) || [...e.offsets].some(o => EBAMATIC_NOT_FIRST67.has(o))
     if (!excused) bad.push(`${rel} (${[...e.offsets].join(', ') || 'без смещения'}): eBAMATIC не первым, а ${e.idx + 1}-м — список открывается с «${e.first}»`)
   }
-  const has48 = [...lists.values()].some(e => e.offsets.has(48))
-  const f48 = byOffset.get(48)
-  const map48 = (f48?.values ?? []).findIndex(v => /eBAMATIC/.test(v.name))
-  if (map48 > 0) bad.push(`в карте у поля 48 первой стоит «${f48.values[0].name}», eBAMATIC — ${map48 + 1}-м (решение 30.08.2026)`)
-
-  if (!lists.size || !has48 || map48 === -1)
-    problems.push({ sev: 'CRITICAL', what: `проверка «eBAMATIC первым» не нашла предмета надзора (списков с eBAMATIC ${lists.size}, CPU Min Voltage ${has48 ? 'найден' : 'не найден'}, в карте поля 48 ${map48 === -1 ? 'нет eBAMATIC' : 'есть'}) — она смотрит в пустоту, ничего не проверив` })
+  if (!lists.size)
+    problems.push({ sev: 'CRITICAL', what: 'проверка «eBAMATIC первым» не нашла ни одного списка с eBAMATIC — она смотрит в пустоту, ничего не проверив' })
   else if (bad.length)
     problems.push({ sev: 'CRITICAL', what: `eBAMATIC не первым в списке выбора (${bad.length}):\n     ${bad.join('\n     ')}` })
-  else ok.push(`eBAMATIC opens every option list that offers it (${lists.size} lists, field 48 in the map too, ${EBAMATIC_NOT_FIRST67.size ? `${EBAMATIC_NOT_FIRST67.size} excused` : 'none excused'})`)
+  else ok.push(`eBAMATIC opens every option list that offers it (${lists.size} lists, ${EBAMATIC_NOT_FIRST67.size ? `${EBAMATIC_NOT_FIRST67.size} excused` : 'none excused'})`)
 }
 
 // ---------------- 68. a backup carries the Magician voltages, and restore puts them where the page would
@@ -5726,7 +5873,7 @@ const EBAMATIC_NOT_FIRST67 = new Map([
     }
 
     // -- page 2: the Optimized block and its caveat, resolved for each kind of backup
-    const at = secs.findIndex(s => s.includes("'Optimized Mode (1600 MHz)' = ''"))
+    const at = secs.findIndex(s => s.includes("'Optimized Mode ({list(0)} MHz)' = ''"))
     const block = at < 0 ? null : secs.slice(at + 1).find(s => s.startsWith('[Info]'))
     const note = block ? secs[secs.indexOf(block) + 1] : null
     if (!block || !note || !note.includes('not the backup')) { bad.push(`${rel}: блок Optimized Mode страницы 2 или его оговорка не найдены`); continue }
@@ -5748,11 +5895,30 @@ const EBAMATIC_NOT_FIRST67 = new Map([
       { name: 'новая копия', bak: nb('020000', '01', ['1100', '0']), vq: '1100 mV', v2: 'eBAMATIC', caveat: false },
       { name: 'старая копия', bak: nb('020000', '01', null), vq: '1111 mV', v2: '2222 mV', caveat: true },
       { name: 'копия с eBAL 0', bak: nb('000000', '01', ['0', '0']), vq: 'null', v2: 'null', caveat: false },
+      { name: 'копия с Target 0', bak: nb('020000', '00', ['1100', '0']), vq: '1100 mV', v2: 'eBAMATIC', caveat: false },
     ]
+    // The heading of the block is resolved too: its base is the backup's, 1600 or 1331.
+    const headOf = bak => {
+      const st = baseSt({}, {})
+      st.files['./config.ini'] = { Restore: { Path: P } }
+      st.files[P] = clone(bak)
+      let key = null
+      for (const raw of secs[at].split('\n')) {
+        const l = raw.trim()
+        const d = l.match(/^(ini_file|list)\s+'(.*)'$/)
+        if (d) { const v = resolve68(d[2], st); if (d[1] === 'ini_file') st.ini = v; else st.list = v.replace(/^\[|\]$/g, '').split(',').map(x => x.trim()); continue }
+        const r = l.match(/^'([^']*)'\s*=/)
+        if (r) key = resolve68(r[1], st)
+      }
+      return key
+    }
     for (const v of views) {
       runs68++
       const rows = table(block, v.bak)
       const cav = table(note, v.bak)['']
+      const wantHead = `Optimized Mode (${v.bak.Fields['12524'] === '01' ? 1600 : 1331} MHz)`
+      const head = headOf(v.bak)
+      if (head !== wantHead) bad.push(`${rel} стр. 2 (${v.name}): заголовок блока «${head}», а ждали «${wantHead}»`)
       if (rows.VDDQ !== v.vq || rows.VDD2 !== v.v2) bad.push(`${rel} стр. 2 (${v.name}): VDDQ/VDD2 = «${rows.VDDQ}»/«${rows.VDD2}», а ждали «${v.vq}»/«${v.v2}»`)
       const shown = cav !== undefined && cav !== 'null'
       if (shown !== v.caveat) bad.push(`${rel} стр. 2 (${v.name}): оговорка «this console - not the backup» ${shown ? 'видна' : 'не видна'}, а ${v.caveat ? 'нужна — строки читают эту консоль' : 'не нужна — строки из копии или скрыты'}`)
@@ -5763,6 +5929,223 @@ const EBAMATIC_NOT_FIRST67 = new Map([
   else if (bad.length)
     problems.push({ sev: 'CRITICAL', what: `VDDQ/VDD2 в копии сохраняются, восстанавливаются или показываются не так (${bad.length}):\n     ${bad.join('\n     ')}` })
   else ok.push(`a backup carries eVDQ/eVD2 of the live profile, restore writes them into the page's profile from the backup's Fields and leaves the file alone for an older backup, a zero (restore or reset) goes only into a key that exists, page 2 shows them with the caveat for older backups only (${runs68} runs of the engine model on both revisions)`)
+}
+
+// ---------------- 69. WL-Set and DBI never come from an old Wizard backup
+//
+// Operator, 21.09.2026: "values of DBI/WL-Set from an old backup are not carried over". The old
+// format keeps pMeh 17 "DBI" at CUST+12432, where current firmware has WL-Set and moved DBI to
+// sMeh 17 (12528), and nothing in the file tells the two layouts apart. So the import writes
+// neither key, restore of an imported copy (also one imported earlier, with DBI under Fields
+// 12432) writes neither field, a copy of our own layout restores both, and page 2 shows a dash
+// for both rows plus one note - only for an imported copy. The sections are RUN on the same
+// kind of engine model as check 68 (placeholders innermost first, try:/force_failure,
+// bindings per command). NOTES №341.
+{
+  const KIP69 = '/atmosphere/kips/loader.kip'
+  const WL = '12432', DBI = '12528'
+  const NOTE69 = 'DBI/WL-Set: not carried over from an old backup'
+  const bad = []
+  let runs69 = 0
+  const tok69 = line => {
+    const out = []; let i = 0
+    while (i < line.length) {
+      while (line[i] === ' ' || line[i] === '\t') i++
+      if (i >= line.length) break
+      if (line[i] === "'" || line[i] === '"') { const q = line[i++]; const s = i; while (i < line.length && line[i] !== q) i++; out.push(line.slice(s, i)); i++ }
+      else { const s = i; while (i < line.length && !" \t'\"".includes(line[i])) i++; const t = line.slice(s, i); if (t !== '=') out.push(t) }
+    }
+    return out
+  }
+  const norm69 = p => (p || '').replace(/^sdmc:/, '')
+  const resolve69 = (arg, st) => {
+    for (let guard = 0; guard < 400; guard++) {
+      const m = arg.match(/\{([A-Za-z_=!<>]+)(?:\(([^{}]*)\))?\}/)
+      if (!m) return arg
+      const [all, fn, a = ''] = m
+      const p = a.split(',')
+      let v
+      if (fn === 'hex_file') v = st.hex === KIP69 ? (st.kip[p[1]] ?? '00'.repeat(Number(p[2]))) : 'null'
+      else if (fn === 'ini_file') v = st.files[norm69(st.ini)]?.[p[0]]?.[p.slice(1).join(',')] || 'null'
+      else if (fn === 'if_==') v = p[0] === p[1] ? p[2] : (p.length > 3 ? p.slice(3).join(',') : p[0])
+      else if (fn === 'if_null') v = p[0] === 'null' ? p[1] : (p.length > 2 ? p.slice(2).join(',') : p[0])
+      else v = 'X'
+      arg = arg.replace(all, v)
+    }
+    return arg
+  }
+  const run69 = (secText, st) => {
+    st.footer = null
+    let inTry = false, okFlag = true
+    for (const raw of secText.split('\n').slice(1)) {
+      const line = raw.trim()
+      if (!line || line.startsWith(';')) continue
+      if (line === 'try:') { if (inTry && okFlag) return st; okFlag = true; inTry = true; continue }
+      if (inTry && !okFlag) continue
+      const [cmd, ...args] = tok69(line).map(t => resolve69(t, st))
+      const file = p => (st.files[norm69(p)] ??= {})
+      if (cmd === 'ini_file') st.ini = args[0]
+      else if (cmd === 'hex_file') st.hex = args[0]
+      else if (cmd === 'set-ini-val') { const f = file(args[0]); (f[args[1]] ??= {})[args[2]] = args[3] }
+      else if (cmd === 'matching_ini_val' || cmd === '!matching_ini_val') {
+        const act = st.files[norm69(args[0])]?.[args[1]]?.[args[2]] ?? ''
+        okFlag = (act === args.slice(3).join(' ')) === (cmd === 'matching_ini_val')
+      } else if (cmd === 'force_failure') okFlag = false
+      else if (cmd === 'path_exists') okFlag = norm69(args[0]) in st.files
+      else if (cmd === 'set-footer') st.footer = args[0]
+      else if (cmd === 'hex-by-custom-offset') { if (args[3] !== 'null') st.kip[args[2]] = args[3] }
+    }
+    return st
+  }
+
+  const pkgPath69 = join(DIST, 'service', 'package.ini')
+  const pkgTxt = existsSync(pkgPath69) ? readFileSync(pkgPath69, 'utf8') : ''
+  for (const rev of ['mariko', 'erista']) {
+    const rel = `service/restore-${rev}.ini`
+    const f = join(DIST, rel)
+    if (!existsSync(f)) { bad.push(`${rel}: файла нет`); continue }
+    const secs = readFileSync(f, 'utf8').split(/\n(?=\[)/)
+    const apply = secs.find(s => s.startsWith('[Apply this backup'))
+    const create = secs.find(s => s.startsWith(`[Create backup?${rev}]`))
+    const kipver = (create?.match(/ Meta kipver '([^']+)'/) || [])[1]
+    const imp = pkgTxt.split(/\n(?=\[)/).find(s => s.startsWith(`[*Import old 4IFIR backup?${rev}]`))
+    if (!apply || !kipver || !imp) { bad.push(`${rel}: нет ${!apply ? 'секции Apply' : !kipver ? 'версии раскладки в Create backup' : 'секции импорта в service/package.ini'}`); continue }
+
+    // -- the converter writes neither key, whatever the donor holds
+    runs69++
+    for (const o of [WL, DBI])
+      if (imp.split('\n').some(l => l.includes(` Fields ${o} `))) bad.push(`service/package.ini импорт ${rev}: пишет Fields ${o} — значение старой копии уедет в ${o === WL ? 'WL-Set' : 'DBI'}`)
+
+    // -- restore: imported (now and before 21.09.2026) and copies of our own layout
+    const P = `/atmosphere/kips/.bak/${rev}/x.ini`
+    const KIP0 = { [WL]: '01', [DBI]: '02' }
+    const cases = [
+      { name: 'импорт, полей нет', meta: 'imported', fields: {}, footer: 'restored (import)', kip: KIP0, view: ['—', '—'], note: true },
+      { name: 'импорт до 21.09, 12432 = 00', meta: 'imported', fields: { [WL]: '00' }, footer: 'restored (import)', kip: KIP0, view: ['—', '—'], note: true },
+      { name: 'импорт до 21.09, 12432 = 01', meta: 'imported', fields: { [WL]: '01' }, footer: 'restored (import)', kip: { [WL]: '00', [DBI]: '00' }, view: ['—', '—'], note: true },
+      { name: 'импорт до 21.09, 12432 = 03', meta: 'imported', fields: { [WL]: '03' }, footer: 'restored (import)', kip: KIP0, view: ['—', '—'], note: true },
+      { name: 'импорт с битым 12432 и 12528', meta: 'imported', fields: { [WL]: 'nu', [DBI]: '07' }, footer: 'restored (import)', kip: KIP0, view: ['—', '—'], note: true },
+      // A valid DBI under an imported copy: without the kipver condition the row would print it.
+      { name: 'импорт с валидным 12528 = 02', meta: 'imported', fields: { [DBI]: '02' }, footer: 'restored (import)', kip: KIP0, view: ['—', '—'], note: true },
+      { name: 'своя копия', meta: kipver, fields: { [WL]: '01', [DBI]: '03' }, footer: 'restored', kip: { [WL]: '00', [DBI]: '00' }, want: { [WL]: '01', [DBI]: '03' }, view: ['1', '3'], note: false },
+      { name: 'своя копия, нули', meta: kipver, fields: { [WL]: '00', [DBI]: '00' }, footer: 'restored', kip: KIP0, want: { [WL]: '00', [DBI]: '00' }, view: ['0', '0'], note: false },
+    ]
+    const dict = n => { try { return JSON.parse(readFileSync(join(DIST, 'service', n), 'utf8'))[0] } catch { return null } }
+    // the note: a skip_null table whose row resolves to NOTE69 for the backup, null otherwise
+    const noteSecs = secs.filter(s => s.includes(NOTE69))
+    if (noteSecs.length !== 1) bad.push(`${rel}: пометок «${NOTE69}» ${noteSecs.length}, а нужна ровно одна`)
+    else if (!noteSecs[0].split('\n').includes(';skip_null=true')) bad.push(`${rel}: пометка про DBI/WL-Set без ;skip_null=true — у своей копии останется пустая строка`)
+    for (const c of cases) {
+      runs69++
+      const bak = { Meta: { revision: rev, kipver: c.meta }, Fields: { '12352': '020000', '12524': '01', ...c.fields } }
+      const st = {
+        kip: { ...c.kip }, hex: null, ini: null,
+        files: { './config.ini': { Restore: { Path: 'sdmc:' + P } }, [P]: JSON.parse(JSON.stringify(bak)) },
+      }
+      run69(apply, st)
+      const want = c.want ?? c.kip
+      if (st.footer !== c.footer) bad.push(`${rel} «Apply» (${c.name}): подпись «${st.footer}», а ждали «${c.footer}»`)
+      for (const [o, nm] of [[WL, 'WL-Set'], [DBI, 'DBI']])
+        if (st.kip[o] !== want[o]) bad.push(`${rel} «Apply» (${c.name}): ${nm} (${o}) стал ${st.kip[o]}, а ждали ${want[o]}${c.meta === 'imported' ? ' — импортированная копия не должна его трогать' : ''}`)
+      // page 2: resolve each row's key against the backup and look it up in the row's dictionary
+      const vst = () => ({ kip: {}, hex: null, ini: P, files: { [P]: bak, './config.ini': { Restore: { Path: P } } } })
+      const view = ['pMeh 17 WL-Set', 'sMeh 17 DBI'].map(label => {
+        const at = secs.findIndex(s => s.includes(`\n'${label}' = `))
+        if (at < 0) return '(строки нет)'
+        const lines = secs[at].split('\n')
+        const k = lines.findIndex(l => l.startsWith(`'${label}' = `))
+        const map = lines.slice(0, k).reverse().find(l => l.startsWith('json_file '))?.match(/'\.\/(.+)'/)?.[1]
+        const key = lines[k].match(/= '\{json_file\(0,(.*)\)\}'$/)?.[1]
+        if (!map || !key) return '(строка без словаря)'
+        const d = dict(map)
+        const kv = resolve69(key, vst())
+        return d ? (d[kv] ?? d.null ?? 'Not available') : '(словаря нет)'
+      })
+      if (view.join('/') !== c.view.join('/')) bad.push(`${rel} стр. 2 (${c.name}): WL-Set/DBI показаны «${view.join('/')}», а ждали «${c.view.join('/')}»`)
+      if (noteSecs.length === 1) {
+        const row = noteSecs[0].split('\n').find(l => l.includes(NOTE69))
+        const shown = resolve69(row.match(/^''='(.*)'$/)?.[1] ?? '', vst())
+        if ((shown === NOTE69) !== c.note) bad.push(`${rel} стр. 2 (${c.name}): пометка про DBI/WL-Set ${shown === NOTE69 ? 'видна' : `не видна («${shown}»)`}, а ${c.note ? 'нужна' : 'не нужна — это своя копия'}`)
+      }
+    }
+  }
+  if (!runs69)
+    problems.push({ sev: 'CRITICAL', what: 'проверка WL-Set/DBI старых копий не нашла предмета надзора — она смотрит в пустоту, ничего не проверив' })
+  else if (bad.length)
+    problems.push({ sev: 'CRITICAL', what: `WL-Set/DBI старой копии переносятся, восстанавливаются или показываются не так (${bad.length}):\n     ${bad.join('\n     ')}` })
+  else ok.push(`an old Wizard backup carries neither WL-Set nor DBI: the import writes neither, restore of an imported copy (also one imported earlier) leaves both as they are, our own copies restore both, page 2 shows a dash and the note for imported copies only (${runs69} runs of the engine model on both revisions)`)
+}
+
+// ---------------- 70. CPU Min Voltage (48): factory Eco ST1, zero named but never offered
+//
+// The live kip, the firmware's Default.json and the firmware source all put 03 (Eco ST1)
+// into CUST+48; zero came from a donor package and the source does not describe it.
+// Operator, 21.09.2026: zero leaves the list, and where the kip already holds it Current,
+// backups and reset call it `0 - Unknown`. So: the reset writes 03, the only "Default" is
+// Eco ST1 (check 24 accepts two marks if one is right; this one does not), zero is absent
+// from the option list and marked not_in_menu in the map, the label map names it exactly.
+{
+  const WANT70 = '030000'
+  const ZERO70 = '0 - Unknown'
+  const bad = []
+  const isDef = n => /(^|[^a-z])default([^a-z]|$)/i.test(String(n ?? ''))
+  const num70 = h => { const b = String(h).toUpperCase().padEnd(6, '0').slice(0, 6).match(/../g); return parseInt(b.reverse().join(''), 16) }
+  let seen70 = 0
+
+  const factory70 = JSON.parse(readFileSync(join(ROOT, 'package', 'factory-defaults.json'), 'utf8')).defaults?.['48']
+  if (factory70 !== undefined) { seen70++; if (String(factory70).toUpperCase() !== WANT70) bad.push(`factory-defaults.json: заводское поля 48 = ${factory70}, а ждали ${WANT70} (Eco ST1)`) }
+
+  const defIni70 = join(DIST, 'service', 'Default.ini')
+  if (existsSync(defIni70)) {
+    const m = readFileSync(defIni70, 'utf8').match(/^48=([0-9A-Fa-f]+)\s*$/m)
+    if (m) { seen70++; if (m[1].toUpperCase() !== WANT70) bad.push(`service/Default.ini: заводское поля 48 = ${m[1]}, сброс запишет не Eco ST1`) }
+  }
+
+  const resetIni70 = join(DIST, 'service', 'reset.ini')
+  if (existsSync(resetIni70) && !readFileSync(resetIni70, 'utf8').includes('CUST 48 {ini_file(Fields,48)}'))
+    bad.push('service/reset.ini: сброс не пишет поле 48 из Default.ini')
+
+  const oneDefault = (list, where) => {
+    const def = list.filter(v => isDef(v.name))
+    if (def.length !== 1 || num70(def[0].hex) !== 3)
+      bad.push(`${where}: «Default» у поля 48 стоит на ${def.length ? def.map(v => `«${v.name}»`).join(', ') : 'ничём'}, а должен ровно на Eco ST1 (03)`)
+  }
+  const f70 = byOffset.get(48)
+  if (f70?.values?.length) {
+    seen70++
+    oneDefault(f70.values.filter(v => !v.not_in_menu), 'fields.json')
+    const zero = f70.values.filter(v => num70(v.hex) === 0)
+    if (!zero.length) bad.push('fields.json: у поля 48 нет записи 0 — стоящий в kip ноль некому будет назвать (словарь названий не сужается)')
+    for (const z of zero) {
+      if (!z.not_in_menu) bad.push(`fields.json: ноль поля 48 («${z.name}») предлагается в меню — решение 21.09.2026: только подпись`)
+      if (z.map_label !== ZERO70) bad.push(`fields.json: ноль поля 48 подписан «${z.map_label ?? z.name}», а должен «${ZERO70}»`)
+    }
+    if (f70.values.some(v => /eBAMATIC/i.test(v.name))) bad.push('fields.json: у поля 48 снова есть eBAMATIC')
+    if (!/Factory value: Eco ST1/.test(f70.help_text ?? '')) bad.push('fields.json: справка поля 48 не называет заводское значение (Factory value: Eco ST1)')
+  }
+  const list70 = join(DIST, 'advanced', 'cpu', 'json', 'cpu_vmin.json')
+  let dl70 = []
+  try { dl70 = JSON.parse(readFileSync(list70, 'utf8')) } catch {}
+  if (Array.isArray(dl70) && dl70.length) {
+    seen70++
+    oneDefault(dl70, 'advanced/cpu/json/cpu_vmin.json')
+    const z = dl70.filter(v => num70(v.hex) === 0 || /eBAMATIC/i.test(v.name))
+    if (z.length) bad.push(`advanced/cpu/json/cpu_vmin.json: ноль в списке выбора («${z.map(v => v.name).join('», «')}») — его выбирать нельзя`)
+    if (num70(dl70[0].hex) !== 3) bad.push(`advanced/cpu/json/cpu_vmin.json: список открывается с «${dl70[0].name}», а не с заводского Eco ST1`)
+  }
+  let map70 = null
+  try { map70 = JSON.parse(readFileSync(join(DIST, 'advanced', 'cpu', 'json', 'cpu_vmin.map.json'), 'utf8'))[0] } catch {}
+  if (map70) {
+    seen70++
+    if (map70[WANT70] !== 'Eco ST1') bad.push(`cpu_vmin.map.json: заводское 030000 названо «${map70[WANT70]}», экран сброса покажет не Eco ST1`)
+    if (map70['000000'] !== ZERO70) bad.push(`cpu_vmin.map.json: 000000 названо «${map70['000000']}», а должно «${ZERO70}» (Current, копии, сброс)`)
+  }
+
+  if (seen70 < 5)
+    problems.push({ sev: 'CRITICAL', what: `проверка заводского CPU Min Voltage нашла ${seen70} из 5 мест (эталон, Default.ini, карта, список, словарь подписи) — она смотрит в пустоту, ничего не проверив` })
+  else if (bad.length)
+    problems.push({ sev: 'CRITICAL', what: `CPU Min Voltage (48): заводское не Eco ST1 или ноль не там (${bad.length}):\n     ${bad.join('\n     ')}` })
+  else ok.push('CPU Min Voltage resets to Eco ST1: baseline, Default.ini and reset agree, "Default" marks Eco ST1 alone, the list opens with it and does not offer zero, the label map names zero «0 - Unknown», the help names the factory value')
 }
 
 // ---------------- 61. guard numbers are unique, gapless-or-retired, and every doc reference lands
@@ -5887,7 +6270,9 @@ const RETIRED61 = new Map([
   // 20.09.2026: 67 -> 68 for check 66 (Magician voltage items write what they name).
   // 21.09.2026: 68 -> 69 for check 67 (eBAMATIC first in every option list).
   // 21.09.2026: 69 -> 70 for check 68 (backup carries VDDQ/VDD2, restore writes them).
-  const EXPECTED = 70
+  // 21.09.2026: 70 -> 71 for check 69 (WL-Set/DBI never come from an old Wizard backup).
+  // 21.09.2026: 71 -> 72 for check 70 (CPU Min Voltage factory value is Eco ST1).
+  const EXPECTED = 72
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,

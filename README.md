@@ -2,7 +2,7 @@
 
 **English** · [Русский](#4ifir-wizard--по-русски)
 
-An overclock tuner package for **4IFIR** firmware, built on the
+An overclock configurator package for **4IFIR** firmware, built on the
 [Ultrahand Overlay](https://github.com/ppkantorski/Ultrahand-Overlay) engine.
 It replaces the legacy Uberhand + 4IFIR Wizard combination.
 
@@ -11,7 +11,7 @@ stay exactly as their authors made them. This package **writes into** the kip �
 replaces it.
 
 > **Just want to use it?** One archive from [Releases](../../releases), unpacked into
-> the root of your SD card. It holds the tuner, `switch/.packages/4IFIR Wizard/`, plus
+> the root of your SD card. It holds the configurator, `switch/.packages/4IFIR Wizard/`, plus
 > install notes, a build passport and the licence files.
 >
 > **The engine is not in it.** Ultrahand is maintained by the author of the firmware and
@@ -23,9 +23,9 @@ replaces it.
 > of release, not an exception; the release page says which one you are looking at.
 > That one does carry `config/ultrahand/`, and with it the overlay order a first install
 > should open on: 4IFIR on top, then Status Monitor, FPSLocker, InfoNX, ReverseNX. When it
-> arrives through the tuner's own `Update` entry, your `config.ini` and `overlays.ini` are
+> arrives through the configurator's own `Update` entry, your `config.ini` and `overlays.ini` are
 > moved aside before it is unpacked and moved back afterwards — so if you have arranged the
-> list yourself, your arrangement wins. Unpacked by hand, it brings ours with it.
+> list yourself, your arrangement wins. Unpacked by hand, it brings the shipped order with it.
 >
 > This repository is for building it yourself or understanding how it works.
 
@@ -70,7 +70,7 @@ you can read on a PC.
 
 Nothing takes effect until you restart the console.
 
-If the tuner opens on a single screen saying the kip layout does not match, the menu is
+If the configurator opens on a single screen saying the kip layout does not match, the menu is
 hidden on purpose: that `loader.kip` is from another firmware, and writing into it by
 this field map would hit the wrong bytes.
 
@@ -111,7 +111,7 @@ Ultrahand that stopped following upstream years ago. Uberhand's sources were nev
 published: only a compiled binary ships with 4IFIR. That means the engine cannot be
 updated, fixed or extended.
 
-This project moves the tuner onto current Ultrahand, keeping every setting the original
+This project moves the configurator onto current Ultrahand, keeping every setting the original
 exposed — and fixing a number of bugs found along the way.
 
 ## What makes it different
@@ -125,7 +125,7 @@ unless a mode is enabled, which fields are summed inside the kip, where sources 
 about a safe limit.
 
 **The GPU curve goes all the way up.** Seven offsets that look like another table are the
-top seven points of the Mariko curve — 1228.8 to 1459.2 MHz. Both previous tuners wrote
+top seven points of the Mariko curve — 1228.8 to 1459.2 MHz. Both previous packages wrote
 them, and reading the firmware confirms they were right to. On Erista the same bytes are
 row 0 of the CPU table, so there they stay untouched.
 
@@ -211,10 +211,10 @@ The overlay binary (`ovlmenu.ovl`) is **not** part of this repository — it is 
 committed. Whether it is part of a release depends on which release: the ordinary archive
 carries the configurator alone, while a build **with** the engine carries the binary and
 `config/ultrahand/` too, as the box at the top of this page describes. The engine is
-maintained by the author of the firmware and comes with the 4IFIR build; our own engine
+maintained by the author of the firmware and comes with the 4IFIR build; this project's engine
 changes live in a fork, and an archive that carries a binary is built from that fork.
 
-So build it yourself if you want to modify the engine, to reproduce what we ship, or to
+So build it yourself if you want to modify the engine, to reproduce what is shipped, or to
 see for yourself what you are running. The rest of this section covers that. It is
 written for Windows with WSL, but the steps are the same on any Linux.
 
@@ -270,7 +270,7 @@ cd Ultrahand-Overlay
 make -j$(nproc)
 ```
 
-That is upstream, the engine itself. Our own engine changes live in a fork,
+That is upstream, the engine itself. This project's engine changes live in a fork,
 <https://github.com/qret/Ultrahand-Overlay>, branch `4ifir` — clone that one instead if
 you want them. When a release archive carries a binary, that branch is what it was built
 from, and it is pushed before the archive goes out: GPL v2 asks for the source of a
@@ -309,7 +309,7 @@ SD card root
 ├── switch/.overlays/ovlmenu.ovl        the engine — from the 4IFIR build, or built above
 ├── config/ultrahand/                   its config, themes, languages, sounds
 │   └── config.ini                      the key combination — see below
-└── switch/.packages/4IFIR Wizard/      package/dist from this repo  ─── our release archive
+└── switch/.packages/4IFIR Wizard/      package/dist from this repo  ─── the release archive
 ```
 
 **If the combination is missing, take `config/ultrahand/config.ini` from this
@@ -341,7 +341,7 @@ package/
                        and what each entry is corroborated by
   menu.json            menu structure: where each parameter lives, help texts
   semantics-src/       subsystem semantics and cross-parameter dependencies
-  backup-import.json   mapping of legacy 4IFIR Wizard backups onto our offsets
+  backup-import.json   mapping of legacy 4IFIR Wizard backups onto the map's offsets
 
 scripts/
   generate.mjs         builds the package from the map
@@ -383,14 +383,14 @@ for where each part came from. That is a deliberate choice, not something inheri
 engine this package runs on is GPL v2, and so is the ecosystem around it — Atmosphère,
 hekate, Switch-OC-Suite.
 
-The generator and the field map are our own work. Value dictionaries and part of the help
+The generator and the field map are this project's own work. Value dictionaries and part of the help
 texts come from the 4IFIR Wizard package ([rashevskyv/4IFIR](https://github.com/rashevskyv/4IFIR)) —
 years of accumulated knowledge that cannot be reconstructed by hand.
 
 **Ultrahand-Overlay** is distributed under GPL v2 by ppkantorski. It is not in this
-repository, and it comes with the 4IFIR build; a release archive of ours carries a binary
+repository, and it comes with the 4IFIR build; a release archive of this project carries a binary
 of it only when the release page says so. When one does, the source it was built from is
-public first — our fork, <https://github.com/qret/Ultrahand-Overlay>, branch `4ifir`.
+public first — the project's fork, <https://github.com/qret/Ultrahand-Overlay>, branch `4ifir`.
 
 Overclocking itself, `loader.kip` and the 4IFIR firmware are the work of Cooler3D and the
 Switch-OC-Suite authors. Not included here, not modified.
@@ -415,7 +415,7 @@ your console. Use at your own risk.
 такими, какими их сделали авторы. Пакет **пишет в** kip, а не подменяет его.
 
 > **Просто хотите пользоваться?** Один архив из [Releases](../../releases),
-> распаковать в корень SD-карты. Внутри тюнер — `switch/.packages/4IFIR Wizard/` —
+> распаковать в корень SD-карты. Внутри конфигуратор — `switch/.packages/4IFIR Wizard/` —
 > и рядом инструкция, паспорт сборки и файлы лицензии.
 >
 > **Движка в нём нет.** Ultrahand ведёт автор прошивки, и он приходит вместе со сборкой
@@ -426,10 +426,10 @@ your console. Use at your own risk.
 > а не исключение; на странице релиза сказано, какой перед вами.
 > Она везёт `config/ultrahand/`, а вместе с ним и порядок оверлеев, с которым должна
 > открываться первая установка: сверху 4IFIR, под ним Status Monitor, дальше FPSLocker,
-> InfoNX, ReverseNX. Если она приезжает через пункт `Update` в самом тюнере, ваши
+> InfoNX, ReverseNX. Если она приезжает через пункт `Update` в самом конфигураторе, ваши
 > `config.ini` и `overlays.ini` отводятся в сторону до распаковки и возвращаются после —
 > то есть если список выстроили вы, останется по-вашему. При распаковке руками встанет
-> наш.
+> порядок из архива.
 >
 > Этот репозиторий — для тех, кто хочет собрать всё сам или понять, как оно устроено.
 
@@ -475,7 +475,7 @@ your console. Use at your own risk.
 Ничего не вступает в силу до перезагрузки консоли.
 
 Если конфигуратор открылся сообщением о несовпадении раскладки kip, настройки спрятаны
-намеренно: этот `loader.kip` от другой прошивки, и запись по нашей карте полей попала бы
+намеренно: этот `loader.kip` от другой прошивки, и запись по карте полей конфигуратора попала бы
 не в те байты.
 
 Обновление при этом работает — и это тоже сделано намеренно. На том же экране остаются
@@ -516,7 +516,7 @@ your console. Use at your own risk.
 опубликованы: с 4IFIR поставляется только скомпилированный бинарник. Значит, движок
 нельзя ни обновить, ни починить, ни расширить.
 
-Этот проект переносит тюнер на актуальный Ultrahand, сохраняя все настройки, которые
+Этот проект переносит конфигуратор на актуальный Ultrahand, сохраняя все настройки, которые
 были в оригинале, — и попутно исправляя найденные ошибки.
 
 ## Чем отличается
@@ -530,9 +530,9 @@ your console. Use at your own risk.
 в оценке безопасного предела.
 
 **Кривая GPU доходит до самого верха.** Семь смещений, похожих на чужую таблицу, — это
-верхние семь точек кривой Mariko, 1228,8…1459,2 МГц. Оба прошлых тюнера туда писали,
+верхние семь точек кривой Mariko, 1228,8…1459,2 МГц. Оба прошлых пакета туда писали,
 и разбор кода прошивки подтверждает: писать туда правильно. На Erista те же байты —
-строка 0 таблицы CPU, и там мы их не трогаем.
+строка 0 таблицы CPU, и там они не трогаются.
 
 **Сброс к умолчаниям сначала показывает, что запишет**, а применение — отдельный пункт
 с удержанием A. Значения берутся из файла, который кладёт сама прошивка, и этот файл едет
@@ -564,7 +564,7 @@ your console. Use at your own risk.
 
 **Настройки, сохранённые старым 4IFIR Wizard, можно перенести.** `Service -> Import old
 4IFIR backup` читает копии, оставленные им в `atmosphere/kips/kip-json`, и превращает их
-в копию нашего формата. Импорт в kip ничего не пишет: результат вы смотрите как любую
+в копию формата этого пакета. Импорт в kip ничего не пишет: результат вы смотрите как любую
 другую копию и применяете из `Backup manager → Apply this backup`.
 
 **Настройки фильтруются по ревизии.** Mariko не видит полей, которые есть только у Erista,
@@ -614,11 +614,11 @@ node scripts/make-guide.mjs --check    # руководство не разош�
 а не хранится. Входит ли он в релиз, зависит от релиза: обычный архив несёт один
 конфигуратор, а сборка **с движком** везёт и бинарник, и `config/ultrahand/` — про два
 состава сказано во врезке в начале страницы. Сам движок ведёт автор прошивки, и он
-приходит со сборкой 4IFIR; наши правки движка живут в форке, и архив, который несёт
+приходит со сборкой 4IFIR; правки движка из этого проекта живут в форке, и архив, который несёт
 бинарник, собран из этого форка.
 
-Значит, собирать самому есть смысл, если вы хотите править движок, повторить то, что мы
-выпускаем, или своими глазами увидеть, что именно запускаете. Дальше — про это. Написано
+Значит, собирать самому есть смысл, если вы хотите править движок, повторить то, что
+выпускается, или своими глазами увидеть, что именно запускаете. Дальше — про это. Написано
 под Windows с WSL, но на любом Linux шаги те же.
 
 ### Что понадобится
@@ -644,7 +644,7 @@ error: 'struct NacpStruct' has no member named 'lang_data'
 
 ### Шаги
 
-Ставим пакетный менеджер devkitPro, затем тулчейн:
+Поставьте пакетный менеджер devkitPro, затем тулчейн:
 
 ```sh
 sudo apt-get update && sudo apt-get install -y wget gnupg xz-utils build-essential git
@@ -653,7 +653,7 @@ chmod +x install-devkitpro-pacman && sudo ./install-devkitpro-pacman
 sudo dkp-pacman -Sy --noconfirm switch-dev devkitA64
 ```
 
-Собираем и ставим libnx из master поверх пакетного:
+Соберите и поставьте libnx из master поверх пакетного:
 
 ```sh
 export DEVKITPRO=/opt/devkitpro
@@ -665,7 +665,7 @@ cd libnx && make -j$(nproc)
 sudo -E make install
 ```
 
-Клонируем движок **с сабмодулями** и собираем:
+Клонируйте движок **с сабмодулями** и соберите:
 
 ```sh
 git clone --recurse-submodules https://github.com/ppkantorski/Ultrahand-Overlay.git
@@ -673,7 +673,7 @@ cd Ultrahand-Overlay
 make -j$(nproc)
 ```
 
-Это апстрим, сам движок. Наши правки движка живут в форке,
+Это апстрим, сам движок. Правки движка этого проекта живут в форке,
 <https://github.com/qret/Ultrahand-Overlay>, ветка `4ifir` — клонируйте его, если нужны
 они. Когда архив релиза несёт бинарник, собран он именно из этой ветки, и ветка
 выкладывается раньше архива: GPL v2 требует исходник того бинарника, который вы раздали,
@@ -711,7 +711,7 @@ tail -c 4 ovlmenu.ovl          # ULTR  — подпись Ultrahand, допис�
 ├── switch/.overlays/ovlmenu.ovl        движок — из сборки 4IFIR или собранный выше
 ├── config/ultrahand/                   его конфиг, темы, языки, звуки
 │   └── config.ini                      комбинация вызова — см. ниже
-└── switch/.packages/4IFIR Wizard/      package/dist из этого репо  ─── наш архив релиза
+└── switch/.packages/4IFIR Wizard/      package/dist из этого репо  ─── архив релиза
 ```
 
 **Если комбинации нет, возьмите `config/ultrahand/config.ini` из этого репозитория.**
@@ -743,7 +743,7 @@ package/
                        и чем каждая запись подтверждена
   menu.json            структура меню: где живёт каждый параметр, тексты справки
   semantics-src/       семантика подсистем и связи между параметрами
-  backup-import.json   соответствие бэкапов старого 4IFIR Wizard нашим смещениям
+  backup-import.json   соответствие бэкапов старого 4IFIR Wizard смещениям карты
 
 scripts/
   generate.mjs         собирает пакет из карты
@@ -769,7 +769,7 @@ Mariko, микровольты для Vdd2, Vddq и кривой Erista. Оши�
 
 ## Благодарности
 
-Почти всё здесь до нас выяснил кто-то другой, проверил на своей консоли и выложил
+Почти всё здесь раньше выяснил кто-то другой, проверил на своей консоли и выложил
 бесплатно. Поимённо — в [THANKS.md](THANKS.md).
 
 Отдельно: **Cooler3D** — за 4IFIR и за `customize.cpp`, оказавшийся лучшей документацией
@@ -783,14 +783,14 @@ Mariko, микровольты для Vdd2, Vddq и кривой Erista. Оши�
 на котором работает пакет, и вся окружающая экосистема — Atmosphère, hekate,
 Switch-OC-Suite.
 
-Генератор и карта полей — наша работа. Словари значений и часть текстов справки взяты
+Генератор и карта полей — собственная работа проекта. Словари значений и часть текстов справки взяты
 из пакета 4IFIR Wizard ([rashevskyv/4IFIR](https://github.com/rashevskyv/4IFIR)) — это
 годами накопленное знание, которое руками не восстановить.
 
 **Ultrahand-Overlay** распространяется под GPL v2, автор ppkantorski. В этот репозиторий
-он не входит и приходит со сборкой 4IFIR; наш архив релиза несёт его бинарник только
+он не входит и приходит со сборкой 4IFIR; архив релиза проекта несёт его бинарник только
 тогда, когда об этом сказано на странице релиза. А когда несёт — исходник, из которого
-бинарник собран, выложен раньше: наш форк <https://github.com/qret/Ultrahand-Overlay>,
+бинарник собран, выложен раньше: форк проекта <https://github.com/qret/Ultrahand-Overlay>,
 ветка `4ifir`.
 
 Сам разгон, `loader.kip` и прошивка 4IFIR — работа Cooler3D и авторов Switch-OC-Suite.

@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/05-ebamatic.md sha=eed83cea3847 self=f9c52bcd7340 -->
+<!-- i18n: source=Guides/ru/05-ebamatic.md sha=4a6f8ed83291 self=38782ca12e75 -->
 # eBAMATIC
 
 <!-- nav:begin -->
@@ -17,10 +17,14 @@ suited to it.
 It is not only about voltages. The memory clock, the balancing mode and the CPU boost
 clock are chosen the same way.
 
-That is why many entries have `eBAMATIC` (`eBAMATIC - Auto` in the CPU `Min Voltage`)
-as their first value. It
-does not mean "off" or "default" — it means "let the firmware decide, it knows what chips
-you have".
+That is why many entries have `eBAMATIC` as their first value. It does not mean "off" or
+"default" — it means "let the firmware decide, it knows what chips you have".
+
+The exception is the CPU `Min Voltage`: it has no `eBAMATIC`. Its factory value is
+`Eco ST1`, and the reset returns it there. The firmware does not describe a zero in this
+field, so it cannot be selected. If the kip already holds one (earlier versions of the
+configurator and 4IFIR Wizard offered it), `Current Settings` and backups show
+`0 - Unknown` — select `Eco ST1` or reset to factory defaults.
 
 ## When to leave it alone
 
@@ -36,7 +40,7 @@ Both are found by experiment, and both need a way back if it does not work out.
 
 ## The eBAMATIC stage
 
-A stage is a step: that is how the tuner's screen labels its setting steps (`Stage`), and
+A stage is a step: that is how the configurator's screen labels its setting steps (`Stage`), and
 this guide calls them the same from here on.
 
 `eBAMATIC Stage` sets **how boldly the automatic selection works**: stage `0` is calm,

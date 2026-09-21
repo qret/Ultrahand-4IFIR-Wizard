@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/01-install.md sha=e3996cb55e80 self=adce2486a80f -->
+<!-- i18n: source=Guides/ru/01-install.md sha=7bb154ecbf00 self=7102751922bb -->
 # Installation
 
 <!-- nav:begin -->
@@ -6,11 +6,11 @@
 **English** · [Русский](../ru/01-install.md)
 <!-- nav:end -->
 
-The tuner installs **on top of an existing 4IFIR**. It does not touch the firmware
+The configurator installs **on top of an existing 4IFIR**. It does not touch the firmware
 itself: the bootloader, `loader.kip`, the 4IFIR overlay and the system modules all
 stay as they are.
 
-Only one thing changes: the tuning package. The Ultrahand overlay engine the tuner runs
+Only one thing changes: the tuning package. The Ultrahand overlay engine the configurator runs
 on comes with the 4IFIR build, and an ordinary release does not carry it. There is a
 second kind of archive though — the kit with the engine; the release page says which of
 the two you are looking at. More in step 2.
@@ -30,8 +30,8 @@ them, and side by side the two will get in each other's way.
 
 > [!IMPORTANT]
 > **Do not touch `atmosphere\kips\`.** It holds `loader.kip` with your overclock
-> settings, `kip-json\` with your saved profiles — the tuner can read them,
-> [importing old profiles](10-profiles.md) — and the backups the tuner makes.
+> settings, `kip-json\` with your saved profiles — the configurator can read them,
+> [importing old profiles](10-profiles.md) — and the backups the configurator makes.
 
 ## Step 2. Copy the archive
 
@@ -45,15 +45,15 @@ Inside the ordinary archive there is one folder of settings —
 > **The engine is not in the ordinary archive, and that is on purpose.** Ultrahand and
 > its `config\ultrahand\` — key combination, theme, language, overlay order, sounds —
 > come with the 4IFIR build. The ordinary archive carries none of that and overwrites
-> none of it: your overlay setup stays yours, however many times you update the tuner.
+> none of it: your overlay setup stays yours, however many times you update the configurator.
 >
 > **Sometimes a build with the engine goes out instead** — the release page says
 > so. That one brings the engine itself and `config\ultrahand\` with it: otherwise someone
-> installing from scratch would get neither our key combination, nor the language, nor
+> installing from scratch would get neither the key combination, nor the language, nor
 > the sound switch, nor the overlay order — 4IFIR on top, then Status Monitor, FPSLocker,
 > InfoNX, ReverseNX. Your own settings still stay yours: the update moves `config.ini`
 > and `overlays.ini` aside before unpacking and moves them back after, so if you have
-> arranged the list yourself, your arrangement wins. What is replaced is our own material — languages,
+> arranged the list yourself, your arrangement wins. What is replaced is the kit's own material — languages,
 > themes, wallpapers, images and the sound set that is playing; the sound set goes back
 > from the engine's settings.
 >
@@ -80,7 +80,7 @@ It is set in `config\ultrahand\config.ini` — a file that came with the 4IFIR b
 with the ordinary archive.
 
 If the overlay does not open at all, on any combination, the problem is the engine rather
-than the tuner. It arrives with the 4IFIR build:
+than the configurator. It arrives with the 4IFIR build:
 [update that](11-update.md#if-you-are-updating-4ifir-itself).
 
 > [!WARNING]

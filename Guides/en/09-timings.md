@@ -1,8 +1,8 @@
-<!-- i18n: source=Guides/ru/09-timings.md sha=8de5dd09fa02 self=0586c1a97243 -->
+<!-- i18n: source=Guides/ru/09-timings.md sha=5bce81ced995 self=2cfbd1f2358d -->
 # Timings and fine tuning
 
 <!-- nav:begin -->
-[← RAM](08-ram.md) · [Contents](README.md) · [Profiles, backups and reset →](10-profiles.md)  
+[← RAM](08-ram.md) · [Contents](README.md) · [Micro-Enhance Logic: pMeh and sMeh →](09a-micro-enhance.md)  
 **English** · [Русский](../ru/09-timings.md)
 <!-- nav:end -->
 
@@ -14,15 +14,15 @@ have settled.
 How long the memory takes to answer a request. A shorter delay means faster memory — and
 less margin for error.
 
-## Two layers, and ours is the lower one
+## Two layers, and `Core Timings` is the lower one
 
-Timings in 4IFIR are set in two places, and this is **not a choice between them**. Our
+Timings in 4IFIR are set in two places, and this is **not a choice between them**. The configurator's
 `Core Timings` lay the coarse groundwork; `EMC Magician` fine-tunes it on top. What you
-set here keeps working.
+set in the configurator keeps working.
 
 | | Core Timings | EMC Magician |
 |---|---|---|
-| where | this tuner, `Advanced → RAM` | the **4IFIR** overlay |
+| where | the configurator, `Advanced → RAM` | the **4IFIR** overlay |
 | when it applies | after a reboot | **at once, live** |
 | what it sets | steps from "softer" to "tighter" | each value and its "arbiter" |
 | how many entries | eight | more, one per timing |
@@ -52,7 +52,7 @@ Switch profile and its set comes with it — nothing to set up again.
 The settings live in `/config/4IFIR/emc_timings.ini` — that is, **outside the firmware**.
 Updating 4IFIR through AiO does not wipe them.
 
-You can also look at what is saved from our tuner, on the third page of `Current Settings`
+You can also look at what is saved in the configurator, on the third page of `Current Settings`
 ([details](02-first-run.md#third-page-emc-magician-timings)).
 
 ### How to tune
@@ -111,7 +111,7 @@ The order comes from the 4IFIR guide, step by step:
 
 Or, which comes to the same thing: delete the section matching your current memory
 profile from `/config/4IFIR/emc_timings.ini` and reboot. Along with the timings, the
-`VDDQ`/`VDD2` voltages go back to automatic too, if you set them in the tuner —
+`VDDQ`/`VDD2` voltages go back to automatic too, if you set them in the configurator —
 [see the RAM page](08-ram.md#vddq-and-vdd2--the-optimized-profile-voltages).
 
 > [!IMPORTANT]
@@ -120,7 +120,7 @@ profile from `/config/4IFIR/emc_timings.ini` and reboot. Along with the timings,
 > `/config/4IFIR/emc_timings.ini` on a computer and delete the section for the current
 > profile.
 
-## Core Timings — the coarse layer, in this tuner
+## Core Timings — the coarse layer, in the configurator
 
 Eight entries under `Advanced → RAM → Core Timings`.
 
@@ -158,7 +158,7 @@ first and the fifth**. So raise the first and the fifth goes up with it, even th
 never touched it.
 
 > [!NOTE]
-> We have not verified this on hardware; the question is on our list for the firmware
+> This has not been tested on the console; the question is on the list for the firmware
 > author. The 4IFIR guide claims the opposite — that timings do not affect one another —
 > but on that point it should not be trusted.
 >
@@ -182,16 +182,10 @@ several hundred is real.
 
 ## Micro-Enhance Logic
 
-`Advanced → Micro-Enhance Logic` holds the firmware controls as they are, under the
-firmware's own code names, `pMeh` and `sMeh`.
-
-**The numbering must not change, and we do not change it.** That is deliberate: if the
-console will not boot, you will be looking the setting up in KipTool by its number, and
-the number has to match. The names, incidentally, have already drifted apart between
-KipTool and the firmware — the numbers have not, and everything rests on them.
-
-Most people never need these. What is genuinely worth adjusting has been moved into
-readable entries in `RAM → Optimized Mode (1600 MHz)`.
+`Advanced → Micro-Enhance Logic` holds the fine controls of the memory controller under
+the firmware's own code names, `pMeh` and `sMeh`. They have
+[a page of their own](09a-micro-enhance.md): what each field does, which ones are worth
+trying, where the risk is and how to roll back.
 
 > [!WARNING]
 > **Stripes on the screen in the dock come from `sMeh 8 E-Boost`.** Put it back to `0`.
@@ -231,17 +225,17 @@ The factory setting for the top band is a hundred per cent: once the console rea
 A fan that stays quiet under load is almost always a setting rather than wear. Check this
 curve before you take the console apart.
 
-## What we do not do
+## What the configurator does not do
 
-We do not do live tuning, and we will not — it lives in `EMC Magician`, [described above](#emc-magician--tuning-while-the-console-runs).
-This tuner writes values into settings files, and they apply at the next boot.
+There is no live tuning in the configurator, and there will not be — it lives in `EMC Magician`, [described above](#emc-magician--tuning-while-the-console-runs).
+The configurator writes values into settings files, and they apply at the next boot.
 
-That is a boundary, not a shortcoming: we do not touch the other overlay and we do not
-duplicate it.
+That is a boundary, not a shortcoming: the configurator does not touch the other overlay and
+does not duplicate it.
 
 ---
 
 <!-- nav:begin -->
-[← RAM](08-ram.md) · [Contents](README.md) · [Profiles, backups and reset →](10-profiles.md)  
+[← RAM](08-ram.md) · [Contents](README.md) · [Micro-Enhance Logic: pMeh and sMeh →](09a-micro-enhance.md)  
 **English** · [Русский](../ru/09-timings.md)
 <!-- nav:end -->

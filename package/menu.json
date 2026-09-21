@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "description": "The menu structure of our tuner in machine-readable form. The package is generated from it, and it is what coverage of the field map is checked against.",
-    "design_doc": "docs/MENU-DESIGN.md",
+    "description": "The menu structure of the configurator in machine-readable form. The package is generated from it, and it is what coverage of the field map is checked against.",
+    "design_doc": "docs/STRUCTURE.md",
     "fields_map": "package/fields.json",
     "rules": [
       "every offset in fields.json is attached to exactly one item (explicit aliases aside)",
@@ -1288,7 +1288,7 @@
                 12440
               ],
               "also_in": "pMeh 19 vMINetune ST",
-              "help": "Same field is available as pMeh 19 in Micro-Enhance Logic and via KIP tool in hekate."
+              "help": "Shifts the automatic GPU voltage floor for Optimized E RAM. This is a shift, not the voltage itself: plus raises it, minus lowers it. Step is 5 mV. Same field as pMeh 19 in Micro-Enhance Logic and in KIP tool in hekate, which shows the raw value: stock is 1."
             },
             {
               "id": "gpu_vmin_maxram",
@@ -1297,7 +1297,7 @@
                 12448
               ],
               "also_in": "pMeh 21 gVMINDick",
-              "help": "Same field is available as pMeh 21 in Micro-Enhance Logic and via KIP tool in hekate."
+              "help": "Shifts the automatic GPU voltage floor for the top RAM step (Optimized S, max RAM frequency). This is a shift, not the voltage itself: plus raises it, minus lowers it. Step is 5 mV. Same field as pMeh 21 in Micro-Enhance Logic and in KIP tool in hekate, which shows the raw value: stock is 2."
             },
             {
               "id": "gpu_curve_mariko",
@@ -1697,7 +1697,7 @@
                     12524
                   ],
                   "also_in": "sMeh 16 SYK-LOH",
-                  "help": "Sets the RAM Optimized target to 1600 MHz. The safe, low-heat mode the other two settings here belong to. Same field is sMeh 16 in Micro-Enhance Logic and in the hekate KIP tool."
+                  "help": "Base frequency of the Optimized E RAM step: 1600 MHz or 1331 MHz. The safe, low-heat mode the other settings here belong to. Same field as sMeh 16 in Micro-Enhance Logic and in KIP tool in hekate."
                 },
                 {
                   "id": "emc_evdq",
@@ -2076,7 +2076,7 @@
       "commands": [
         "reboot"
       ],
-      "note": "Nothing written here takes effect until the console restarts, so the restart belongs next to the settings. Plain `reboot`, not `reboot boot <entry>`: hekate in 4IFIR has autoboot=1 / autoboot_list=0, so it starts the first entry of hekate_ipl.ini, which is [4mosphere]. Naming the entry would work on a stock 4IFIR and break for anyone who renamed or reordered it; letting hekate decide is both shorter and truer. It sits in the root list under Service, not inside it: a restart is not a service chore but the last step of every change made here. A plain press, no hold: a restart costs seconds and undoes nothing, and making the most routine step of the whole tuner the slowest one would be backwards. СТОИТ ПОСЛЕДНИМ НАМЕРЕННО: перезагрузка — завершение работы с тюнером, а не одно из действий наравне. Порядок закреплён проверкой в check-generated, чтобы новый пункт не оттеснил его вниз списка незаметно."
+      "note": "Nothing written here takes effect until the console restarts, so the restart belongs next to the settings. Plain `reboot`, not `reboot boot <entry>`: hekate in 4IFIR has autoboot=1 / autoboot_list=0, so it starts the first entry of hekate_ipl.ini, which is [4mosphere]. Naming the entry would work on a stock 4IFIR and break for anyone who renamed or reordered it; letting hekate decide is both shorter and truer. It sits in the root list under Service, not inside it: a restart is not a service chore but the last step of every change made here. A plain press, no hold: a restart costs seconds and undoes nothing, and making the most routine step of the whole configurator the slowest one would be backwards. СТОИТ ПОСЛЕДНИМ НАМЕРЕННО: перезагрузка — завершение работы с конфигуратором, а не одно из действий наравне. Порядок закреплён проверкой в check-generated, чтобы новый пункт не оттеснил его вниз списка незаметно."
     }
   ],
   "unassigned": {

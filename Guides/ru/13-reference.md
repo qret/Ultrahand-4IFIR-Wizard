@@ -5,11 +5,11 @@
 **Русский** · [English](../en/13-reference.md)
 <!-- nav:end -->
 
-Каждый пункт тюнера, у которого есть список значений, — в порядке меню. Точки кривой напряжений, тайминги и ряды `pMeh`/`sMeh` перечислены поштучно: в меню это отдельные пункты, и здесь они отдельные строки.
+Каждый пункт конфигуратора, у которого есть список значений, — в порядке меню. Точки кривой напряжений, тайминги и ряды `pMeh`/`sMeh` перечислены поштучно: в меню это отдельные пункты, и здесь они отдельные строки.
 
 Действия — копия, восстановление, сброс к заводским, сведения о системе — в таблицу не входят: выбирать в них нечего.
 
-«Значений» — длина того самого списка, который открывается на экране. Словарь названий у поля шире: тюнер умеет назвать и значение, которое поставил чужой пакет, но выбрать такое не предлагает, и в счёт оно не идёт. У точек кривой напряжений видеоядра словаря нет вовсе — значение читается прямо из файла настроек, поэтому там называется любое, кем бы оно ни было записано.
+«Значений» — длина того самого списка, который открывается на экране. Словарь названий у поля шире: конфигуратор умеет назвать и значение, которое поставил чужой пакет, но выбрать такое не предлагает, и в счёт оно не идёт. У точек кривой напряжений видеоядра словаря нет вовсе — значение читается прямо из файла настроек, поэтому там называется любое, кем бы оно ни было записано.
 
 Таблица порождается из **собранного пакета** — из тех же файлов, которые едут на карту памяти. Разойтись с меню она не может.
 
@@ -17,7 +17,7 @@
 |---|---|---|---|---|
 | eBAMATIC Stage | `pMeh 18 eBAMATIC ST` | обе | 4 | 0 - Default, Stage 1 … Stage 3 |
 | Advanced → CPU → Boost Clock | `CPU Boost Clock` | обе | 20 | eBAMATIC, 1400MHz … 3000MHz - S |
-| Advanced → CPU → Min Voltage | `CPU Minimal Voltage` | обе | 53 | eBAMATIC - Auto, Eco ST1 - Auto — Default … 750 mV |
+| Advanced → CPU → Min Voltage | `CPU Minimal Voltage` | обе | 52 | Eco ST1 - Auto - Default, Eco ST2 - Auto … 750 mV |
 | Advanced → CPU → Max Voltage | `CPU Maximum Voltage` | Mariko | 35 | eBAMATIC, 1100 mV … 1375mV |
 | Advanced → CPU → Voltage Limit | `CPU Voltage Limit` | Erista | 22 | eBAMATIC, 1180mV … 1375mV |
 | Advanced → CPU → dCPUv | `dCPUv` | Mariko | 24 | eBAMATIC, 1 - Eco ST 1 … 890mV |
@@ -91,7 +91,7 @@
 | Advanced → GPU → Max Voltage | `GPU Max Voltage` | Erista | 92 | eBAMATIC, 850 mV … 1300 mV |
 | Advanced → GPU → vMin Offset | `pMeh 19 vMINetune ST` | обе | 31 | +75 mV, +70 mV … -75 mV |
 | Advanced → GPU → vMin Offset (max RAM) | `pMeh 21 gVMINDick` | обе | 31 | +75 mV, +70 mV … -75 mV |
-| Advanced → RAM → Optimized Mode (1600 MHz) → Optimized Target | `sMeh 16 SYK-LOH` | обе | 2 | 0, 1 - Default |
+| Advanced → RAM → Optimized Mode (1600 MHz) → Optimized Target | `sMeh 16 SYK-LOH` | обе | 2 | 0 - 1331 MHz, 1 - 1600 MHz (Default) |
 | Advanced → RAM → Optimized Mode (1600 MHz) → VDDQ | `eVDQ → /config/4IFIR/emc_timings.ini` | обе | 92 | eBAMATIC, 300 mV … 750 mV |
 | Advanced → RAM → Optimized Mode (1600 MHz) → VDD2 | `eVD2 → /config/4IFIR/emc_timings.ini` | обе | 20 | eBAMATIC, 950 mV … 1400 mV |
 | Advanced → RAM → Optimized Mode (1600 MHz) → VDDQ-VDD2 Voltage | `pMeh 20 rVDDick` | обе | 7 | 0, 1 … 6 |
@@ -126,7 +126,7 @@
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 12 E-Enhance | `pMeh 12 E-Enhance` | обе | 2 | 0, 1 - Default |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 13 DR Debug | `pMeh 13 DR Debug` | обе | 9 | 0 - Default, 1 … 8 |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 14 GameChanger | `pMeh 14 GameChanger` | обе | 25 | 0 - Default, 1 … 24 |
-| Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 15 eFOS MK | `pMeh 15 eFOS MK` | обе | 2 | 0 - Default, eBal3, 1 - eBal4 |
+| Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 15 eFOS MK | `pMeh 15 eFOS MK` | обе | 2 | 0 - Default, 1 |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 16 lovec | `pMeh 16 lovec` | обе | 2 | 0 - Default, 1 |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 17 WL-Set | `pMeh 17 WL-Set` | обе | 2 | 0 - Default, 1 |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 18 eBAMATIC ST | `pMeh 18 eBAMATIC ST` | обе | 4 | 0 - Default, Stage 1 … Stage 3 |
@@ -150,7 +150,7 @@
 | Advanced → Micro-Enhance Logic → sMeh 0-17 → sMeh 13 CPriora | `sMeh 13 CPriora` | обе | 5 | 0 - Default, 1 … 4 |
 | Advanced → Micro-Enhance Logic → sMeh 0-17 → sMeh 14 GetLow | `sMeh 14 GetLow` | обе | 4 | 0 - Default, 1 … 3 |
 | Advanced → Micro-Enhance Logic → sMeh 0-17 → sMeh 15 GetHigh | `sMeh 15 GetHigh` | обе | 4 | 0 - Default, 1 … 3 |
-| Advanced → Micro-Enhance Logic → sMeh 0-17 → sMeh 16 SYK-LOH | `sMeh 16 SYK-LOH` | обе | 2 | 0, 1 - Default |
+| Advanced → Micro-Enhance Logic → sMeh 0-17 → sMeh 16 SYK-LOH | `sMeh 16 SYK-LOH` | обе | 2 | 0 - 1331 MHz, 1 - 1600 MHz (Default) |
 | Advanced → Micro-Enhance Logic → sMeh 0-17 → sMeh 17 DBI | `sMeh 17 DBI` | обе | 4 | 0 - Default, 1 … 3 |
 
 ---

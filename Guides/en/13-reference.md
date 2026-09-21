@@ -5,11 +5,11 @@
 **English** · [Русский](../ru/13-reference.md)
 <!-- nav:end -->
 
-Every tuner item that offers a list of values, in menu order. Voltage-curve points, timings and the `pMeh`/`sMeh` rows are listed one by one: they are separate items in the menu, so they are separate rows here.
+Every configurator item that offers a list of values, in menu order. Voltage-curve points, timings and the `pMeh`/`sMeh` rows are listed one by one: they are separate items in the menu, so they are separate rows here.
 
 Actions — backup, restore, factory reset, system info — are not in the table: there is nothing to pick in them.
 
-"Values" is the length of the very list that opens on screen. A field's name dictionary is wider: the tuner can name a value some other package wrote, but it does not offer such a value for picking, and it is not counted here. The GPU voltage curve has no dictionary at all: its value is read straight from the settings file, so whatever is written there gets named, by whoever wrote it.
+"Values" is the length of the very list that opens on screen. A field's name dictionary is wider: the configurator can name a value some other package wrote, but it does not offer such a value for picking, and it is not counted here. The GPU voltage curve has no dictionary at all: its value is read straight from the settings file, so whatever is written there gets named, by whoever wrote it.
 
 The table is generated from the **built package** — the same files that go onto the SD card, so it cannot drift out of step with the menu.
 
@@ -17,7 +17,7 @@ The table is generated from the **built package** — the same files that go ont
 |---|---|---|---|---|
 | eBAMATIC Stage | `pMeh 18 eBAMATIC ST` | both | 4 | 0 - Default, Stage 1 … Stage 3 |
 | Advanced → CPU → Boost Clock | `CPU Boost Clock` | both | 20 | eBAMATIC, 1400MHz … 3000MHz - S |
-| Advanced → CPU → Min Voltage | `CPU Minimal Voltage` | both | 53 | eBAMATIC - Auto, Eco ST1 - Auto — Default … 750 mV |
+| Advanced → CPU → Min Voltage | `CPU Minimal Voltage` | both | 52 | Eco ST1 - Auto - Default, Eco ST2 - Auto … 750 mV |
 | Advanced → CPU → Max Voltage | `CPU Maximum Voltage` | Mariko | 35 | eBAMATIC, 1100 mV … 1375mV |
 | Advanced → CPU → Voltage Limit | `CPU Voltage Limit` | Erista | 22 | eBAMATIC, 1180mV … 1375mV |
 | Advanced → CPU → dCPUv | `dCPUv` | Mariko | 24 | eBAMATIC, 1 - Eco ST 1 … 890mV |
@@ -91,7 +91,7 @@ The table is generated from the **built package** — the same files that go ont
 | Advanced → GPU → Max Voltage | `GPU Max Voltage` | Erista | 92 | eBAMATIC, 850 mV … 1300 mV |
 | Advanced → GPU → vMin Offset | `pMeh 19 vMINetune ST` | both | 31 | +75 mV, +70 mV … -75 mV |
 | Advanced → GPU → vMin Offset (max RAM) | `pMeh 21 gVMINDick` | both | 31 | +75 mV, +70 mV … -75 mV |
-| Advanced → RAM → Optimized Mode (1600 MHz) → Optimized Target | `sMeh 16 SYK-LOH` | both | 2 | 0, 1 - Default |
+| Advanced → RAM → Optimized Mode (1600 MHz) → Optimized Target | `sMeh 16 SYK-LOH` | both | 2 | 0 - 1331 MHz, 1 - 1600 MHz (Default) |
 | Advanced → RAM → Optimized Mode (1600 MHz) → VDDQ | `eVDQ → /config/4IFIR/emc_timings.ini` | both | 92 | eBAMATIC, 300 mV … 750 mV |
 | Advanced → RAM → Optimized Mode (1600 MHz) → VDD2 | `eVD2 → /config/4IFIR/emc_timings.ini` | both | 20 | eBAMATIC, 950 mV … 1400 mV |
 | Advanced → RAM → Optimized Mode (1600 MHz) → VDDQ-VDD2 Voltage | `pMeh 20 rVDDick` | both | 7 | 0, 1 … 6 |
@@ -126,7 +126,7 @@ The table is generated from the **built package** — the same files that go ont
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 12 E-Enhance | `pMeh 12 E-Enhance` | both | 2 | 0, 1 - Default |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 13 DR Debug | `pMeh 13 DR Debug` | both | 9 | 0 - Default, 1 … 8 |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 14 GameChanger | `pMeh 14 GameChanger` | both | 25 | 0 - Default, 1 … 24 |
-| Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 15 eFOS MK | `pMeh 15 eFOS MK` | both | 2 | 0 - Default, eBal3, 1 - eBal4 |
+| Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 15 eFOS MK | `pMeh 15 eFOS MK` | both | 2 | 0 - Default, 1 |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 16 lovec | `pMeh 16 lovec` | both | 2 | 0 - Default, 1 |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 17 WL-Set | `pMeh 17 WL-Set` | both | 2 | 0 - Default, 1 |
 | Advanced → Micro-Enhance Logic → pMeh 0-22 → pMeh 18 eBAMATIC ST | `pMeh 18 eBAMATIC ST` | both | 4 | 0 - Default, Stage 1 … Stage 3 |
@@ -150,7 +150,7 @@ The table is generated from the **built package** — the same files that go ont
 | Advanced → Micro-Enhance Logic → sMeh 0-17 → sMeh 13 CPriora | `sMeh 13 CPriora` | both | 5 | 0 - Default, 1 … 4 |
 | Advanced → Micro-Enhance Logic → sMeh 0-17 → sMeh 14 GetLow | `sMeh 14 GetLow` | both | 4 | 0 - Default, 1 … 3 |
 | Advanced → Micro-Enhance Logic → sMeh 0-17 → sMeh 15 GetHigh | `sMeh 15 GetHigh` | both | 4 | 0 - Default, 1 … 3 |
-| Advanced → Micro-Enhance Logic → sMeh 0-17 → sMeh 16 SYK-LOH | `sMeh 16 SYK-LOH` | both | 2 | 0, 1 - Default |
+| Advanced → Micro-Enhance Logic → sMeh 0-17 → sMeh 16 SYK-LOH | `sMeh 16 SYK-LOH` | both | 2 | 0 - 1331 MHz, 1 - 1600 MHz (Default) |
 | Advanced → Micro-Enhance Logic → sMeh 0-17 → sMeh 17 DBI | `sMeh 17 DBI` | both | 4 | 0 - Default, 1 … 3 |
 
 ---

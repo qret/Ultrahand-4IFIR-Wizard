@@ -451,9 +451,10 @@
       "name": "sMeh 16 SYK-LOH",
       "kind": "gate",
       "unlocks": "pMeh 2",
+      "unlocks_basis": "older packages",
       "values": {
-        "00": "Optimized E base = 1331",
-        "01": "Optimized E base = 1600"
+        "00": "0 - 1331 MHz",
+        "01": "1 - 1600 MHz (Default)"
       },
       "enables": [
         {
@@ -465,10 +466,10 @@
         {
           "offset": 12372,
           "when": "01",
-          "note": "FACT: «Works only when sMeh 16 is set to 0». The logic is closed: sMeh16 changes the base frequency of the Optimized E step from 1331 to 1600, while pMeh2 lowers the effective frequency of the same step — with sMeh16=1 there is nothing to lower."
+          "note": "DONOR, not confirmed by the firmware source: «Works only when sMeh 16 is set to 0». The logic is closed: sMeh16 changes the base frequency of the Optimized E step from 1331 to 1600, while pMeh2 lowers the effective frequency of the same step — with sMeh16=1 there is nothing to lower."
         }
       ],
-      "confidence": "fact",
+      "confidence": "donor",
       "evidence": "Ebal/Micro-Enhance Logic/microP.ini:173-175 · Ebal/Micro-Enhance Logic/microS.ini:241-242"
     },
     {
@@ -1014,6 +1015,8 @@
       12352
     ],
     "verified": [
+      56,
+      68,
       12336,
       12340,
       12344,
@@ -1029,9 +1032,7 @@
       28
     ],
     "disputed": [
-      48,
-      56,
-      68
+      48
     ],
     "rejected": [],
     "per_offset": [
@@ -1069,27 +1070,27 @@
         "struct_field": "CPUv",
         "source_says": "3/2/1 = ECO ST1..ST3, 430-670 MANUAL. Zero is NOT described.",
         "packages_say": "0000 = eBamatic (automatic)",
-        "why": "FACT: no reference sets 0 here — Reset writes 48=3, the Ebal Backup Default.ini gives 6C02 (620 mV), the live kip holds 3. Whether 0 is supported at all is a question for the developer.",
+        "why": "FACT: no reference sets 0 here — Reset writes 48=3, the Ebal Backup Default.ini gives 6C02 (620 mV), the live kip holds 3. Whether 0 is supported at all is a question for the developer. Checked again 21.09.2026 against the current source: the legend is still silent on zero and the declared default is 3 (customize.cpp:85-86). The zero entry was introduced by the Wizard donor (commit e4a126c, 02.12.2024), Ebal and the shipped SD inherited it, and KipTool does not offer it. Still open: docs/ASK-AUTHOR.md #3.",
         "confidence": "fact",
         "evidence": "customize.cpp:85-87 · Wizard/Dashboard/Reset to default/config.ini:112 · Ebal/kipBackup/Backup Default.ini:6 · Wizard/4Advanced/CPU/json/cpuv.json"
       },
       {
         "offset": 56,
-        "status": "disputed",
+        "status": "verified",
         "struct_field": "marikoEmcDvbShift",
-        "source_says": "0 = AUTO ECO ST3, while AUTO is 3",
+        "source_says": "0 = eBAMATIC; 1 to 3 are ECO ST3 to ST1",
         "packages_say": "000000 = eBamatic",
-        "why": "FACT (priority discrepancy): if the source is right, everyone who «left it on auto» is sitting on the most aggressive ECO ST3. The only discrepancy found that is capable of explaining random hangs.",
+        "why": "The current source names 0 eBAMATIC directly, so the packages were right. The earlier «0 = AUTO ECO ST3», and with it the worry that everyone left on auto sits on the most aggressive stage, came from an outdated copy of the source (docs/NOTES.md #60, docs/ASK-AUTHOR.md #1, closed 21.09.2026).",
         "confidence": "fact",
         "evidence": "customize.cpp:93-94 · Wizard/4Advanced/RAM/json/EMC DVB Table.json · loader.kip CUST+56 = 0"
       },
       {
         "offset": 68,
-        "status": "disputed",
+        "status": "verified",
         "struct_field": "drochr03",
-        "source_says": "0 = DEBUG, 1 = AUTO SAFE",
+        "source_says": "0 = eBAMATIC; no DEBUG mark on this field",
         "packages_say": "000000 = eBamatic - Default",
-        "why": "FACT: the live kip holds 0, Reset writes 0, and in ALL 27 files Ebal Presets/Mariko/RAM/*/*.ini T3 = 0 — even though the other timings there are 1 and above. It looks like drochr03 is a special case where 0 really means «do not interfere».",
+        "why": "The current source has no DEBUG mark on drochr03 and names 0 eBAMATIC; the earlier «0 = DEBUG» came from an outdated copy (docs/NOTES.md #60, docs/ASK-AUTHOR.md #2, closed 21.09.2026). It agrees with the evidence gathered before: the live kip holds 0, Reset writes 0, and in ALL 27 files Ebal Presets/Mariko/RAM/*/*.ini T3 = 0 — even though the other timings there are 1 and above.",
         "confidence": "fact",
         "evidence": "customize.cpp:99 · Wizard/4Advanced/RAM/Core Timings/json/core_timings3.json · Ebal/Presets/Mariko/RAM/Default.ini:9,19 · loader.kip CUST+68 = 0"
       },
@@ -2057,6 +2058,7 @@
       "kind": "no_boot",
       "severity": "high",
       "condition": "12508=1 AND 12352=1 (eBAL 1) AND Micron memory AND frequency 1600",
+      "screen": "Clatok 1 with EMC Balance 1 may not boot on Micron RAM at 1600 MHz, possibly higher",
       "why": "FACT: «At low frequencies, it may not be compatible with certain memory chips, like eBAL1 on Micron at a frequency of 1600, possibly higher».",
       "confidence": "fact",
       "evidence": "Wizard/Help/MICRO-ENHANCE LOGIC/sMeh 12 Clatok.txt"
@@ -2273,7 +2275,9 @@
         56
       ],
       "q": "The older copy of the source listed 3 as plain automatic and 2, 1, 0 as ECO ST1 to ST3. But Wizard, Ebal and Reset write 0 there and call it «eBAMATIC/auto». What does 0 actually mean — «automatic» or «ECO ST3»? The current legend (customize.cpp:93) answers it: zero is eBAMATIC, 1 to 3 are ECO ST3 down to ST1, plus a manual millivolt range.",
-      "priority": "high"
+      "priority": "high",
+      "status": "closed",
+      "answer": "Closed 21.09.2026 without the author: the current legend (customize.cpp:93) declares 0 as eBAMATIC, and 1 to 3 as ECO ST3 to ST1. The donors were right (docs/NOTES.md #60)."
     },
     {
       "id": 2,
@@ -2281,7 +2285,9 @@
         68
       ],
       "q": "The comment says «0 DEBUG», but all the presets and the factory kip hold 0, while the dictionaries call it «eBamatic - Default». Is the value 0 for drochr03 a debug mode or an automatic one? Does drochr03 differ in this sense from drochr01/02/04…08?",
-      "priority": "high"
+      "priority": "high",
+      "status": "closed",
+      "answer": "Closed 21.09.2026 without the author: the current legend of drochr03 (customize.cpp:99) has no DEBUG mark, and 0 is eBAMATIC (docs/NOTES.md #60)."
     },
     {
       "id": 3,
@@ -2289,7 +2295,8 @@
         48
       ],
       "q": "The value 0 is not described in the comment (1/2/3 and the range 430-670 are described), while the Wizard dictionary offers 0 as «eBamatic (automatic)». Is 0 supported in CPUv, and what does it do?",
-      "priority": "high"
+      "priority": "high",
+      "note": "Still open (21.09.2026). The zero came from the Wizard donor (commit e4a126c, 02.12.2024) and was inherited by Ebal and the shipped SD. The firmware does not confirm it: the legend of the field is silent on zero, the declared default is 3 (customize.cpp:85-86), the live kip holds 3, and KipTool does not offer zero for CPUv. Whether the menu keeps its eBAMATIC item until the author answers is for the operator to decide."
     },
     {
       "id": 4,
@@ -2309,15 +2316,17 @@
         76
       ],
       "q": "The source comment on T5 (customize.cpp:101) says it is summed with T1. Is it understood correctly that the applied T5 equals the sum of the written T1 and T5? Are there similar hidden links between the other drochr?",
-      "priority": "high"
+      "priority": "high",
+      "note": "Narrowed 21.09.2026: the sum of T1 and T5 is taken as stated by the current source, so only the second half is asked — are there other hidden links between the drochr fields? Which timing T5 actually is: docs/ASK-AUTHOR.md #30."
     },
     {
       "id": 6,
       "offsets": [
         8
       ],
-      "q": "What values does mtcConf take and what does each of them do (eBAMATIC, CUSTOM_ADJ_ALL, NO_ADJ_ALL, CUSTOMIZED_ALL)? Is it safe to expose this field in the tuner?",
-      "priority": "medium"
+      "q": "What numeric codes do the modes of mtcConf have and what does each of them do? Is it safe to expose this field in the configurator?",
+      "priority": "medium",
+      "note": "Reworded 21.09.2026. The current source names four modes, eBAMATIC being the default (customize.cpp:28-29), and gives no numeric codes. The names asked about before (CUSTOM_ADJ_ALL, NO_ADJ_ALL, CUSTOMIZED_ALL) came from the ancestor project and from an outdated copy of the source. Full question: docs/ASK-AUTHOR.md section 19."
     },
     {
       "id": 7,
@@ -2340,7 +2349,9 @@
         44
       ],
       "q": "Is it correct that on Erista marikoGpuUV works only as a -12.5 mV multiplier by the formula eristaGpuDvfsTable - 12500 * marikoGpuUV, and that no manual table exists for Erista? Then what should the «Custom Table» item do for Erista?",
-      "priority": "high"
+      "priority": "high",
+      "status": "closed",
+      "answer": "Answered by ourselves 05.09.2026: on Erista the field is a multiplier and the manual table is always live (docs/NOTES.md #256). Only the intent behind the shared bytes is left, and that is question 7."
     },
     {
       "id": 9,
@@ -2373,7 +2384,8 @@
         12420
       ],
       "q": "The formula Freq = tuner.max_ram - pmeh14. In what units is the value subtracted — grid steps of 38.4 MHz, megahertz, or something else?",
-      "priority": "medium"
+      "priority": "medium",
+      "note": "Narrowed 21.09.2026: the community description of pMeh 14 says the value is subtracted from DIVN of the PLLMB divider, so the unit is one divider step (docs/NOTES.md #340). Left to confirm: is that still true for the current firmware, and how many MHz one DIVN step gives at the current DIVM and reference clock. The 4IFIR overlay prints PLLMB DIVM/DIVN, so this can be checked on the console without the author (docs/CONSOLE-CHECKS.md K40)."
     },
     {
       "id": 13,
@@ -2385,7 +2397,9 @@
         12524
       ],
       "q": "In the version of customize.cpp that was found pMEH is described up to index 19, sMEH up to 13. What are the official ranges of pMeh 20/21 and sMeh 14/15/16 in kipVer=27? Are the extended ranges of the packages correct (pMeh19 up to 42, pMeh13 up to 8, sMeh13 up to 4)?",
-      "priority": "medium"
+      "priority": "medium",
+      "status": "closed",
+      "answer": "Closed 21.09.2026 without the author: the current file lists every index of both rows with its range (customize.cpp:396-397, :402-405). pMeh 19 and 21 are wider than the legend: the author widened them himself at the operator request (docs/DECISIONS.md 03.09.2026)."
     },
     {
       "id": 14,
@@ -2409,7 +2423,9 @@
         12552
       ],
       "q": "Are pMEH[22..23] and sMEH[17..23] reserved for something specific, or are they just spare capacity?",
-      "priority": "low"
+      "priority": "low",
+      "status": "closed",
+      "answer": "Closed 21.09.2026 without the author: pMEH[22] is isKefir and sMEH[17] is DBI (customize.cpp:397, :405); the rest, pMEH[23] and sMEH[18..23], is marked reserved (customize.cpp:399, :407)."
     },
     {
       "id": 16,
@@ -2417,7 +2433,9 @@
         12432
       ],
       "q": "Ebal help: «No effect for now. Should correct emc errors and allow for better performance of >2800 freqs». Has it started working in kipVer=27?",
-      "priority": "low"
+      "priority": "low",
+      "status": "closed",
+      "answer": "Closed 21.09.2026 without the author: DBI moved to sMeh 17 (12528, range 0-3); 12432 is now WL-Set, range 0-1 (customize.cpp:396, :405)."
     },
     {
       "id": 17,
@@ -2425,13 +2443,15 @@
         12352
       ],
       "q": "If 12352 = 0 (eBAMATIC), the backup saves 0 rather than the actually applied eBAL. Is there a way to read the COMPUTED values out of the kip so that the backup is reproducible?",
-      "priority": "medium"
+      "priority": "medium",
+      "note": "Merged with question 23 on 21.09.2026: could the system module instead write the eBAL level it actually picked (and the adaptive VDD2 limit) to /config/4IFIR/config.ini, plus how the hang fallback works. Draft, not sent. Details: docs/ASK-AUTHOR.md section 23."
     },
     {
-      "id": 18,
+      "id": 22,
       "offsets": [],
       "q": "TuningGuide sets the tuning order for the human. Is there an order inside the kip that matters for WRITING — can all the fields be written at once and the console rebooted a single time, or do some fields require an intermediate reboot?",
-      "priority": "medium"
+      "priority": "medium",
+      "note": "Numbered 18 here until 21.09.2026, while docs/ASK-AUTHOR.md has it as 22 and uses 18 for another question; renumbered so that both lists share the numbers."
     }
   ],
   "signed_offsets": {

@@ -1,6 +1,6 @@
 # Thanks
 
-This tuner did not appear out of nowhere. Almost everything in it was worked out by
+This configurator did not appear out of nowhere. Almost everything in it was worked out by
 someone else first, tested on their own console and shared for free. Here is who,
 and for what — honestly and without rounding up.
 
@@ -17,7 +17,7 @@ voltages on its own. All of it written, debugged and given away — together wit
 comments in `customize.cpp` that turned out to be the best documentation on the subject
 in existence.
 
-**What we took:** `customize.cpp` became our primary source. When the two existing tuner
+**What we took:** `customize.cpp` became our primary source. When the two existing
 packages disagreed, we went there and found the answer. A one-line comment giving the
 Erista GPU voltage formula (`customize.cpp:83`) explained why one field behaves differently
 on two revisions. The `mariko*` / `erista*` / `common*` prefixes in field names gave us
@@ -28,7 +28,7 @@ the reverse of the truth.
 
 The overclocking itself, `loader.kip` and everything that makes 4IFIR a firmware are
 Nadir's work and that of the Switch-OC-Suite authors. We did not touch it and do not
-intend to: this tuner **writes into** the kip, it does not replace it.
+intend to: this configurator **writes into** the kip, it does not replace it.
 
 ---
 
@@ -54,7 +54,7 @@ was solvable at all.
   revision without a single condition.
 - **System Info** — a screen showing revision, memory and the console's calibration
   constants. A simple thought: show the person what hardware they are dealing with.
-- **Presets by memory chip model** rather than universal ones. This tuner ships no
+- **Presets by memory chip model** rather than universal ones. This configurator ships no
   presets at all, but the reasoning — a set "for everyone" makes no sense — is his.
 - And the general tone: short phrases written by hand, not generated.
 

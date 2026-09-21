@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=cf06521a3f89 self=bb1f324a0dff -->
+<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=978db18fb11a self=478ae28ae596 -->
 # If something goes wrong
 
 <!-- nav:begin -->
@@ -6,11 +6,11 @@
 **English** · [Русский](../ru/12-troubleshooting.md)
 <!-- nav:end -->
 
-Every setting in **this tuner** lives in one file: `atmosphere\kips\loader.kip`.
+Every setting in **the configurator** lives in one file: `atmosphere\kips\loader.kip`.
 So anything it caused can be undone, without reinstalling anything.
 
 > [!NOTE]
-> **Per-game clocks are not set by this tuner.** They belong to the 4IFIR overlay, which
+> **Per-game clocks are not set by the configurator.** They belong to the 4IFIR overlay, which
 > keeps them separately, in `/config/4IFIR/`. If your trouble started after you changed a
 > clock there, putting back `loader.kip` will not help. Look in the overlay instead.
 
@@ -18,7 +18,7 @@ So anything it caused can be undone, without reinstalling anything.
 
 Work down the list, from the top. The first option is the quickest.
 
-### 1. Roll back from the tuner itself
+### 1. Roll back from the configurator itself
 
 If the console still boots, you can settle this on the spot:
 
@@ -42,7 +42,7 @@ Both open a preview page. To apply, **hold A** on the entry at the bottom.
 ### 2. Boot into `Stock (semi-stock)`
 
 If the system will not come up the usual way, the bootloader has a second entry —
-**`Stock (semi-stock)`**. The tuner works there, so the setting can be fixed the normal
+**`Stock (semi-stock)`**. The configurator works there, so the setting can be fixed the normal
 way — nothing to launch from the bootloader, no bytes to edit by hand.
 
 > [!IMPORTANT]
@@ -65,8 +65,12 @@ The system does not start at all. Edit the settings file straight from the bootl
 Cannot remember what you changed? Put the whole category back to factory; KipTool can
 reset a category at once.
 
+Look `pMeh` and `sMeh` fields up in KipTool **by number**, not by name: number 17 carries
+an outdated name there, and `sMeh 17` is missing altogether —
+[details](09a-micro-enhance.md#names-in-kiptool-and-older-descriptions).
+
 > [!WARNING]
-<!-- spelling: ECO ST1/ST2/ST3 in this box are KipTool's labels, not ours. Do NOT fold them into our "Eco". Decided 07.09.2026. -->
+<!-- spelling: ECO ST1/ST2/ST3 in this box are KipTool's labels, not the configurator's. Do NOT fold them into the package spelling "Eco". Decided 07.09.2026. -->
 > **If the GPU stage is the problem, pick only `ECO ST1` in KipTool.**
 >
 > Not `ECO ST3`: it takes more voltage away than any other stage. If the console failed
@@ -82,7 +86,7 @@ reset a category at once.
 If you saved a copy of `loader.kip` before you made any changes, put it back in place.
 The overclock returns to that state.
 
-Copies made by the tuner itself are on the card, in `/atmosphere/kips/.bak/`. Those are
+Copies made by the configurator itself are on the card, in `/atmosphere/kips/.bak/`. Those are
 applied from the menu, not by replacing the file.
 
 ## Common cases
@@ -91,7 +95,7 @@ The general rule: **a hang, artefacts or odd behaviour right after a change mean
 does not suit this console.** Do not look deeper for a culprit — step back and try the
 neighbouring value.
 
-**The setting did not apply.** Almost always a missing reboot. The tuner writes the value
+**The setting did not apply.** Almost always a missing reboot. The configurator writes the value
 into a file; the firmware reads that file at startup.
 
 **The value is not what I set.** Look at `Current Settings`. It shows what is actually in
@@ -104,7 +108,7 @@ Micro-Enhance Logic → sMeh 0-17 → sMeh 8 E-Boost`. Put it back to `0`, the f
 
 **The fan stays quiet while the console runs hot.** Check `Advanced → Fan Control`. If
 the top band reads a hundred per cent and the fan still holds back, open `Fan Control` and set the sliders again. A factory reset does not help here — the fan
-curve lives outside the file the tuner resets — [details](09-timings.md#cooling).
+curve lives outside the file the configurator resets — [details](09-timings.md#cooling).
 
 **It hangs after ten or fifteen minutes of play.** The CPU is short of margin. Set
 `Advanced → CPU → Low MHz Undervolt` to `lvl 1`. If that does not help, try
@@ -114,17 +118,17 @@ Erista does not have the first entry — go straight to `Speed Shift` there.
 
 **It hangs almost immediately after switching on.** Usually the memory is short of voltage
 in the default mode. Look at `Advanced → RAM → Optimized Mode (1600 MHz) → VDDQ-VDD2
-Voltage`: the 4IFIR guide suggests `4`, but that is the factory value in our list. So the
+Voltage`: the 4IFIR guide suggests `4`, but in the configurator's list that is the factory value. So the
 advice applies if you had changed it — put it back. If you never touched it, the cause is
 elsewhere.
 
 **It hangs after switching the memory to `Optimized S`.** This console will not hold that
 profile's stock clock. Lower `Advanced → RAM → Frequency` to `2400` and reboot.
 
-The profile itself is not set here but in the 4IFIR overlay — the fix, however, is ours.
+The profile itself is not set here but in the 4IFIR overlay — the fix, however, is in the configurator.
 
 **A black screen after the Nintendo logo.** With KipTool, set `Speed Shift` to `100`. That
-is the same thing as `Eco ST1` in the tuner: KipTool shows the number, the tuner shows
+is the same thing as `Eco ST1` in the configurator: KipTool shows the number, the configurator shows
 the name.
 
 **The console shuts down under load, and the charge drops suddenly.** The power
@@ -150,8 +154,8 @@ build, downloaded from its author's GitHub).
 The power controllers differ per revision: Mariko uses `MAX77812`, Erista uses `MAX77621`.
 
 According to the 4IFIR authors, the **older** Erista has the stronger one: 16 A on each
-power line, against 6 A for the CPU and 12 A for the GPU on Mariko. We could not find the
-original source for these numbers, so we pass them on as someone else's claim, not as
+power line, against 6 A for the CPU and 12 A for the GPU on Mariko. The original source
+for these numbers could not be found, so they are passed on as someone else's claim, not as
 fact.
 
 The practical conclusion does not depend on them: **someone else's working set of settings
@@ -160,7 +164,7 @@ screenshots are a starting point, not a recipe.
 
 ## Where to look to understand the state
 
-**`Current Settings`** in the tuner shows what is written into the file right now,
+**`Current Settings`** in the configurator shows what is written into the file right now,
 including the GPU voltage curve and the clock ceiling of the selected stage. The top line
 of the curve is not shown: it is the same for every stage. The third page holds the
 timings saved in EMC Magician ([details](02-first-run.md#third-page-emc-magician-timings)).

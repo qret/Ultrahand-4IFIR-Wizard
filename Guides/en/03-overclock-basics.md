@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/03-overclock-basics.md sha=7e34f8182629 self=298e20a51635 -->
+<!-- i18n: source=Guides/ru/03-overclock-basics.md sha=995228cb947c self=4fffa981ecb7 -->
 # Overclocking: where to start
 
 <!-- nav:begin -->
@@ -101,7 +101,7 @@ The symptom usually names the culprit:
 | freezes right after the logo | CPU |
 | texture artefacts, flickering dots, an orange screen | GPU |
 | freezes and crashes in games with no visual garbage | memory |
-| stripes on the screen in the dock | fine memory settings |
+| stripes on the screen in the dock | [fine memory settings](09a-micro-enhance.md) |
 
 ## How to get back if it does not work out
 

@@ -1,8 +1,8 @@
-<!-- i18n: source=Guides/ru/10-profiles.md sha=317145f0bfd4 self=38b238f4f541 -->
+<!-- i18n: source=Guides/ru/10-profiles.md sha=c11f7fd909b9 self=efd2234a3e31 -->
 # Profiles, backups and reset
 
 <!-- nav:begin -->
-[← Timings and fine tuning](09-timings.md) · [Contents](README.md) · [Updating →](11-update.md)  
+[← Micro-Enhance Logic: pMeh and sMeh](09a-micro-enhance.md) · [Contents](README.md) · [Updating →](11-update.md)  
 **English** · [Русский](../ru/10-profiles.md)
 <!-- nav:end -->
 
@@ -11,7 +11,7 @@ Everything that helps you not lose a setup and get back to a known state.
 ## Reset to defaults
 
 **`Service → Restore Factory Defaults`** returns every overclock setting to what it was out
-of the box. The tuner shows a preview of what will change before applying it.
+of the box. The configurator shows a preview of what will change before applying it.
 
 This is the simplest way back, and it needs nothing prepared in advance. While you have
 nothing of your own set up, it is all you need.
@@ -19,7 +19,7 @@ nothing of your own set up, it is all you need.
 > [!IMPORTANT]
 > A reset changes the GPU voltage stage but **does not touch the working voltage
 > table**. If you were on a half stage, what you get afterwards is a combination the
-> menu never offers. The tuner names it correctly, but if you want a clean state, pick
+> menu never offers. The configurator names it correctly, but if you want a clean state, pick
 > a stage again.
 
 The reset also puts the `VDDQ` and `VDD2` voltages of the Optimized profile back to
@@ -37,8 +37,8 @@ The first item is **`Choose backup`**, for picking a copy you already made. The 
 **`Create backup`**, stores your current overclock settings in a file.
 
 The result shows to the right of the entry at once, without leaving the page. `saved`
-means the copy was written and the tuner checked what it wrote against your current
-settings. `not saved` means the write failed; the tuner deletes the half-written file
+means the copy was written and the configurator checked what it wrote against your current
+settings. `not saved` means the write failed; the configurator deletes the half-written file
 straight away, so it never turns up in `Choose backup`.
 
 Result labels (`saved`, `restored` and the rest) and the chosen copy last until you
@@ -59,7 +59,7 @@ state and throws your work away; a backup gives you back exactly what you had.
 
 ## Restoring
 
-**`Service → Backup manager`** — pick a copy and the tuner shows a **preview**: what
+**`Service → Backup manager`** — pick a copy and the configurator shows a **preview**: what
 will be written, before anything is applied.
 
 Read it. The GPU stage line in particular names the stage, so you can see at a glance
@@ -74,7 +74,7 @@ ones are recorded as `eBAMATIC`. On
 restore they are written to the `EMC Magician` file for the memory clock and `eBal` stored
 in the copy — over whatever is there. `eBAMATIC` (zero) is written only where the file
 already holds a value of its own for that clock and `eBal`: where it does not, the firmware
-is on automatic anyway, and the tuner does not create an empty profile there. Nothing else in
+is on automatic anyway, and the configurator does not create an empty profile there. Nothing else in
 that file is touched. If the copy has `EMC Balance` at `eBAMATIC`, the voltages do not apply and are not
 written. Copies made earlier, and profiles brought over by importing from the old wizard, do
 not hold the voltages and restore as before: the `EMC Magician` file stays as it is. As when
@@ -88,7 +88,7 @@ do not overlap.
 
 **The third page shows the EMC Magician timings for the chosen copy.** It works like
 [the one in `Current Settings`](02-first-run.md#third-page-emc-magician-timings), except that the
-memory clock, `eBAL` and `sMeh 8 E-Boost` come from the chosen copy. The timings themselves are
+memory clock, `eBAL` and [`sMeh 8 E-Boost`](09a-micro-enhance.md#smeh--the-secondary-row) come from the chosen copy. The timings themselves are
 not in the copy: they are read from the Magician file on this console, and a line at the top
 says so. If Magician holds nothing for the copy's clock and `eBAL`, a short note says that
 instead of the table. The page is just as plain when no copy is chosen or the copy does not
@@ -106,7 +106,7 @@ record the clock and `eBAL` (this happens with imported ones). `A` and `Y` work 
 ## Importing old profiles
 
 If you used the old wizard, its profiles are stored elsewhere on the card.
-**`Service → Import old 4IFIR backup`** converts them into our format.
+**`Service → Import old 4IFIR backup`** converts them into the configurator's format.
 
 The import carries over both the mode and the **whole GPU voltage curve** — points above
 1190 MHz included — so the restored stage matches the one that was saved, rather than
@@ -118,14 +118,17 @@ values substituted in.
 > [!NOTE]
 > The old profile format for Erista is thinner than the Mariko one: six settings are
 > simply not in it. Those lines will be blank on an imported Erista copy — there is
-> nowhere to take the values from, and we will not invent them.
+> nowhere to take the values from, and the configurator will not invent them.
 >
 > The GPU undervolt mode is not carried over either: on Erista, set it by hand after
-> applying such a copy — the tuner reminds you with a line on the copy's screen.
+> applying such a copy — the configurator reminds you with a line on the copy's screen.
+>
+> `WL-Set` and `DBI` (`pMeh 17`, `sMeh 17`) are not carried over from an old backup and
+> stay as they are on the console after it is applied.
 
 ## About ready-made presets
 
-There is no presets section in the tuner, and that is a decision rather than an omission:
+There is no presets section in the configurator, and that is a decision rather than an omission:
 memory settings depend on the chip model, and a "one size fits all" set is meaningless.
 
 Your starting point is importing your own old profile, or a backup taken while the
@@ -143,6 +146,6 @@ with different chips reach different clocks.
 ---
 
 <!-- nav:begin -->
-[← Timings and fine tuning](09-timings.md) · [Contents](README.md) · [Updating →](11-update.md)  
+[← Micro-Enhance Logic: pMeh and sMeh](09a-micro-enhance.md) · [Contents](README.md) · [Updating →](11-update.md)  
 **English** · [Русский](../ru/10-profiles.md)
 <!-- nav:end -->

@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/04-overlay.md sha=a12413c24c1f self=3d8f267282ce -->
+<!-- i18n: source=Guides/ru/04-overlay.md sha=52ca81d1e093 self=0625f496b003 -->
 # The 4IFIR overlay: where clocks are set
 
 <!-- nav:begin -->
@@ -6,12 +6,12 @@
 **English** · [Русский](../ru/04-overlay.md)
 <!-- nav:end -->
 
-This tuner configures the **firmware** — the settings the console starts from when it
+The configurator adjusts the **firmware** — the settings the console starts from when it
 boots. The clocks themselves, for the CPU, the GPU and the memory, are set somewhere else:
 in the **4IFIR overlay** that ships with the build.
 
-This page is about that overlay. It is not ours and we do not touch it, but tuning makes
-no sense without it: this tuner decides **how** the hardware behaves at a given clock, and
+This page is about that overlay. It belongs to someone else and the configurator does not touch it, but tuning makes
+no sense without it: the configurator decides **how** the hardware behaves at a given clock, and
 the overlay decides **which clock** to set.
 
 ## How to open it
@@ -103,6 +103,10 @@ Clocks are labelled with names as well as numbers — `Optimized`, `Optimized S`
 such as `Optimized 90` and `Optimized 120`. These are ready-made steps, and starting from
 them is easier than starting from bare numbers.
 
+For memory (`EMC`), the names `Optimized`, `Optimized E` and `Optimized E+` currently mean
+one and the same economical step E; the two extra names are left over from earlier plans.
+This does not apply to the CPU and the GPU.
+
 **`Default`** deserves a note of its own. It does not mean "nothing": the value is taken
 from the next profile down the order. That is how you clear a setting — set `Default`
 rather than guessing what the number used to be.
@@ -144,13 +148,13 @@ tuning of memory timings, covered separately on the
 
 ## The boundary
 
-The overlay is someone else's work, part of 4IFIR. We neither duplicate nor replace it:
-this tuner and the overlay do different jobs, and you need both.
+The overlay is someone else's work, part of 4IFIR. The configurator neither duplicates nor replaces it:
+the two do different jobs, and you need both.
 
 A simple rule for who does what:
 
 - **which clock to set** — the overlay;
-- **at what voltage and with what delays the hardware runs at that clock** — this tuner.
+- **at what voltage and with what delays the hardware runs at that clock** — the configurator.
 
 ---
 

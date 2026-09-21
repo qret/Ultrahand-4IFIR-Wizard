@@ -28,7 +28,7 @@
       "danger": "Codes beyond 0 are not established. The upstream project this derives from uses 0/1/2 for AUTO/CUSTOM/NO adjust; 4IFIR renamed them and added a fourth, so the order is a guess. Writing a wrong code here changes how the whole timing subsystem behaves. Read-only until the author confirms.",
       "values": [
         {
-          "name": "0 — automatic (eBAMATIC)",
+          "name": "0 - automatic (eBAMATIC)",
           "hex": "000000"
         }
       ],
@@ -274,12 +274,12 @@
         },
         {
           "hex": "D8ED11",
-          "name": "1175 mV — Eco",
+          "name": "1175 mV - Eco",
           "name_ebal": "1175mV - Eco"
         },
         {
           "hex": "18FB14",
-          "name": "1375 mV — SRT",
+          "name": "1375 mV - SRT",
           "name_ebal": "1375mV - Caution"
         },
         {
@@ -385,7 +385,7 @@
         },
         {
           "hex": "787413",
-          "name": "1275 mV — Default"
+          "name": "1275 mV - Default"
         },
         {
           "hex": "4CA513",
@@ -1778,17 +1778,17 @@
       "values": [
         {
           "hex": "20A107",
-          "name": "500 mV — Eco",
+          "name": "500 mV - Eco",
           "name_ebal": "500mv"
         },
         {
           "hex": "10EB09",
-          "name": "650 mV — Default",
+          "name": "650 mV - Default",
           "name_ebal": "650mV - Default"
         },
         {
           "hex": "60AE0A",
-          "name": "700 mV — SRT",
+          "name": "700 mV - SRT",
           "name_ebal": "700mV - Caution"
         },
         {
@@ -2886,23 +2886,25 @@
       "confidence": "high",
       "values": [
         {
-          "hex": "000000",
-          "name": "Auto — eBAMATIC"
-        },
-        {
           "hex": "0300",
-          "name": "Auto — Eco ST1 — Default",
+          "name": "Auto - Eco ST1 - Default",
           "name_ebal": "ST1 - Default"
         },
         {
           "hex": "0200",
-          "name": "Auto — Eco ST2",
+          "name": "Auto - Eco ST2",
           "name_ebal": "ST2"
         },
         {
           "hex": "0100",
-          "name": "Auto — Eco ST3",
+          "name": "Auto - Eco ST3",
           "name_ebal": "ST3"
+        },
+        {
+          "hex": "000000",
+          "name": "0 - Unknown",
+          "map_label": "0 - Unknown",
+          "not_in_menu": true
         },
         {
           "hex": "AE0100",
@@ -2994,7 +2996,7 @@
         },
         {
           "hex": "6C0200",
-          "name": "620mV - Default"
+          "name": "620mV"
         },
         {
           "hex": "7102",
@@ -3101,7 +3103,7 @@
           "name": "750 mV"
         }
       ],
-      "help_text": "Auto steps let the kip pick the floor. A fixed value in mV switches the automation off - then you raise it yourself by 20 mV for every extra 200 MHz of RAM.",
+      "help_text": "Factory value: Eco ST1. Eco ST1-ST3 let the kip pick the floor. A fixed value in mV switches that off - then you raise it yourself by 20 mV for every extra 200 MHz of RAM. Zero is not offered: the firmware source does not describe it. If the kip holds it, it shows as 0 - Unknown.",
       "menu_path": {
         "wizard": "4Advanced > CPU > CPU Minimal Voltage",
         "ebal": "Ebal > Tuning > ProTools > Cpu > [*CPU Min Voltage]"
@@ -3277,7 +3279,7 @@
       "values": [
         {
           "hex": "030000",
-          "name": "Eco ST1 — Default",
+          "name": "Eco ST1 - Default",
           "name_ebal": "St1 - Default"
         },
         {
@@ -3287,7 +3289,7 @@
         },
         {
           "hex": "010000",
-          "name": "Eco ST3 — lowest voltage",
+          "name": "Eco ST3 - lowest voltage",
           "name_ebal": "St3"
         },
         {
@@ -5186,7 +5188,7 @@
           }
         ]
       },
-      "help_text": "Which timing this one sets has not been established - the firmware documentation leaves that row empty. What is known for certain: it acts IN SUM with Core Timings 1, so raising this one also raises the first. Move it only after the first is where you want it.",
+      "help_text": "It is not known which timing this one sets: the firmware documentation leaves that row empty. What is known: the firmware adds Core Timings 1 to this value. So raising Core Timings 1 also raises this one, but changing this one does not move Core Timings 1. Set Core Timings 1 first, then this one.",
       "help_source": "semantics-src/ram.json, derived from the firmware source"
     },
     {
@@ -5610,7 +5612,7 @@
       "confidence": "high",
       "values": [
         {
-          "name": "395 mV — Default",
+          "name": "395 mV - Default",
           "hex": "8B0100"
         },
         {
@@ -5926,7 +5928,7 @@
           "hex": "9F0100"
         },
         {
-          "name": "420 mV — Default",
+          "name": "420 mV - Default",
           "hex": "A40100"
         },
         {
@@ -6219,7 +6221,7 @@
           "hex": "B80100"
         },
         {
-          "name": "445 mV — Default",
+          "name": "445 mV - Default",
           "hex": "BD0100"
         },
         {
@@ -6535,7 +6537,7 @@
           "hex": "D10100"
         },
         {
-          "name": "470 mV — Default",
+          "name": "470 mV - Default",
           "hex": "D60100"
         },
         {
@@ -6828,7 +6830,7 @@
           "hex": "EA0100"
         },
         {
-          "name": "495 mV — Default",
+          "name": "495 mV - Default",
           "hex": "EF0100"
         },
         {
@@ -7144,7 +7146,7 @@
           "hex": "030200"
         },
         {
-          "name": "520 mV — Default",
+          "name": "520 mV - Default",
           "hex": "080200"
         },
         {
@@ -7441,7 +7443,7 @@
           "hex": "1C0200"
         },
         {
-          "name": "545 mV — Default",
+          "name": "545 mV - Default",
           "hex": "210200"
         },
         {
@@ -7757,7 +7759,7 @@
           "hex": "350200"
         },
         {
-          "name": "570 mV — Default",
+          "name": "570 mV - Default",
           "hex": "3A0200"
         },
         {
@@ -8102,7 +8104,7 @@
           "hex": "4E0200"
         },
         {
-          "name": "595 mV — Default",
+          "name": "595 mV - Default",
           "hex": "530200"
         },
         {
@@ -8459,7 +8461,7 @@
           "hex": "670200"
         },
         {
-          "name": "620 mV — Default",
+          "name": "620 mV - Default",
           "hex": "6C0200"
         },
         {
@@ -8804,7 +8806,7 @@
           "hex": "800200"
         },
         {
-          "name": "645 mV — Default",
+          "name": "645 mV - Default",
           "hex": "850200"
         },
         {
@@ -9153,7 +9155,7 @@
           "hex": "990200"
         },
         {
-          "name": "670 mV — Default",
+          "name": "670 mV - Default",
           "hex": "9E0200"
         },
         {
@@ -9510,7 +9512,7 @@
           "hex": "B20200"
         },
         {
-          "name": "695 mV — Default",
+          "name": "695 mV - Default",
           "hex": "B70200"
         },
         {
@@ -9883,7 +9885,7 @@
           "hex": "CB0200"
         },
         {
-          "name": "720 mV — Default",
+          "name": "720 mV - Default",
           "hex": "D00200"
         },
         {
@@ -10280,7 +10282,7 @@
           "hex": "E90200"
         },
         {
-          "name": "750 mV — Default",
+          "name": "750 mV - Default",
           "hex": "EE0200"
         },
         {
@@ -10701,7 +10703,7 @@
           "hex": "070300"
         },
         {
-          "name": "780 mV — Default",
+          "name": "780 mV - Default",
           "hex": "0C0300"
         },
         {
@@ -11102,7 +11104,7 @@
           "hex": "250300"
         },
         {
-          "name": "810 mV — Default",
+          "name": "810 mV - Default",
           "hex": "2A0300"
         },
         {
@@ -11519,7 +11521,7 @@
           "hex": "430300"
         },
         {
-          "name": "840 mV — Default",
+          "name": "840 mV - Default",
           "hex": "480300"
         },
         {
@@ -11960,7 +11962,7 @@
           "hex": "610300"
         },
         {
-          "name": "870 mV — Default",
+          "name": "870 mV - Default",
           "hex": "660300"
         },
         {
@@ -12425,7 +12427,7 @@
           "hex": "7F0300"
         },
         {
-          "name": "900 mV — Default",
+          "name": "900 mV - Default",
           "hex": "840300"
         },
         {
@@ -12902,7 +12904,7 @@
           "hex": "9D0300"
         },
         {
-          "name": "930 mV — Default",
+          "name": "930 mV - Default",
           "hex": "A20300"
         },
         {
@@ -13435,7 +13437,7 @@
           "hex": "BB0300"
         },
         {
-          "name": "960 mV — Default",
+          "name": "960 mV - Default",
           "hex": "C00300"
         }
       ],
@@ -13856,7 +13858,7 @@
           "hex": "D90300"
         },
         {
-          "name": "990 mV — Default",
+          "name": "990 mV - Default",
           "hex": "DE0300"
         }
       ],
@@ -14273,7 +14275,7 @@
           "hex": "F70300"
         },
         {
-          "name": "1020 mV — Default",
+          "name": "1020 mV - Default",
           "hex": "FC0300"
         }
       ],
@@ -14482,7 +14484,7 @@
           "hex": "0C0300"
         },
         {
-          "name": "785 mV — Default",
+          "name": "785 mV - Default",
           "hex": "110300"
         },
         {
@@ -14799,7 +14801,7 @@
           "hex": "2A0300"
         },
         {
-          "name": "815 mV — Default",
+          "name": "815 mV - Default",
           "hex": "2F0300"
         },
         {
@@ -15104,7 +15106,7 @@
           "hex": "480300"
         },
         {
-          "name": "845 mV — Default",
+          "name": "845 mV - Default",
           "hex": "4D0300"
         },
         {
@@ -15405,7 +15407,7 @@
           "hex": "660300"
         },
         {
-          "name": "875 mV — Default",
+          "name": "875 mV - Default",
           "hex": "6B0300"
         },
         {
@@ -15750,7 +15752,7 @@
           "hex": "840300"
         },
         {
-          "name": "905 mV — Default",
+          "name": "905 mV - Default",
           "hex": "890300"
         },
         {
@@ -16075,7 +16077,7 @@
           "hex": "A20300"
         },
         {
-          "name": "935 mV — Default",
+          "name": "935 mV - Default",
           "hex": "A70300"
         },
         {
@@ -16369,7 +16371,7 @@
           "hex": "BB0300"
         },
         {
-          "name": "960 mV — Default",
+          "name": "960 mV - Default",
           "hex": "C00300"
         },
         {
@@ -19552,7 +19554,7 @@
         },
         {
           "hex": "200300",
-          "name": "800 mV — Eco ST3"
+          "name": "800 mV - Eco ST3"
         },
         {
           "hex": "250300",
@@ -19652,7 +19654,7 @@
         },
         {
           "hex": "9D0300",
-          "name": "925 mV — Eco ST2"
+          "name": "925 mV - Eco ST2"
         },
         {
           "hex": "A20300",
@@ -19752,7 +19754,7 @@
         },
         {
           "hex": "1A0400",
-          "name": "1050 mV — SRT"
+          "name": "1050 mV - SRT"
         },
         {
           "hex": "1F0400",
@@ -20923,8 +20925,8 @@
           }
         ]
       },
-      "help_text": "pMeh 0 eBAS Sub-Zero - Derived from eBAL: eBAS, eBAW and eBAR. eBAS can be increased using the [eba-shift] option. The only way to decrease it is by using — pMeh[0] and only by 1 (when set to pmeh[0]=1)",
-      "help_source": "4IFIR Wizard Help/pMeh 0 eBAS Sub-Zero.txt"
+      "help_text": "One of three values derived from eBAL: eBAS, eBAW and eBAR. EBA-Shift can raise eBAS; this field is the only way to lower it, and only by 1 (value 1).",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12368,
@@ -22119,8 +22121,8 @@
           }
         ]
       },
-      "help_text": "pMeh 8 RCD- pMEH[8] are used in the formulas for tRCD (1 timings respectively). Increasing these values will reduce the corresponding timings, which may improve performance but could reduce stability.",
-      "help_source": "4IFIR Wizard Help/pMeh 8 RCD Decret.txt"
+      "help_text": "Subtracted from timing 1 (tRCD). A higher value tightens the timing: possibly faster, possibly less stable.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12400,
@@ -22269,8 +22271,8 @@
           }
         ]
       },
-      "help_text": "pMeh 9 RP Decret- pMEH[9] are used in the formulas for tRP (2 timing respectively). Increasing these values will reduce the corresponding timings, which may improve performance but could reduce stability.",
-      "help_source": "4IFIR Wizard Help/pMeh 9 RP Decret.txt"
+      "help_text": "Subtracted from timing 2 (tRP). A higher value tightens the timing: possibly faster, possibly less stable.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12404,
@@ -22435,8 +22437,8 @@
           }
         ]
       },
-      "help_text": "pMeh 10 RAS Decret- pMEH[10] are used in the formulas for tRAS (3 timing respectively). Increasing these values will reduce the corresponding timings, which may improve performance but could reduce stability.",
-      "help_source": "4IFIR Wizard Help/pMeh 10 RAS Decret.txt"
+      "help_text": "Subtracted from timing 3 (tRAS). A higher value tightens the timing: possibly faster, possibly less stable.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12408,
@@ -22629,8 +22631,8 @@
           }
         ]
       },
-      "help_text": "pMeh 11 SRPD - soon",
-      "help_source": "4IFIR Wizard Help/pMeh 11 SRPD.txt"
+      "help_text": "RAM power-saving mechanisms. By default they are off for the S step on Mariko and on for the E step. On Eco setups above 1600 MHz, turning them on costs a little speed and saves noticeably more power. What each value from 1 to 15 enables is not documented.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12412,
@@ -22767,7 +22769,7 @@
           }
         ]
       },
-      "help_text": "pMeh 12 E-Enhance P - soon",
+      "help_text": "Range 0-1, default 1. Not described by the firmware author beyond its name; leave it at 1 unless you know why you are changing it.",
       "help_source": "4IFIR Wizard Help/pMeh 12 E-Enhance.txt"
     },
     {
@@ -23163,8 +23165,8 @@
           }
         ]
       },
-      "help_text": "pMeh 14 GameChanger - soon",
-      "help_source": "4IFIR Wizard Help/pMeh 14 GameChanger.txt"
+      "help_text": "Lowers the effective RAM frequency below the target. According to the community description, the value is subtracted from the PLLMB divider (DIVN); not confirmed for the current firmware. 0 leaves the frequency as set.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12424,
@@ -23200,11 +23202,11 @@
       "values": [
         {
           "hex": "00",
-          "name": "0 - Default, eBal3"
+          "name": "0 - Default"
         },
         {
           "hex": "01",
-          "name": "1 - eBal4"
+          "name": "1"
         }
       ],
       "menu_path": {
@@ -23301,8 +23303,8 @@
           }
         ]
       },
-      "help_text": "pMeh 15 eFOS MK - increases the delay that occurs when switching from one memory mode to another (e.g., switching from EMC - 4ifir optimised to EMC - 4ifir optimised S).",
-      "help_source": "4IFIR Wizard Help/pMeh 15 eFOS MK.txt",
+      "help_text": "Support for high-frequency RAM modes, still in testing. Adds a pause of 2-3 seconds when RAM changes steps, but makes the change more likely to succeed when the E and S steps run at very different voltages. Older packages label 0 and 1 as Erista eBal 3 and 4; the current firmware does not describe it that way.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026; GetLow/GetHigh help of 4IFIR Wizard",
       "default_source": "заводское 00 по объявлению структуры и живому kip; подпись Default стояла на 01 — исправлено 29.08.2026"
     },
     {
@@ -23477,7 +23479,7 @@
       "values": [
         {
           "hex": "00",
-          "name": "0 — Default"
+          "name": "0 - Default"
         },
         {
           "hex": "01",
@@ -23578,8 +23580,8 @@
           }
         ]
       },
-      "help_text": "Write Latency Set, range 0-1. The original packages label this item DBI with four values — that is out of date: DBI moved to sMeh 17, and this offset now holds something else. Undocumented beyond the name, so leave it at 0 unless you know why.",
-      "help_source": "customize.cpp (current revision) — renamed from the label both donor packages still use"
+      "help_text": "Write Latency Set, range 0-1. The original packages and the KIP tool in hekate still call this slot DBI with four values - out of date: DBI moved to sMeh 17. Undocumented beyond the name, so leave it at 0 unless you know why.",
+      "help_source": "customize.cpp (current revision) + KipTool.bin menu strings, 21.09.2026"
     },
     {
       "offset": 12436,
@@ -23798,8 +23800,8 @@
           }
         ]
       },
-      "help_text": "pMeh 18 eBAMATIC ST - selects the eBAMATIC optimization level. The higher the value, the more aggressive the optimization. (Duplicate of item QuickTune > eBAMATIC > e.BAMATIC Stage)",
-      "help_source": "4IFIR Wizard Help/pMeh 18 eBAMATIC ST.txt"
+      "help_text": "Selects the eBAMATIC optimization level: the higher the stage, the more aggressive the optimization. Same field as eBAMATIC Stage on the main page.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12440,
@@ -23896,7 +23898,7 @@
           "hex": "00"
         },
         {
-          "name": "0 — Default",
+          "name": "0 - Default",
           "hex": "01"
         },
         {
@@ -24107,7 +24109,7 @@
         ]
       },
       "platform_source": "pMEH[19] vMINetune ST — Ebal GPU.ini:99 | 29.08.2026: снята пометка mariko — в оригинальном 4IFIR Wizard оба поля лежат в RAM > MICRO-ENHANCE LOGIC без фильтра платформы и видны на обеих ревизиях, и его сброс к заводским пишет в них безусловно. Решение оператора: как в оригинале.",
-      "help_text": "Shifts the automatic GPU voltage floor for Optimized E RAM. This is a shift, not the voltage itself: plus raises it, minus lowers it. Step is 5 mV.",
+      "help_text": "Shifts the automatic GPU voltage floor for Optimized E RAM. This is a shift, not the voltage itself: plus raises it, minus lowers it. Step is 5 mV. KIP tool in hekate shows the raw value, where stock is 1.",
       "help_source": "4IFIR Wizard Help/pMeh 19 vMINetune ST.txt",
       "range_note": "ДИАПАЗОН РАСШИРЕН АВТОРОМ ПРОШИВКИ ПО ПРОСЬБЕ. Строка-легенда в customize.cpp говорит «0-9», но это устаревший комментарий: Cooler3D добавил значения выше и ниже по личной просьбе оператора. НЕ ОБРЕЗАТЬ по легенде. 03.09.2026 ряд расширен до ±15 ступеней (+75…-75 мВ, 31 пункт) решением оператора — это за пределами ВСЕХ доноров: оригинальный 4IFIR Wizard даёт сырые уровни 0…14 (байты 00…0E) и плюсовой стороны не имеет вовсе, декодер Ebal называет милливольтами до 0F (-70) у 12440 и до 0B (-45) у 12448. Обкатаны людьми только донорские пункты; за ними — решение оператора, см. NOTES №227."
     },
@@ -24379,7 +24381,7 @@
           "hex": "01"
         },
         {
-          "name": "0 — Default",
+          "name": "0 - Default",
           "hex": "02"
         },
         {
@@ -24590,7 +24592,7 @@
         ]
       },
       "platform_source": "pMEH[21] — Ebal GPU.ini:107 | 29.08.2026: снята пометка mariko — в оригинальном 4IFIR Wizard оба поля лежат в RAM > MICRO-ENHANCE LOGIC без фильтра платформы и видны на обеих ревизиях, и его сброс к заводским пишет в них безусловно. Решение оператора: как в оригинале.",
-      "help_text": "Shifts the automatic GPU voltage floor for Max RAM RAM. This is a shift, not the voltage itself: plus raises it, minus lowers it. Step is 5 mV.",
+      "help_text": "Shifts the automatic GPU voltage floor for the top RAM step (Optimized S, max RAM frequency). This is a shift, not the voltage itself: plus raises it, minus lowers it. Step is 5 mV. KIP tool in hekate shows the raw value, where stock is 2.",
       "help_source": "4IFIR Wizard Help/pMeh 21 gVMINDick.txt",
       "range_note": "ДИАПАЗОН РАСШИРЕН АВТОРОМ ПРОШИВКИ ПО ПРОСЬБЕ. Строка-легенда в customize.cpp говорит «0-9», но это устаревший комментарий: Cooler3D добавил значения выше и ниже по личной просьбе оператора. НЕ ОБРЕЗАТЬ по легенде. 03.09.2026 ряд расширен до ±15 ступеней (+75…-75 мВ, 31 пункт) решением оператора — это за пределами ВСЕХ доноров: оригинальный 4IFIR Wizard даёт сырые уровни 0…14 (байты 00…0E) и плюсовой стороны не имеет вовсе, декодер Ebal называет милливольтами до 0F (-70) у 12440 и до 0B (-45) у 12448. Обкатаны людьми только донорские пункты; за ними — решение оператора, см. NOTES №227."
     },
@@ -24615,7 +24617,7 @@
       "confidence": "high",
       "values": [
         {
-          "name": "0 — Default",
+          "name": "0 - Default",
           "hex": "00"
         },
         {
@@ -24792,8 +24794,8 @@
           }
         ]
       },
-      "help_text": "sMeh 0 ARB-Boost - Provides more performance; try increasing it by a couple of steps.",
-      "help_source": "4IFIR Wizard Help/sMeh 0 ARB-Boost.txt",
+      "help_text": "Sets the refresh period of the memory controller cyclic timings. Do not push it too far: overdone, it lowers gaming performance instead of raising it, and on the CPU the loss shows later than on the GPU. Default is 4.",
+      "help_source": "4IFIR_WIZARD.md (community doc) + customize.cpp and live kip for the default, rewritten 21.09.2026",
       "default_source": "живой kip и объявление структуры дают 04; снимок прошивки Default.json даёт 07 и от него же шла подпись донора. Два источника против одного, эталон сброса уже содержит 04 — подпись приведена к нему 29.08.2026"
     },
     {
@@ -24943,8 +24945,8 @@
           }
         ]
       },
-      "help_text": "sMeh 1 ARB-BCD - Allow, without affecting stability, in certain combinations of timings, eBALs and frequencies, where 4IFIR was not included algorithmically with 100% arbitration timings by memory controllers, to adjust them manually.",
-      "help_source": "4IFIR Wizard Help/sMeh 1 ARB-BCD.txt"
+      "help_text": "Manual correction of the memory controller arbitration timings where the 4IFIR algorithm missed. Does not affect stability. Can add a hundred MB/s or more, or remove an abnormal speed drop at one particular frequency.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12468,
@@ -25093,8 +25095,8 @@
           }
         ]
       },
-      "help_text": "sMeh 2 ARB-BRP - Allow, without affecting stability, in certain combinations of timings, eBALs and frequencies, where 4IFIR was not included algorithmically with 100% arbitration timings by memory controllers, to adjust them manually.",
-      "help_source": "4IFIR Wizard Help/sMeh 2 ARB-BRP.txt"
+      "help_text": "Manual correction of the memory controller arbitration timings where the 4IFIR algorithm missed. Does not affect stability. Can add a hundred MB/s or more, or remove an abnormal speed drop at one particular frequency.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12472,
@@ -25243,8 +25245,8 @@
           }
         ]
       },
-      "help_text": "sMeh 3 ARB-RTR - Allow, without affecting stability, in certain combinations of timings, eBALs and frequencies, where 4IFIR was not included algorithmically with 100% arbitration timings by memory controllers, to adjust them manually.",
-      "help_source": "4IFIR Wizard Help/sMeh 3 ARB-RTR.txt"
+      "help_text": "Manual correction of the memory controller arbitration timings where the 4IFIR algorithm missed. Does not affect stability. Can add a hundred MB/s or more, or remove an abnormal speed drop at one particular frequency.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12476,
@@ -25393,8 +25395,8 @@
           }
         ]
       },
-      "help_text": "sMeh 4 ARB-RTW - Allow, without affecting stability, in certain combinations of timings, eBALs and frequencies, where 4IFIR was not included algorithmically with 100% arbitration timings by memory controllers, to adjust them manually.",
-      "help_source": "4IFIR Wizard Help/sMeh 4 ARB-RTW.txt"
+      "help_text": "Manual correction of the memory controller arbitration timings where the 4IFIR algorithm missed. Does not affect stability. Can add a hundred MB/s or more, or remove an abnormal speed drop at one particular frequency.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12480,
@@ -25543,8 +25545,8 @@
           }
         ]
       },
-      "help_text": "sMeh 5 ARB-WTR - Allow, without affecting stability, in certain combinations of timings, eBALs and frequencies, where 4IFIR was not included algorithmically with 100% arbitration timings by memory controllers, to adjust them manually.",
-      "help_source": "4IFIR Wizard Help/sMeh 5 ARB-WTR.txt"
+      "help_text": "Manual correction of the memory controller arbitration timings where the 4IFIR algorithm missed. Does not affect stability. Can add a hundred MB/s or more, or remove an abnormal speed drop at one particular frequency.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12484,
@@ -25705,8 +25707,8 @@
           }
         ]
       },
-      "help_text": "sMeh 6 eZQ Override - on the value 1, it usually gives a free boost. No observed effect on stability. Gaming performance changes proportionally.",
-      "help_source": "4IFIR Wizard Help/sMeh 6 eZQ Override.txt"
+      "help_text": "Default 1. According to the 4IFIR docs, by default it is managed by 4IFIR and affects memory performance; it should also affect frequency headroom, but no clear effect on that has been seen in practice, perhaps it shows at high frequencies.",
+      "help_source": "4IFIR_WIZARD.md (community doc) + customize.cpp and live kip for the default, rewritten 21.09.2026"
     },
     {
       "offset": 12488,
@@ -25843,8 +25845,8 @@
           }
         ]
       },
-      "help_text": "sMeh 7 trDVFS - soon",
-      "help_source": "4IFIR Wizard Help/sMeh 7 trDVFS.txt"
+      "help_text": "Linked to the voltages of the arbiter timings. Can affect memory stability at high frequencies, depending on the setup. Not fully explored yet.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12492,
@@ -26320,8 +26322,8 @@
           }
         ]
       },
-      "help_text": "sMeh 10 - soon",
-      "help_source": "4IFIR Wizard Help/sMeh 10 Latent.txt"
+      "help_text": "Adds an upward offset to the tertiary timings, depending on the value. May affect gaming performance and frequency headroom, and behaves differently on different memory chips.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12504,
@@ -26470,8 +26472,8 @@
           }
         ]
       },
-      "help_text": "sMeh 11 - soon",
-      "help_source": "4IFIR Wizard Help/sMeh 11 REF-NEH.txt"
+      "help_text": "Controls the refresh solver. Lowers memory bandwidth, and in some cases raises stability at high frequencies.",
+      "help_source": "4IFIR_WIZARD.md (community doc), rewritten 21.09.2026"
     },
     {
       "offset": 12508,
@@ -27088,12 +27090,12 @@
       "values": [
         {
           "hex": "00",
-          "name": "0",
+          "name": "0 - 1331 MHz",
           "name_ebal": "0 - Default"
         },
         {
           "hex": "01",
-          "name": "1 - Default",
+          "name": "1 - 1600 MHz (Default)",
           "name_ebal": "1"
         }
       ],
@@ -27219,8 +27221,8 @@
           }
         ]
       },
-      "help_text": "sMeh 16 SYK-LOH - Sets the value RAM Optimized - 1600 MHz.",
-      "help_source": "4IFIR Wizard Help/sMeh 16 SYK-LOH.txt"
+      "help_text": "Base frequency of the Optimized E RAM step: 1600 MHz or 1331 MHz. Same field as Optimized Target in Optimized Mode.",
+      "help_source": "Operator wording 21.09.2026; 0 = 1331 MHz, 1 = 1600 MHz as in dependencies.json (sMeh 16 gate)"
     },
     {
       "offset": 12528,
@@ -27243,7 +27245,7 @@
       "confidence": "high",
       "values": [
         {
-          "name": "0 — Default",
+          "name": "0 - Default",
           "hex": "00"
         },
         {
@@ -27260,8 +27262,8 @@
         }
       ],
       "platform_source": "customize.cpp — платформенного разделения не указано",
-      "help_text": "Data Bus Inversion, range 0-3. In older firmware this sat in the pMeh array; it moved here, and both original packages still write it to the old place. Undocumented beyond the name.",
-      "help_source": "customize.cpp (актуальная ревизия)"
+      "help_text": "Data Bus Inversion, range 0-3. The 4IFIR docs describe it, still under its old place pMeh 17, as error correction on the memory bus meant for high RAM frequencies and still in debugging. The original packages still write it to the old place, and the KIP tool in hekate does not list it.",
+      "help_source": "customize.cpp (current revision) + 4IFIR_WIZARD.md + KipTool.bin, 21.09.2026"
     }
   ]
 }

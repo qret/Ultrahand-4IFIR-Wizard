@@ -92,6 +92,12 @@ const EMC_AUTO = 'eBAMATIC'
  * two rows while the block keeps its other three.
  */
 const OPT_GROUP = 'Optimized Mode (1600 MHz)'
+// THE HEADING NAMES THE BASE THE PAGE'S SOURCE ACTUALLY HOLDS (operator, 21.09.2026): 1600 or
+// 1331 by `12524` — the kip in Current, the backup's or factory `Fields` on the other pages.
+// Only page-2 tables can do this: menu names, `[@page]` and `;subtitle` are static in the engine.
+const OPT_HEAD = (src, v) => [...src,
+  `list '[{if_null(${v},—,{if_==(${v},01,1600,1331)})}]'`,
+  `'Optimized Mode ({list(0)} MHz)' = ''`]
 const EMC_VOLT_ROWS = (listLines, after = [], fromCopy = false) => {
   const out = [...listLines, `ini_file '${EMC_FILE}'`]
   EMC_KEYS.forEach((key, i) => {
@@ -315,6 +321,15 @@ const backupFieldCount = rev => backupSet(rev).length + sideSet(rev).length
 const IMPORT_FIELD_COUNT = {}
 
 /**
+ * WL-Set (12432) and DBI (12528) never come from an old Wizard backup (operator, 21.09.2026).
+ * The old format keeps pMeh 17 "DBI" at 12432, where current firmware has WL-Set and moved DBI
+ * to sMeh 17; nothing in the file tells which layout it was taken on. So the import drops the
+ * value, restore of an imported copy writes neither field, and page 2 says so. NOTES №341.
+ */
+const IMPORT_DROPPED = [12432, 12528]
+const IMPORT_DROPPED_NOTE = 'DBI/WL-Set: not carried over from an old backup'
+
+/**
  * Factory values for "Reset to defaults", built by scripts/make-factory-defaults.mjs
  * from the snapshot 4IFIR ships. Deliberately separate from the menu dictionaries —
  * see the long note at the reset section below for why.
@@ -520,7 +535,9 @@ function engineName(name, short, dropFirst = false) {
   // number right after it names that value again (RAM MHz: "1600MHz - 1600 — SYK-LOH").
   // On screen the right column then squeezed the row name down to "1…".
   if (/^\d+(\.\d+)?(MHz|mV|kHz)$/.test(short) && /^\d+(\.\d+)?$/.test(rest[0] ?? '')) rest.shift()
-  return rest.length ? `${short} - ${rest.join(' — ')}` : short
+  // The tail is joined with ASCII " - " too: an em dash in a row name is banned (DECISIONS
+  // 05.09.2026, check 53). The engine cuts at the first " - ", so the left part stays `short`.
+  return rest.length ? `${short} - ${rest.join(' - ')}` : short
 }
 
 /**
@@ -688,7 +705,9 @@ function warningsFor(offset, plat) {
       // the sMeh 16 line carried a Cyrillic label and the guard below dropped the whole
       // phrase before it reached the screen. Translating the map made the wrong text visible.
       const enabled = (sw.enables ?? [])[0]
-      if (enabled && sw.unlocks) push(`Set to ${(sw.values ?? {})[enabled.when] ?? enabled.when} to enable ${sw.unlocks}`)
+      // `unlocks_basis` marks a link known only from donor help, not from the firmware source.
+      const basis = sw.unlocks_basis ? `Per ${sw.unlocks_basis}, set` : 'Set'
+      if (enabled && sw.unlocks) push(`${basis} to ${(sw.values ?? {})[enabled.when] ?? enabled.when} to enable ${sw.unlocks}`)
     }
     if (sw.value_constraint && (sw.enables ?? []).some(e => (e.offsets ?? []).includes(n))) {
       push('Stay within 75 mV of the Eco ST2 curve, step 5 mV')
@@ -748,7 +767,8 @@ function warningsFor(offset, plat) {
       const withWhom = other != null && byOffset.get(other)?.name ? ` — with ${byOffset.get(other).name}` : ''
       if (c.kind === 'hardware_damage') push(`DANGER: too low a value can damage the emuNAND${withWhom}`)
       else if (c.kind === 'data_corruption') push(`DANGER: excessive values corrupt data and give artifacts${withWhom}`)
-      else if (c.kind === 'no_boot') push(`WARNING: some memory chips will not boot at this pair${withWhom}`)
+      // `screen` names the exact case (chip, level, frequency) when the source gives one.
+      else if (c.kind === 'no_boot') push(c.screen ? `WARNING: ${c.screen}` : `WARNING: some memory chips will not boot at this pair${withWhom}`)
       else if (c.kind === 'visual_artifact') push('WARNING: can make the docked screen stripe')
       else if (withWhom) push(`WARNING: conflicts${withWhom}`)
       else push('WARNING: known to cause problems at non-default values')
@@ -831,7 +851,8 @@ function emitDicts(field, base, valuesOverride = null, probeLen = null) {
     // а таблицей, одного поля мало: `probeLen` включает составной ключ — значение поля
     // плюс контрольная ячейка таблицы, склеенные подряд. Ровно так же его собирает и
     // движок, читая две ячейки в одной подстановке.
-    map[probeLen ? hex + padHex(v.writes[String(probeLen.offset)], probeLen.len) : hex] = shortLabel(name)
+    // `map_label` is printed verbatim: a value we only name, never offer (48: 0 - Unknown).
+    map[probeLen ? hex + padHex(v.writes[String(probeLen.offset)], probeLen.len) : hex] = v.map_label ?? shortLabel(name)
     seenInMap.add(hex)
     if (v.not_in_menu) continue
     const isCurveRow = CURVE_SERIES.has(field.series)
@@ -1847,6 +1868,7 @@ function emitImport(lines, rev, dir) {
 
   const rows = []
   const seenOff = new Set()
+  let dropped = 0
   for (const r of imp) {
     /**
      * ЯЧЕЙКИ РАБОЧЕЙ ТАБЛИЦЫ ПИШУТСЯ ОТДЕЛЬНО ОТ МАССИВА И ДО ПРОВЕРКИ `skip`.
@@ -1877,6 +1899,7 @@ function emitImport(lines, rev, dir) {
     }
     if (r.skip || !r.offsets?.length) continue
     r.offsets.forEach((off, i) => {
+      if (IMPORT_DROPPED.includes(off)) { dropped++; stats.skipped.push({ id: `import ${off}`, why: 'WL-Set/DBI are not carried over from an old backup' }); return }
       const f = fieldsDoc.fields.find(x => x.offset === off)
       if (!f) return                                  // чего нет в карте, того не пишем
       if (BLACKLIST.has(off)) return
@@ -1980,8 +2003,10 @@ function emitImport(lines, rev, dir) {
     lines.push(`set-ini-val '${path}' Meta curve '{if_==({json_file(${eco.index},${eco.key})},01,from-profile,assumed-stock)}'`)
   }
   // Число полей — паспорт полноты копии. Читает его менеджер копий, поэтому запоминаем.
-  IMPORT_FIELD_COUNT[rev] = rows.length
-  lines.push(`set-ini-val '${path}' Meta fields '${rows.length}'`)
+  // A dropped field still counts: copies imported before 21.09.2026 carry 12432, and a smaller
+  // number would flag every one of them as an older backup.
+  IMPORT_FIELD_COUNT[rev] = rows.length + dropped
+  lines.push(`set-ini-val '${path}' Meta fields '${rows.length + dropped}'`)
   for (const r of rows) lines.push(`set-ini-val '${path}' Fields ${r.off} '${r.expr}'`)
   // ОТВЕТ ЧЕЛОВЕКУ — ЭКРАННЫМ СООБЩЕНИЕМ, А НЕ ПОДПИСЬЮ ПУНКТА.
   //
@@ -2206,7 +2231,7 @@ const rootLines = []
 rootLines.push(`;title='4IFIR Wizard'`)
 rootLines.push(`;version='0.1.0'`)
 rootLines.push(`;creator='Ultrahand-4IFIR project'`)
-rootLines.push(`;about='Overclock tuner for 4IFIR, built on Ultrahand. Generated from a verified field map.'`)
+rootLines.push(`;about='Overclock configurator for 4IFIR, built on Ultrahand. Generated from a verified field map.'`)
 rootLines.push(`;color=#00AAFF`)
 rootLines.push('')
 
@@ -2614,7 +2639,8 @@ if (kipRows.length) {
       // caption was printed flush against the previous frame and overlapped it.
       kl.push('[Gap]', ';mode=table', ';background=false', ...sys, ...gate, `;gap=${HEAD_GAP}`, '')
       kl.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ...sys, ...gate,
-              `'${safeName(g.name)}' = '${g.ctx ?? ''}'`, '')
+              ...(g.name === OPT_GROUP ? OPT_HEAD(src, valueOf({ offset: 12524, len: 1 }))
+                                       : [`'${safeName(g.name)}' = '${g.ctx ?? ''}'`]), '')
       // The Optimized block carries two rows that are not kip fields (see EMC_VOLT_ROWS);
       // `;skip_null` is what lets them leave when the profile cannot be named.
       const opt = g.name === OPT_GROUP
@@ -3520,7 +3546,8 @@ if (kipRows.length) {
           if (!gate) {
           out.push('[Gap]', ';mode=table', ';background=false', ...t.sys, `;gap=${HEAD_GAP}`, '')
           out.push('[Header]', ';mode=table', ';header_indent=true', ';background=false', ...t.sys,
-                  `'${safeName(g.name)}' = '${ctx}'`, '')
+                  ...(g.name === OPT_GROUP ? OPT_HEAD(source, '{ini_file(Fields,12524)}')
+                                           : [`'${safeName(g.name)}' = '${ctx}'`]), '')
           out.push('[Info]', ';mode=table', ...(pollHere ? poll : []), ';spacing=0', ';gap=0',
                    ...(optHere ? [';skip_null=true'] : []), ...t.sys, ...source)
           }
@@ -3548,9 +3575,13 @@ if (kipRows.length) {
             // Поэтому ключ достраивается ТОЛЬКО когда источник её содержит; иначе строка
             // читается плоским словарём, где тот же режим назван без оглядки на таблицу.
             const probeInSrc = r.probe && (!only || only.has(r.probe.offset))
+            // A chosen backup may be imported: its restore writes neither WL-Set nor DBI.
+            const asImported = chooser && IMPORT_DROPPED.includes(r.offset)
             const key = probeInSrc
               ? `{ini_file(Fields,${r.offset})}{ini_file(Fields,${r.probe.offset})}`
-              : `{ini_file(Fields,${r.offset})}`
+              : asImported
+                ? `{if_==({ini_file(Meta,kipver)},imported,null,{ini_file(Fields,${r.offset})})}`
+                : `{ini_file(Fields,${r.offset})}`
             //
             // Объявление идёт ПОСЛЕ выбора, а не до него. Иначе страница открывает два файла
             // подряд и пользуется вторым: лишнее открытие на карте памяти и путаница в чтении.
@@ -3584,6 +3615,12 @@ if (kipRows.length) {
           out.push('[Note]', ';mode=table', ';background=false', ';alignment=left', ';offset=10',
                    ';spacing=4', ';gap=0', ';skip_null=true', ...source, ...EMC_VOLT_LIST_COPY,
                    `''='{if_null({list(0)},null,{if_==({list(1)},0,null,{if_null({list(3)},VDDQ/VDD2: this console - not the backup,null)})})}'`, '')
+        }
+        // Under the group holding DBI: an imported backup does not restore WL-Set or DBI.
+        if (chooser && tables.some(t => t.rows.some(r => r.offset === IMPORT_DROPPED[1]))) {
+          out.push('[Note]', ';mode=table', ';background=false', ';alignment=left', ';offset=10',
+                   ';spacing=4', ';gap=0', ';skip_null=true', ...source,
+                   `''='{if_==({ini_file(Meta,kipver)},imported,${IMPORT_DROPPED_NOTE},null)}'`, '')
         }
       }
 
@@ -3702,6 +3739,8 @@ if (kipRows.length) {
     // Привязка объявляется в каждой таблице: она не переживает границу секции.
     const src = [`ini_file './config.ini'`, `ini_file '{ini_file(Restore,Path)}'`]
     const mine = kipRows.filter(r => (r.platform ?? 'both') === 'both' || r.platform === rev)
+    for (const o of IMPORT_DROPPED)
+      if (!backupSet(rev).some(f => f.offset === o)) throw new Error(`${rev}: ${o} is not in the backup set - IMPORT_DROPPED is stale`)
     const page = `service/restore-${rev}.ini`
     const pageDir = page.slice(0, page.lastIndexOf('/'))
     const applyHead = `Apply this backup ${HOLD_A}`
@@ -3777,7 +3816,7 @@ if (kipRows.length) {
         // Rebuild the page on return (operator, 13.09.2026): "Older backup" and anything else
         // gated on the choice is current at once, cursor back on this item (SelectionOverlay
         // handleInput, fork source/main.cpp:4364-4387). `back` does not stop the section
-        // (`docs/MIGRATION.md` §3, conflict 3).
+        // (`docs/research/07-dsl-compat-uberhand-vs-ultrahand.md` §4.2).
         'refresh-return',
         'back',
       ],
@@ -3857,7 +3896,8 @@ if (kipRows.length) {
         `!matching_ini_val {ini_file(Restore,Path)} Meta revision ${rev === 'mariko' ? 'erista' : 'mariko'}`,
         `matching_ini_val {ini_file(Restore,Path)} Meta kipver imported`,
         src[1],
-        ...backupSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
+        // WL-Set and DBI stay as they are on the console (IMPORT_DROPPED)
+        ...backupSet(rev).filter(f => !IMPORT_DROPPED.includes(f.offset)).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
         ...sideSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
         `set-footer 'restored (import)'`,
         rebuildOn(applyHead),
@@ -4127,15 +4167,15 @@ if (menu.root_help?.blocks?.length || rootInfo.length) {
     `''='installed loader.kip reports a different one.'`,
     `''=''`,
     `''='Every offset would point at the wrong field, so the'`,
-    `''='tuner is disabled rather than shown wrong.'`,
+    `''='configurator is disabled rather than shown wrong.'`,
     `''=''`,
     `''='THE FIX IS ON THIS SCREEN, just below.'`,
     `''=''`,
     `''='1. Press Check for updates.'`,
     `''='2. If a newer build is found, press Update.'`,
     `''=''`,
-    `''='Both work while the tuner is off - that is on'`,
-    `''='purpose, so you are never locked out.'`,
+    `''='Both work while the configurator is off - that'`,
+    `''='is on purpose, so you are never locked out.'`,
     `''=''`,
     // Последняя строка — путь наружу, когда обновления ещё нет. «Подождите релиза»
     // ничего не советует; группа 4IFIR — живые люди, которые знают про смену

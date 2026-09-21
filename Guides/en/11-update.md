@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/11-update.md sha=a858637fa832 self=482bca0ddd8b -->
+<!-- i18n: source=Guides/ru/11-update.md sha=faf1c8582cf3 self=9e9e38b46ca5 -->
 # Updating
 
 <!-- nav:begin -->
@@ -6,11 +6,11 @@
 **English** · [Русский](../ru/11-update.md)
 <!-- nav:end -->
 
-The tuner can update itself without taking the card out.
+The configurator can update itself without taking the card out.
 
 ## How to update
 
-1. **`Check for updates`** in the root of the menu: the tuner asks GitHub whether a
+1. **`Check for updates`** in the root of the menu: the configurator asks GitHub whether a
    newer version exists.
 2. If there is one, an **`Update`** entry appears. You have to **hold** it.
 3. Restart the overlay. Overclock settings are applied when the console reboots, and
@@ -20,8 +20,8 @@ The answer is shown to the right of the entry: `available`, `up to date`, or
 `check failed` if the check could not be made. The next time you open the wizard that
 label is gone — just check again.
 
-Updating **the tuner** leaves your overclock settings alone: they live in the firmware
-settings file, and our archive does not touch it.
+Updating **the configurator** leaves your overclock settings alone: they live in the firmware
+settings file, and the configurator's archive does not touch it.
 
 > [!WARNING]
 > Updating **4IFIR itself** is the opposite case: there that file is replaced wholesale
@@ -29,38 +29,38 @@ settings file, and our archive does not touch it.
 
 ## What gets updated
 
-The firmware, the bootloader and the 4IFIR overlay stay as they were. We do not touch
-them, at install or at update.
+The firmware, the bootloader and the 4IFIR overlay stay as they were. The configurator
+does not touch them, at install or at update.
 
-**We do not maintain the overlay engine** — the author of the firmware does, and it is
-updated together with the 4IFIR build. Whether the engine rides in our archive depends on
+**The overlay engine is maintained by the author of the firmware**, and it is
+updated together with the 4IFIR build. Whether the engine rides in the configurator's archive depends on
 which archive came out: there are two kinds, and the release page says which one this is.
 
 - **Configurator only.** The archive holds one directory, `switch/.packages/4IFIR Wizard/`,
   plus install notes, a build passport and the licence files. Neither the engine nor
   `config/ultrahand/` is in it, so an update
   like that changes nothing about your key combination, theme, overlay order or sounds.
-- **With the engine.** Besides the tuner it brings the overlay engine itself — the file
+- **With the engine.** Besides the configurator it brings the overlay engine itself — the file
   in `switch/.overlays/` — and the whole `config/ultrahand/` directory: languages,
-  themes, wallpapers, images and sounds. Those are ours to deliver, and they are
-  replaced by our copies — that is the intent. If you had edited a theme from that
+  themes, wallpapers, images and sounds. Those are part of the delivery, and they are
+  replaced by the copies from the archive — that is the intent. If you had edited a theme from that
   store, or dropped in your own sound files under the same names, your files are
   replaced.
 
 > [!NOTE]
-> The tuner checks whether it recognises your firmware version, and refuses to work with
+> The configurator checks whether it recognises your firmware version, and refuses to work with
 > one it does not. That is a safeguard: on another firmware the settings sit in other
 > places, so the writes would land in the wrong ones — a reliable way to end up with a
 > console that will not boot.
 >
 > **You will not be locked out.** The settings are hidden, but `Check for updates` and
 > `Update` stay on screen and keep working. Press the first one: if a build for your
-> firmware exists, the second one installs it and the tuner comes back.
+> firmware exists, the second one installs it and the configurator comes back.
 
 ## What survives an update
 
 The archive is unpacked into the **root of the card**, and unpacking lays files over the
-ones already there. So before it does, the tuner sets exactly two files aside — into
+ones already there. So before it does, the configurator sets exactly two files aside — into
 `/config/ultrahand/downloads/.keep/` — and moves them back afterwards:
 
 | File | What is in it |
@@ -76,7 +76,7 @@ sounds, themes, images and wallpapers are the delivery itself, and updating them
 point.
 
 > [!NOTE]
-> If an update fails, the tuner puts the previous version of the package back, and those
+> If an update fails, the configurator puts the previous version of the package back, and those
 > same two files with it. If it cannot even do that, it says where to look: the previous
 > package in `/switch/.packages/.4IFIR Wizard_old`, the files set aside in
 > `/config/ultrahand/downloads/.keep`.
@@ -87,15 +87,15 @@ When everything is being updated, the order is:
 
 1. **4IFIR** — the build itself.
 2. The console's **system firmware**.
-3. **Our package**.
+3. **4IFIR Wizard**.
 
 Do not swap the first two: the 4IFIR guide warns that the other way round leaves the
-console unable to start. Our package goes last so that it sees the already updated
+console unable to start. 4IFIR Wizard goes last so that it sees the already updated
 firmware.
 
 ## If you are updating 4IFIR itself
 
-That is not done with our tuner but with a separate program — **All-in-One Switch
+That is not done with the configurator but with a separate program — **All-in-One Switch
 Updater**, which ships with the build and runs from the Homebrew Menu.
 
 > [!IMPORTANT]
@@ -104,7 +104,7 @@ Updater**, which ships with the build and runs from the Homebrew Menu.
 > the firmware's settings file wholesale, and the whole overclock returns to factory.
 >
 > The backup itself survives: it sits elsewhere and the update knows nothing about it.
-> Restore it from the tuner afterwards.
+> Restore it from the configurator afterwards.
 
 Inside the program it takes two passes, and the first one is the one people skip:
 
@@ -121,19 +121,19 @@ firmware download refuses to work.
 
 | | |
 |---|---|
-| overclock settings (our tuner) | **reset**, restore them from a backup |
+| overclock settings (the configurator) | **reset**, restore them from a backup |
 | your backups | kept |
 | `EMC Magician` timings | kept, they are stored outside the firmware |
 
 ## Before updating
 
-Make a backup, **`Service → Backup manager → Create backup`**. For a tuner update that
+Make a backup, **`Service → Backup manager → Create backup`**. For a configurator update that
 is belt and braces;
 for a 4IFIR update it is a required step.
 
 ## If no update is found
 
-Check your network connection. The tuner talks to GitHub directly; if your access is
+Check your network connection. The configurator talks to GitHub directly; if your access is
 restricted, download the update manually and unpack it onto the card as you did for the
 first install.
 

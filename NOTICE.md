@@ -55,7 +55,7 @@ such an archive leaves it, and its `config/ultrahand/`, untouched.
 it is a standard second kind of release: that archive also
 holds our fork's `ovlmenu.ovl` and its `config\ultrahand\`, `config.ini` and `overlays.ini`
 among them.
-Unpacking it by hand replaces all of that. The tuner's own Update entry installs
+Unpacking it by hand replaces all of that. The configurator's own Update entry installs
 whichever release GitHub marks as latest, so it can bring this kit too, but it moves
 your `config.ini` and `overlays.ini` aside first and puts them back. Inside such an
 archive the build tool rewrites the paragraph above to say what the archive actually

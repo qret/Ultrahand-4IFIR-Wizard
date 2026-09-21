@@ -11,9 +11,10 @@
 7. [GPU and stages](07-gpu.md)
 8. [RAM](08-ram.md)
 9. [Timings and fine tuning](09-timings.md)
-10. [Profiles, backups and reset](10-profiles.md)
-11. [Updating](11-update.md)
-12. [If something goes wrong](12-troubleshooting.md)
-13. [Settings reference](13-reference.md)
+10. [Micro-Enhance Logic: pMeh and sMeh](09a-micro-enhance.md)
+11. [Profiles, backups and reset](10-profiles.md)
+12. [Updating](11-update.md)
+13. [If something goes wrong](12-troubleshooting.md)
+14. [Settings reference](13-reference.md)
 
 <!-- This index is generated from nav.json — do not edit by hand. -->

@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=2a86991ed16d self=d833285c2b03 -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=8cba0ab68bf0 self=d5f3a61b94e8 -->
 # GPU and stages
 
 <!-- nav:begin -->
@@ -6,7 +6,7 @@
 **English** · [Русский](../ru/07-gpu.md)
 <!-- nav:end -->
 
-Section `Advanced → GPU`. This holds the most useful setting in the tuner — and the
+Section `Advanced → GPU`. This holds the most useful setting in the configurator — and the
 least obvious one.
 
 > [!IMPORTANT]
@@ -55,7 +55,7 @@ And the other way round: the advertised 1613 MHz is only available on ST3.
 > Set a GPU clock above the ceiling of the current stage and the excess will not apply.
 > Stage first, clock second.
 >
-> The GPU clock itself is set by the 4IFIR overlay, not by this tuner.
+> The GPU clock itself is set by the 4IFIR overlay, not by the configurator.
 
 ## Five stages instead of three
 
@@ -66,7 +66,7 @@ same curve shifted by a fixed amount, it is a separately tuned curve.
 And even twenty millivolts is a lot: the gap between "comfortably stable" and
 "artefacts" is often smaller.
 
-This tuner adds two in between — **Eco ST1.5** and **Eco ST2.5**. Each sits roughly
+The configurator adds two in between — **Eco ST1.5** and **Eco ST2.5**. Each sits roughly
 halfway between its neighbours, closer to the lower one: about ten millivolts below on
 average, though at high clocks the gap reaches twenty-five.
 
@@ -91,22 +91,22 @@ respect, not only in voltage.
 You do not need this, but without it KipTool's behaviour makes no sense.
 
 A stage is **two things at once**: a mode number and the contents of a table. ST1 and ST3
-have tables of their own, which the tuner never touches. ST1.5, ST2 and ST2.5 **share one
+have tables of their own, which the configurator never touches. ST1.5, ST2 and ST2.5 **share one
 mode number** and differ only in what is written into the working table.
 
-When you pick a stage, the tuner writes **both the number and the whole table**. That is
+When you pick a stage, the configurator writes **both the number and the whole table**. That is
 why switching works immediately, with no intermediate steps.
 
-<!-- spelling: the ECO ST1/ST2/ST3 below are KipTool's own labels, not ours. Do NOT fold them into the package spelling "Eco": this is read with a console that will not boot, against KipTool's screen. Decided 07.09.2026. -->
+<!-- spelling: the ECO ST1/ST2/ST3 below are KipTool's own labels, not the configurator's. Do NOT fold them into the package spelling "Eco": this is read with a console that will not boot, against KipTool's screen. Decided 07.09.2026. -->
 
 ## If the console will not boot because of a stage
 
-The tuner is not available at that point — only the bootloader is:
+The configurator is not available at that point — only the bootloader is:
 
 1. Boot into **hekate**, run the **KipTool** payload, open **KIP Wizard**.
 2. Find the GPU mode setting and choose **`ECO ST1`**.
 3. Apply and boot.
-4. Set the stage you actually want from the tuner.
+4. Set the stage you actually want from the configurator.
 
 > [!WARNING]
 > **Only `ECO ST1`. Not `ECO ST3`, and not `MANUAL`.**
@@ -138,6 +138,17 @@ clock. It holds the bottom, the stage shapes everything above.
 The choices are the same three Eco stages. That is deliberate: a fixed number would hit
 both memory clock modes at once, while a stage works out the floor for each separately.
 
+### vMin offsets
+
+The two entries below it shift the automatic floor from +75 to −75 mV in 5 mV steps: plus
+raises the floor, minus lowers it. `vMin Offset` is for memory step E, `vMin Offset (max RAM)`
+for step S (maximum memory clock). The factory value is `0 — Default`. Both are shown on
+either revision. They are the firmware fields `pMeh 19` and `pMeh 21`, and KipTool lists them
+under those numbers. **KipTool shows the raw value on a different scale:** the factory values
+there are `1` (`pMeh 19`) and `2` (`pMeh 21`), and `0` in KipTool is +5 and +10 mV respectively.
+Touch them once the stage is settled — the order and the risks are
+[on the pMeh and sMeh page](09a-micro-enhance.md#what-to-try-and-in-what-order).
+
 ## How to tune
 
 1. Pick a stage — start from the one you have and step down one at a time.
@@ -159,23 +170,23 @@ after a reboot.
 
 > [!NOTE]
 > All thirty-one points are in play: the firmware reads the whole table. The seven above
-> 1190 MHz count for just as much as the rest, and the tuner fills them along with
+> 1190 MHz count for just as much as the rest, and the configurator fills them along with
 > everything else.
 
-**Where the table starts.** The tuner fills it with the `Eco ST1` values — 485…960 mV,
+**Where the table starts.** The configurator fills it with the `Eco ST1` values — 485…960 mV,
 all thirty-one points. It does so in two places: when you **switch the mode** to
 `Custom Table`, and when you **open `GPU Voltage Table`** with the mode already on.
 Either one is enough, and the order does not matter.
 
-That is a one-off starting point: edit any point afterwards and the tuner will never
+That is a one-off starting point: edit any point afterwards and the configurator will never
 write there again. The test is simple — if a single cell differs from the factory
-content, you have already tuned it, and the tuner touches nothing.
+content, you have already tuned it, and the configurator touches nothing.
 
 > [!NOTE]
 > If the table has been edited at some point in the past, look at the end of the list.
 > The voltages should climb evenly, up to 960 mV at the last point. If the top rows are
 > out of line — jumping about, or far above or below their neighbours — set them by hand:
-> once a table has been touched, the tuner never writes into it again.
+> once a table has been touched, the configurator never writes into it again.
 
 Without it your first visit would show the factory ladder of 395…1020 mV, whose bottom
 point sits below the safe minimum, and seven top cells holding another table's leftovers.
@@ -202,7 +213,7 @@ Practical consequences:
   above is not about you.
 - **`Min Voltage` on Erista does not show the voltage you will get.** The firmware adds
   100 mV to whatever you pick: an entry reading "610 mV" actually gives 710.
-<!-- spelling: the ECO ST* in the bullets below are KipTool's labels, not ours. -->
+<!-- spelling: the ECO ST* in the bullets below are KipTool's labels, not the configurator's. -->
 - **KipTool on Erista can edit the curve itself**, not only the mode number. Be careful
   though: from the second row on, the clock labels it shows do not match reality.
 - **KipTool shows the Erista stages shifted by one.** Its `ECO ST1` in fact lowers

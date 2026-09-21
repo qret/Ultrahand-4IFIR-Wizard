@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/02-first-run.md sha=efddc40ab642 self=df4f79368471 -->
+<!-- i18n: source=Guides/ru/02-first-run.md sha=545504802451 self=902b021bffef -->
 # First run
 
 <!-- nav:begin -->
@@ -39,15 +39,15 @@ The distinction matters. A menu entry shows **what is selected**. The summary sh
 those two are exactly what will disagree.
 
 The summary pages left and right: the second page holds the whole GPU voltage curve and
-the fine memory controls (the `VDDQ`/`VDD2` voltages of the Optimized profile included),
+the [fine memory controls](09a-micro-enhance.md) (the `VDDQ`/`VDD2` voltages of the Optimized profile included),
 the third one the EMC Magician timings.
 
 ### Third page: EMC Magician timings
 
 The `Magician` page shows the memory timings you saved in
-[`EMC Magician`](09-timings.md#emc-magician--tuning-while-the-console-runs). The tuner does
+[`EMC Magician`](09-timings.md#emc-magician--tuning-while-the-console-runs). The configurator does
 not write them: the firmware keeps them in `/config/4IFIR/emc_timings.ini`, and the page
-only reads that file. The only things the tuner writes into that file are two voltages,
+only reads that file. The only things the configurator writes into that file are two voltages,
 `VDDQ` and `VDD2` —
 [see the memory chapter](08-ram.md#vddq-and-vdd2--the-optimized-profile-voltages).
 
@@ -80,7 +80,7 @@ marked `old format`.
 ## The second thing: know how to go back
 
 **`Service → Restore Factory Defaults`** returns every overclock setting to factory
-values. The tuner shows you what will change before applying it.
+values. The configurator shows you what will change before applying it.
 
 That is enough while you have nothing of your own set up: there is nothing to lose, and
 the factory state is always one press away.
@@ -93,7 +93,7 @@ own.
 
 ## What "applied" means
 
-The tuner writes the value into the settings file. The firmware reads that file **at
+The configurator writes the value into the settings file. The firmware reads that file **at
 startup**.
 
 So every change needs a **reboot**. The `Reboot the console` entry at the bottom of the
@@ -105,7 +105,7 @@ menu is there for that.
 
 ## Console revision
 
-The tuner detects whether you have a Mariko or an Erista and shows **only the settings
+The configurator detects whether you have a Mariko or an Erista and shows **only the settings
 that apply to your console**. Some entries genuinely differ. The GPU voltage limit, for
 instance, has a different range per revision.
 
@@ -115,7 +115,7 @@ numbers blindly.
 ## If something is unclear
 
 Many entries carry built-in help explaining what the setting does and within what limits
-it can be changed. That help is generated from the same map the tuner itself is built
+it can be changed. That help is generated from the same map the configurator itself is built
 from, so it cannot fall out of sync with the menu.
 
 ---

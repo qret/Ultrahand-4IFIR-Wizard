@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/08-ram.md sha=87daae51ccb3 self=039b6b556892 -->
+<!-- i18n: source=Guides/ru/08-ram.md sha=70fd1bd21134 self=8b1091da41e4 -->
 # RAM
 
 <!-- nav:begin -->
@@ -23,7 +23,7 @@ the same order:
 5. `EBA-Shift`;
 6. the timings — a topic of their own, [see their page](09-timings.md).
 
-Timings **last**, and voltages **before** them: the sixth and seventh of our eight depend
+Timings **last**, and voltages **before** them: the sixth and seventh of the eight `Core Timings` depend
 directly on `Vdd2`.
 
 ## Frequency
@@ -60,7 +60,8 @@ In the list the levels are labelled with plain digits, and automatic selection w
 word `eBAMATIC`.
 
 If a clock refuses to hold for no visible reason, the firmware has a control made for
-exactly that case — `pMeh 1 divMB Supressor` in `Micro-Enhance Logic`.
+exactly that case — `pMeh 1 divMB Supressor` in
+[`Micro-Enhance Logic`](09a-micro-enhance.md).
 
 ## Memory voltages
 
@@ -75,8 +76,8 @@ voltages by hand.
 > [!WARNING]
 > **Too low a `Vddq` and the console will not boot.** The factory value is 650 mV.
 >
-> The 4IFIR guides additionally warn of a risk of damaging the EmuNand. We found no
-> confirmation of that in the firmware itself, but the cost of being wrong is high enough
+> The 4IFIR guides additionally warn of a risk of damaging the EmuNand. No confirmation
+> of that was found in the firmware itself, but the cost of being wrong is high enough
 > that the warning is worth passing on as it stands.
 
 ## EMC DVB Mode
@@ -109,7 +110,7 @@ should come down.
 
 A sub-section with five items belonging to the **4IFIR Optimized** profile. Three of
 them are firmware fields: the same `sMeh 16`, `pMeh 20` and `sMeh 8` from
-`Micro-Enhance Logic`, just under readable names. The other two are `VDDQ` and `VDD2`,
+[`Micro-Enhance Logic`](09a-micro-enhance.md), just under readable names. The other two are `VDDQ` and `VDD2`,
 the memory voltages of that profile — see below.
 
 They act **only in that profile** and are not a substitute for tuning the main clock.
@@ -140,7 +141,7 @@ Four things worth knowing before you touch them.
   is not a fault.** In their place the page shows `Set EMC Balance to use VDDQ/VDD2`.
   The firmware keeps memory settings in separate sets — one per combination of
   "clock + `EMC Balance`". While the balance is picked automatically, there is no telling
-  which set to write to: the firmware chooses it at boot, and the tuner has no way to
+  which set to write to: the firmware chooses it at boot, and the configurator has no way to
   learn its choice. If you want to set a voltage, put `EMC Balance` on a number first and
   both items will appear.
 * **What you pick applies after a restart**, not at once.
@@ -158,14 +159,15 @@ Four things worth knowing before you touch them.
 > will not. A high `VDD2` that never steps down is heat and wear.
 
 **Where to see what you set.** Where the rest of this profile shows: on the **second
-page** of `Current Settings`, in the `Optimized Mode (1600 MHz)` block, as the `VDDQ`
+page** of `Current Settings`, in the `Optimized Mode` block (its heading names the actual
+base, `1600` or `1331 MHz`), as the `VDDQ`
 and `VDD2` rows under `Optimized Target`. The same block appears when you look at a
 saved backup: a backup keeps both voltages and puts them back when restored
-([Profiles, backups and reset](10-profiles.md#restoring)). A backup made before the tuner
+([Profiles, backups and reset](10-profiles.md#restoring)). A backup made before the configurator
 started saving them has no voltages — there the block shows this console's values and
 says so with the line `VDDQ/VDD2: this console - not the backup`.
 
-**Where it is written.** These are the only items in the tuner that put a memory setting
+**Where it is written.** These are the only items in the configurator that put a memory setting
 **somewhere other than the firmware**: they write to `/config/4IFIR/emc_timings.ini` —
 the file `EMC Magician` keeps its own settings in. That matters for exactly one reason:
 if the console stops booting, the voltage is taken back by editing that file from a
@@ -194,7 +196,7 @@ puts every other setting back to factory, so for one voltage editing the file is
 
 Covered separately: [Timings and fine tuning](09-timings.md).
 
-In short: touch them **last**, once the clock and voltages have settled. Our eight
+In short: touch them **last**, once the clock and voltages have settled. The eight
 `Core Timings` lay the coarse groundwork; the fine tuning goes through `EMC Magician` in
 the 4IFIR overlay, where a value applies at once, with no reboot.
 

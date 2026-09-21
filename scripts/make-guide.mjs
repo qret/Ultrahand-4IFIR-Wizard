@@ -132,13 +132,13 @@ const changed = []
 
   const REF = {
     ru: { title: 'Справочник настроек', lead:
-            'Каждый пункт тюнера, у которого есть список значений, — в порядке меню. Точки кривой ' +
+            'Каждый пункт конфигуратора, у которого есть список значений, — в порядке меню. Точки кривой ' +
             'напряжений, тайминги и ряды `pMeh`/`sMeh` перечислены поштучно: в меню это отдельные пункты, ' +
             'и здесь они отдельные строки.\n\n' +
             'Действия — копия, восстановление, сброс к заводским, сведения о системе — в таблицу не входят: ' +
             'выбирать в них нечего.\n\n' +
             '«Значений» — длина того самого списка, который открывается на экране. Словарь названий у поля ' +
-            'шире: тюнер умеет назвать и значение, которое поставил чужой пакет, но выбрать такое не ' +
+            'шире: конфигуратор умеет назвать и значение, которое поставил чужой пакет, но выбрать такое не ' +
             'предлагает, и в счёт оно не идёт. У точек кривой напряжений видеоядра словаря нет вовсе — ' +
             'значение читается прямо из файла настроек, поэтому там называется любое, кем бы оно ' +
             'ни было записано.\n\n' +
@@ -147,13 +147,13 @@ const changed = []
           h: ['Пункт меню', 'Поле в прошивке', 'Ревизия', 'Значений', 'Примеры'],
           both: 'обе' },
     en: { title: 'Settings reference', lead:
-            'Every tuner item that offers a list of values, in menu order. Voltage-curve points, timings ' +
+            'Every configurator item that offers a list of values, in menu order. Voltage-curve points, timings ' +
             'and the `pMeh`/`sMeh` rows are listed one by one: they are separate items in the menu, so they ' +
             'are separate rows here.\n\n' +
             'Actions — backup, restore, factory reset, system info — are not in the table: there is nothing ' +
             'to pick in them.\n\n' +
             '"Values" is the length of the very list that opens on screen. A field\'s name dictionary is ' +
-            'wider: the tuner can name a value some other package wrote, but it does not offer such a value ' +
+            'wider: the configurator can name a value some other package wrote, but it does not offer such a value ' +
               'for picking, and it is not counted here.' +
               ' The GPU voltage curve has no dictionary at all: its value is read straight from the settings file, so whatever is written there gets named, by whoever wrote it.\n\n' +
             'The table is generated from the **built package** — the same files that go onto the SD card, ' +

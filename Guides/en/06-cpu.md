@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/06-cpu.md sha=86f384c90c17 self=71b96731f958 -->
+<!-- i18n: source=Guides/ru/06-cpu.md sha=843daec8d874 self=b16cf9959143 -->
 # CPU
 
 <!-- nav:begin -->
@@ -32,7 +32,9 @@ everything else.
 | `Speed Shift` | shifts the whole voltage curve — the main saving lever | both |
 
 Most of them have `eBAMATIC` as their first value — automatic selection. Start there,
-[why](05-ebamatic.md).
+[why](05-ebamatic.md). The exception is `Min Voltage`: it has no `eBAMATIC`, the factory
+value is `Eco ST1`, so start from that. If `Current Settings` shows `0 - Unknown` there,
+the kip holds a zero the firmware does not describe: select `Eco ST1` or reset.
 
 ## The upper bound: one field under two names
 
@@ -74,8 +76,8 @@ If you set `Min Voltage` as a number in millivolts rather than as a stage, you w
 to raise it along with the memory clock — roughly **20 mV for every extra 200 MHz**.
 That is what the entry's own help says.
 
-The stages (`Auto — Eco ST1…ST3`) do not need this: they work the threshold out
-themselves.
+The stages (`Eco ST1…ST3`) do not need this: they work the threshold out
+themselves. The factory value is `Eco ST1`.
 
 ## Telling what you overdid
 
@@ -117,7 +119,7 @@ says.
 | `eBAMATIC` | the firmware's automatic and the factory value; off the scale |
 | `Default` | a separate value the firmware names just that; not an automatic, also off the scale |
 
-The firmware accepts values from 25 to 175. The tuner gives eight entries: six of them sit
+The firmware accepts values from 25 to 175. The configurator gives eight entries: six of them sit
 on that scale (`25`, `Sport`, `Eco ST1…ST4`), while `eBAMATIC` and `Default` are off it.
 There is no free entry.
 
