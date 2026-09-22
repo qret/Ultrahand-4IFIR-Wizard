@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/08-ram.md sha=70fd1bd21134 self=8b1091da41e4 -->
+<!-- i18n: source=Guides/ru/08-ram.md sha=8136671af701 self=d80f4b95c71d -->
 # RAM
 
 <!-- nav:begin -->
@@ -135,23 +135,40 @@ of 25 mV.
 > Those are the general memory setting. These two act **inside the `Optimized` profile
 > only**, and nowhere else.
 
-Four things worth knowing before you touch them.
+Worth knowing before you touch them.
 
-* **The items are not shown while `EMC Balance` is on automatic (`eBAMATIC`), and that
-  is not a fault.** In their place the page shows `Set EMC Balance to use VDDQ/VDD2`.
-  The firmware keeps memory settings in separate sets — one per combination of
-  "clock + `EMC Balance`". While the balance is picked automatically, there is no telling
-  which set to write to: the firmware chooses it at boot, and the configurator has no way to
-  learn its choice. If you want to set a voltage, put `EMC Balance` on a number first and
-  both items will appear.
+* **The items are not shown while the settings they depend on are on automatic
+  (`eBAMATIC`), and that is not a fault.** The firmware keeps memory settings in separate
+  sets, and while what names the set is picked automatically, there is no telling which set
+  to write to: the firmware chooses it at boot, and the configurator has no way to learn its
+  choice. In place of the items the page shows one line naming what to set to a number:
+
+  | 4IFIR version | On `eBAMATIC` | The page shows |
+  |---|---|---|
+  | 2.6 and newer | `EMC Balance` | `Set EMC Balance to use VDDQ/VDD2` |
+  | 2.5 | `EMC Balance` | `Set EMC Balance to use VDDQ/VDD2` |
+  | 2.5 | `Frequency` | `Set Frequency to use VDDQ/VDD2` |
+  | 2.5 | both | `Set Frequency and EMC Balance to use VDDQ/VDD2` |
+
+  Set what it names to a number, and both items appear while the line goes.
+* **On 4IFIR 2.5 the set follows the memory clock.** The configurator detects the firmware
+  version by itself, every time the page is entered. On 4IFIR 2.6 and newer the voltages
+  belong to the set of the 1600 step (`Optimized Target` + `EMC Balance`); on 4IFIR 2.5 to
+  the set of the current memory clock (`Frequency` + `EMC Balance`). Change the clock and it
+  is another set, with its own values; put the clock back and the voltages are back too.
+* **Values already in the file** (set with the `Gamechanger` sliders of the 4IFIR overlay,
+  for instance) are only shown — as the item's label and in `Current Settings` — and are not
+  rewritten until another value is picked from the list.
+* **Without 4IFIR there are no items at all.** If `4IFIR.ovl` is not on the card, the
+  firmware is not 4IFIR and nothing reads these voltages.
 * **What you pick applies after a restart**, not at once.
 * **`eBAMATIC` is the first entry in both lists and the way back to automatic.** Pick it
   and the firmware works the voltage out itself again, heat included. When in doubt,
   pick `eBAMATIC`.
-* **`Service → Restore Factory Defaults` puts both back to `eBAMATIC` as well.** With
-  one exception: if `EMC Balance` is already on automatic, the reset leaves these
-  voltages alone — in that mode there was no way to set them anyway. The `EMC Magician`
-  timings the reset never touches.
+* **`Service → Restore Factory Defaults` puts both back to `eBAMATIC` as well.** The
+  reset leaves these voltages alone if `EMC Balance` is already on automatic, on 4IFIR 2.5
+  also if the memory clock is on automatic, and without 4IFIR always: in those cases there
+  was no way to set them anyway. The `EMC Magician` timings the reset never touches.
 
 > [!WARNING]
 > Your number is used as given — **along with the headroom the firmware would otherwise
@@ -162,10 +179,9 @@ Four things worth knowing before you touch them.
 page** of `Current Settings`, in the `Optimized Mode` block (its heading names the actual
 base, `1600` or `1331 MHz`), as the `VDDQ`
 and `VDD2` rows under `Optimized Target`. The same block appears when you look at a
-saved backup: a backup keeps both voltages and puts them back when restored
-([Profiles, backups and reset](10-profiles.md#restoring)). A backup made before the configurator
-started saving them has no voltages — there the block shows this console's values and
-says so with the line `VDDQ/VDD2: this console - not the backup`.
+saved backup, but **a backup neither keeps nor restores these voltages**
+([Profiles, backups and reset](10-profiles.md#restoring)): there the block shows this
+console's values and says so with the line `VDDQ/VDD2: this console - not the backup`.
 
 **Where it is written.** These are the only items in the configurator that put a memory setting
 **somewhere other than the firmware**: they write to `/config/4IFIR/emc_timings.ini` —
@@ -181,7 +197,9 @@ never gets there. It is fixed from a computer, in about two minutes.
 1. Switch the console off and take the memory card out.
 2. On the computer open `/config/4IFIR/emc_timings.ini` from the card — any plain text
    editor will do.
-3. Find the lines `eVDQ=` and `eVD2=` in it — those are the voltages you set.
+3. Find the lines `eVDQ=` and `eVD2=` in it — those are the voltages that were set. On
+   4IFIR 2.5 they sit in the section of the memory clock (for example `[2265CL12]`), on 2.6
+   in `[1600CL…]` or `[1331CL…]`.
 4. Replace the number with a zero: `eVDQ=0` and `eVD2=0`. A zero means "work it out
    yourself" — the same thing `eBAMATIC` does in the menu. If you find more than one of
    each, zero them all.
@@ -189,7 +207,8 @@ never gets there. It is fixed from a computer, in about two minutes.
 
 If you can still reach the menu, `Service → Restore Factory Defaults` does the same
 (it zeroes only those of the two lines that already exist in the section for this clock and
-`EMC Balance`, and leaves them alone with `EMC Balance` on `eBAMATIC`) — but it also
+`EMC Balance`, and leaves them alone with `EMC Balance` on `eBAMATIC`, and on 4IFIR 2.5 with the
+clock on `eBAMATIC` too) — but it also
 puts every other setting back to factory, so for one voltage editing the file is quicker.
 
 ## Timings

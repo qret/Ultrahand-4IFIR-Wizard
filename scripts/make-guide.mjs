@@ -216,6 +216,9 @@ const changed = []
       // подвал. Движок её прячет при отрисовке, читателю она не нужна тем более.
       const name = it.title.split('?')[0]
       const here = path ? `${path} → ${name}` : name
+      // `?25<rev>` - the same VDDQ/VDD2 setting for 4IFIR 2.5, another section of the same file
+      // (DECISIONS 22.09.2026): one setting, one row, as the reader sees one item on screen.
+      if (/\?25(mariko|erista)$/.test(it.title)) continue
       // Ревизия наследуется вниз: у раздела `;system=` стоит один раз, а прячется по нему
       // всё его содержимое — так у кривой Erista помечен и переход, и каждая её точка.
       const rev = it.system ?? plat ?? null

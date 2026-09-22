@@ -14,7 +14,7 @@
 // Exit code: 0 — everything is in place, 1 — there are discrepancies.
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
-import { join, dirname, relative, resolve, basename } from 'node:path'
+import { join, dirname, relative, resolve, basename, posix } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
@@ -554,6 +554,26 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /вторая страница Erista читает точку кривой Mariko 184/,
     },
     {
+      // Check 58 (3), the photo of 22.09.2026: the reset page prints the manual array again,
+      // top seven cells as "not a voltage", while the factory mode 00 shows ST1 in Current.
+      name: 'сброс снова печатает ручную таблицу GPU Mariko с «not a voltage»',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.replace(/hex_file '\/atmosphere\/kips\/loader\.kip'\njson_file '\.\/\.\.\/json\/dvfs_uv\.map\.json'\n((?:'[^']*' = '\{if_null\(\{json_file\(0,\{hex_file\(CUST,\d+,4\)\}\)\},—\)\}'\n)+)/,
+        (_, rows) => rows.trim().split('\n').map((l, i) => {
+          const lab = l.match(/^'([^']*)'/)[1], o = 88 + 4 * i
+          return i < 24 ? `'${lab}' = '{if_==({ini_file(Fields,${o})},null,—,{hex_to_decimal({hex_to_rhex({ini_file(Fields,${o})})})} mV)}'`
+                        : `'${lab}' = '{ini_file(Fields,${o})} - not a voltage'`
+        }).join('\n') + '\n'),
+      expect: /строки «not a voltage» при заводском Fields 44 = 00/,
+    },
+    {
+      // Check 58 (3): the reset page shows another mode's table (the working slot, mode 01).
+      name: 'сброс показывает таблицу GPU чужого режима',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.replace('{hex_file(CUST,7160,4)}', '{hex_file(CUST,8896,4)}'),
+      expect: /«307MHz» читает kip 8896, а Current при Fields 44 = 00 показывает 7160/,
+    },
+    {
       // Check 39 (8): a variant label drifts away from Current.
       name: 'подпись таблицы GPU копии разошлась с Current',
       file: join(DIST, 'service', 'restore-mariko.ini'),
@@ -631,78 +651,45 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       // Check 66: the block addresses a literal profile again — wrong on a console at Target 0.
       name: 'блок Optimized Mode копии собран литералом 1600CL',
       file: join(DIST, 'service', 'restore-mariko.ini'),
-      hurt: s => s.split('{list(0)}CL{math({list(1)}*2+8,true)}').join('1600CL12'),
+      hurt: s => s.split('{if_==({list(3)},2.5,{math({list(2)}/1000,true)},{list(0)})}CL{math({list(1)}*2+8,true)}').join('1600CL12'),
       expect: /restore-mariko\.ini: имя профиля в блоке Optimized Mode несёт литерал частоты/,
     },
     {
-      // Check 68: the presence test goes, and an older backup without [Optimized] writes the
-      // literal `null` into the profile - the very litter the operator ruled out (21.09.2026).
-      name: 'восстановление пишет напряжения и из старой копии',
+      // Check 68: Apply writes a backup's [Optimized] into emc_timings.ini again (22.09.2026: never).
+      name: 'применение копии пишет в emc_timings.ini',
       file: join(DIST, 'service', 'restore-mariko.ini'),
-      hurt: s => s.split('\n').filter(l => !/^!matching_ini_val \{ini_file\(Restore,Path\)\} Optimized eVD[Q2] ''$/.test(l)).join('\n'),
-      expect: /restore-mariko\.ini «Apply» \(старая копия без \[Optimized\]\)[^\n]*старая копия получила запись/,
+      hurt: s => s.replace("Meta kipver 27\nini_file '{ini_file(Restore,Path)}'\n", "Meta kipver 27\nini_file '{ini_file(Restore,Path)}'\nset-ini-val '/config/4IFIR/emc_timings.ini' '1600CL12' eVDQ '{ini_file(Optimized,eVDQ)}'\n"),
+      expect: /restore-mariko\.ini «Apply» \(2\.6: копия 21–22\.09 с \[Optimized\] 650\/1100 и пометкой 2\.5\): применение копии изменило emc_timings\.ini/,
     },
     {
-      // Check 68: force_failure goes, the voltage branch succeeds and the next `try:` ends the
-      // section - the voltages land and the kip is never restored, under no footer at all.
-      name: 'ветвь напряжений восстановления съела ветвь kip',
+      // Check 68 (operator, 22.09.2026, rejected option): page 2 shows a 21-22.09 backup's own
+      // [Optimized] "for reference" - it reads as what Apply will write, and Apply writes nothing.
+      name: 'страница 2 показывает напряжения из копии',
       file: join(DIST, 'service', 'restore-erista.ini'),
-      hurt: s => s.replace('\nforce_failure\ntry:\nini_file \'./config.ini\'\n', '\ntry:\nini_file \'./config.ini\'\n'),
-      expect: /restore-erista\.ini «Apply» \([^)]*\)[^\n]*kip не восстановлен/,
+      hurt: s => s.split("ini_file '/config/4IFIR/emc_timings.ini'\n'VDDQ' = '{if_null({list(0)},null,{if_==({list(1)},0,null,{if_null({ini_file({list(2)},eVDQ)},eBAMATIC,{if_==({ini_file({list(2)},eVDQ)},0,eBAMATIC,{ini_file({list(2)},eVDQ)} mV)})})})}'").join("'VDDQ' = '{if_null({ini_file(Optimized,eVDQ)},eBAMATIC,{ini_file(Optimized,eVDQ)} mV)}'"),
+      expect: /restore-erista\.ini стр\. 2 \(2\.6: копия 21–22\.09 с \[Optimized\] 650\/1100[^)]*\): VDDQ\/VDD2 = «650 mV»/,
     },
     {
-      // Check 68: the restore addresses 1600 always - wrong for a backup made at Target 00.
-      name: 'восстановление пишет напряжения в раздел с литералом 1600',
+      // Check 68: Create writes the [Optimized] section again (operator, 22.09.2026: "we do not put them in").
+      name: 'копия снова пишет [Optimized]',
       file: join(DIST, 'service', 'restore-erista.ini'),
-      hurt: s => s.split("set-ini-val '/config/4IFIR/emc_timings.ini' '{if_==({ini_file(Fields,12524)},01,1600,1331)}CL").join("set-ini-val '/config/4IFIR/emc_timings.ini' '1600CL"),
-      expect: /restore-erista\.ini «Apply»: раздел записи eVDQ не совпадает с формулой страницы Optimized Mode/,
+      hurt: s => s.replace("set-ini-val '{ini_file(Backup,Path)}' Meta fields ", "set-ini-val '{ini_file(Backup,Path)}' Optimized eVDQ '0'\nset-ini-val '{ini_file(Backup,Path)}' Meta fields "),
+      expect: /restore-erista\.ini «Create backup»: копия снова пишет секцию \[Optimized\]/,
     },
     {
-      // Check 68: the create stops saving the eBAL-0 zero and copies a CL8 section nobody reads.
-      name: 'копия при eBAL 0 уносит напряжения раздела CL8',
-      file: join(DIST, 'service', 'restore-mariko.ini'),
-      hurt: s => s.split('\n').filter(l => !/^set-ini-val '\.\/config\.ini' Backup eVD[Q2] '\{if_==\(/.test(l)).join('\n'),
-      expect: /restore-mariko\.ini «Create backup» \(eBAL 0\): в копию легло eVDQ\/eVD2 = 999\/888/,
-    },
-    {
-      // Check 68: page 2 keeps the "this console" caveat under the backup's own values.
-      name: 'оговорка «this console» видна под напряжениями из копии',
+      // Check 68: the caveat goes back to older backups only - a 21-22.09 backup with [Optimized] shows this
+      // console's values without saying so.
+      name: 'строка «not the backup» не у всех копий',
       file: join(DIST, 'service', 'restore-erista.ini'),
-      hurt: s => s.split('{if_null({list(3)},VDDQ/VDD2: this console - not the backup,null)}').join('VDDQ/VDD2: this console - not the backup'),
-      expect: /restore-erista\.ini стр\. 2 \(новая копия\): оговорка «this console - not the backup» видна/,
-    },
-    {
-      // Check 68: the "key already exists" gate goes, and a copy's zero creates the file on a
-      // clean console - Magician then shows a profile nobody saved (operator, 21.09.2026).
-      name: 'восстановление пишет ноль в несуществующий ключ',
-      file: join(DIST, 'service', 'restore-mariko.ini'),
-      hurt: s => s.split('\n').filter(l => !l.startsWith("!matching_ini_val '/config/4IFIR/emc_timings.ini' ")).join('\n'),
-      expect: /restore-mariko\.ini «Apply» \(нет файла, копия 0\/0[^\n]*ноль создал файл/,
-    },
-    {
-      // Check 68: the "value is not 0" branch never writes, and a non-zero voltage of the copy
-      // reaches the file only where the key already stood.
-      name: 'ненулевое значение копии не записано',
-      file: join(DIST, 'service', 'restore-erista.ini'),
-      hurt: s => s.split('Optimized eVD2 0\n').join('Optimized eVD2 0\nforce_failure\n'),
-      expect: /restore-erista\.ini «Apply» \(раздел без ключей, копия 0\/1050\)/,
-    },
-    {
-      // Check 68: a voltage branch stops rebinding config.ini after `try:`. The previous branch
-      // left the backup bound, so `{ini_file(Restore,Path)}` reads null and every later branch
-      // fails its gate - caught by the model on 21.09.2026 in the first draft of this change.
-      name: 'ветвь напряжения не вернула привязку к config.ini',
-      file: join(DIST, 'service', 'restore-mariko.ini'),
-      hurt: s => s.split("try:\nini_file './config.ini'\n!matching_ini_val {ini_file(Restore,Path)} Meta revision erista\nmatching_ini_val {ini_file(Restore,Path)} Meta kipver 27\n!matching_ini_val {ini_file(Restore,Path)} Fields 12352 000000\n")
-                  .join("try:\n!matching_ini_val {ini_file(Restore,Path)} Meta revision erista\nmatching_ini_val {ini_file(Restore,Path)} Meta kipver 27\n!matching_ini_val {ini_file(Restore,Path)} Fields 12352 000000\n"),
-      expect: /restore-mariko\.ini «Apply» \(ключи есть, копия 0\/1050 — поверх\)/,
+      hurt: s => s.split('{if_==({list(1)},0,null,VDDQ/VDD2: this console - not the backup)}').join('{if_==({list(1)},0,null,{if_null({ini_file(Optimized,eVDQ)},VDDQ/VDD2: this console - not the backup,null)})}'),
+      expect: /restore-erista\.ini стр\. 2 \(2\.6: копия 21–22\.09 с \[Optimized\][^)]*\): оговорка «this console - not the backup» не видна/,
     },
     {
       // Check 66 and 68: the reset zeroes keys that are not there and creates the file.
       name: 'сброс создал файл',
       file: join(DIST, 'service', 'reset.ini'),
       hurt: s => s.split('\n').filter(l => !l.startsWith("!matching_ini_val '/config/4IFIR/emc_timings.ini' ")).join('\n'),
-      expect: /reset\.ini mariko \(нет файла, eBAL 2\)[^\n]*сброс создал файл/,
+      expect: /reset\.ini mariko \(2\.6: нет файла, eBAL 2\)[^\n]*сброс создал файл/,
     },
     {
       // Check 66: the backup page loses the line that says the two voltages are this console's.
@@ -827,7 +814,7 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       name: 'в секции сброса появился третий try:',
       file: join(DIST, 'service', 'reset.ini'),
       hurt: s => s.split('force_failure\ntry:\n').join('force_failure\ntry:\ntry:\n'),
-      expect: /«Apply factory defaults[^»]*»: «try:» в секции \d+, а их обязано быть 3/,
+      expect: /«Apply factory defaults[^»]*»: «try:» в секции \d+, а их обязано быть 5/,
     },
     {
       // Check 66: the label promises one voltage and the item writes another — the very class
@@ -868,19 +855,33 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /виден при eBAL = eBAMATIC/,
     },
     {
-      // Check 66: the hint's condition is flipped — it shows next to working items and is
-      // gone exactly when they are hidden.
+      // Check 66: every hint's eBAL condition is flipped — hints show next to working items and are gone
+      // exactly when the items are hidden.
       name: 'подсказка «Set EMC Balance» показывается по условию пунктов',
       file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
       hurt: s => s.split(';visibility_condition=matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000').join(';visibility_condition=!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000'),
-      expect: /подсказка показывается по .*обратному условию пунктов/,
+      expect: /\(2\.6\/mariko\/eBAL 0\/частота 2265\): видно подсказок 0 — «—», а ждали «Set EMC Balance to use VDDQ\/VDD2»/,
     },
     {
-      // Check 66: the hint is gone — on eBAMATIC eBAL the items vanish without a word.
+      // Check 66: the 2.6 hint is gone — on eBAMATIC eBAL the items vanish without a word.
       name: 'подсказка «Set EMC Balance» пропала',
       file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
       hurt: s => s.replace(/\[Not in use\][\s\S]*?\n\n/, ''),
-      expect: /подсказок «Set EMC Balance to use VDDQ\/VDD2» 0/,
+      expect: /\(2\.6\/mariko\/eBAL 0\/частота 2265\): видно подсказок 0 — «—», а ждали «Set EMC Balance to use VDDQ\/VDD2»/,
+    },
+    {
+      // Check 66: the hint's indent goes back to 10 and the text sits against the frame.
+      name: 'подсказка «Set EMC Balance» прижата к рамке',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => s.split(';offset=13').join(';offset=10'),
+      expect: /подсказка с ;offset=10 — текст прижат к рамке/,
+    },
+    {
+      // Check 68: the caveat loses its start gap and lands on the frame of the table above.
+      name: 'оговорка «this console» налезает на рамку',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.split(';start_gap=36').join(''),
+      expect: /restore-mariko\.ini стр\. 2: оговорка «this console - not the backup» с start_gap 20/,
     },
     {
       // Check 66: the items lose their gate while the hint stays — the page says "set the
@@ -888,7 +889,7 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       name: 'пункты VDDQ/VDD2 без условия, подсказка на месте',
       file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
       hurt: s => s.split('\n').filter(l => l.trim() !== ';visibility_condition=!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000').join('\n'),
-      expect: /подсказка видна при eBAL = eBAMATIC, а пункт «VDDQ» не скрыт/,
+      expect: /\(2\.5\/mariko\/eBAL 0\/частота 2265\): пунктов eVDQ видно 1, а ждали 0/,
     },
     {
       // Check 67: the 03.09.2026 slide, on a list that still offers eBAMATIC (Boost Clock).
@@ -912,11 +913,33 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /импортированная копия не должна его трогать/,
     },
     {
+      // Check 15: the imported block writes a field the converter never puts into a copy -
+      // safe today only because the engine skips a `null` value (NOTES №349).
+      name: 'восстановление импортированной копии пишет поле, которого конвертер не кладёт',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace("Meta kipver imported\nini_file '{ini_file(Restore,Path)}'\n", "Meta kipver imported\nini_file '{ini_file(Restore,Path)}'\nhex-by-custom-offset /atmosphere/kips/loader.kip CUST 8 {ini_file(Fields,8)}\n"),
+      expect: /mariko: блок импортированных копий пишет то, чего конвертер не кладёт — 8/,
+    },
+    {
+      // Check 69: the isKefir row reads the copy again - its dash rests on an absent key.
+      name: 'строка isKefir без явного прочерка у импортированной копии',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace(/^'pMeh 22 isKefir' = .*$/m, "'pMeh 22 isKefir' = '{json_file(0,{ini_file(Fields,12452)})}'"),
+      expect: /restore-erista\.ini: строка «pMeh 22 isKefir» читает Fields 12452/,
+    },
+    {
       // Check 69: our own copy stops restoring DBI.
       name: 'своя копия перестала восстанавливать DBI',
       file: join(DIST, 'service', 'restore-mariko.ini'),
       hurt: s => s.replace('hex-by-custom-offset /atmosphere/kips/loader.kip CUST 12528 {ini_file(Fields,12528)}\n', ''),
       expect: /DBI \(12528\) стал/,
+    },
+    {
+      // Check 69: the DBI/WL-Set note loses its start gap and lands on the frame of the table above.
+      name: 'пометка «DBI/WL-Set» налезает на рамку',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace(/;start_gap=36\n(;gap=16\n;skip_null=true\nini_file '\.\/config\.ini'\nini_file '\{ini_file\(Restore,Path\)\}'\n''='\{if_==\(\{ini_file\(Meta,kipver\)\},imported,DBI)/, '$1'),
+      expect: /restore-erista\.ini стр\. 2: пометка «DBI\/WL-Set: not carried over from an old backup» с start_gap 20/,
     },
     {
       // Check 69: the note loses its null branch and shows under every backup.
@@ -959,7 +982,7 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       name: 'заголовок Optimized Mode копии путает 1600 и 1331',
       file: join(DIST, 'service', 'restore-erista.ini'),
       hurt: s => s.replace("{if_==({ini_file(Fields,12524)},01,1600,1331)})}]'\n'Optimized Mode", "{if_==({ini_file(Fields,12524)},00,1600,1331)})}]'\n'Optimized Mode"),
-      expect: /restore-erista\.ini стр\. 2 \(копия с Target 0\): заголовок блока «Optimized Mode \(1600 MHz\)», а ждали «Optimized Mode \(1331 MHz\)»/,
+      expect: /restore-erista\.ini стр\. 2 \(2\.6: копия с Target 0\): заголовок блока «Optimized Mode \(1600 MHz\)», а ждали «Optimized Mode \(1331 MHz\)»/,
     },
     {
       // Check 70: the reset baseline gets zero for field 48 - reset would write eBAMATIC.
@@ -1016,6 +1039,149 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       file: join(DIST, 'advanced', 'cpu', 'json', 'cpu_vmin.json'),
       hurt: () => '[]',
       expect: /проверка заводского CPU Min Voltage нашла 4 из 5 мест/,
+    },
+    {
+      // Check 66: a 4IFIR 2.5 item writes into the E section 1600CL again - 2.5 never reads it
+      // (DECISIONS 22.09.2026), and the page and footer agree with the write, so nothing shows it.
+      name: 'пункт 4IFIR 2.5 пишет в раздел 1600CL',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => { const at = s.indexOf('[*VDDQ?25mariko]'); const i = s.indexOf('{math({hex_to_decimal({hex_to_rhex({hex_file(CUST,32,3)})})}/1000,true)}CL', at); return at < 0 || i < 0 ? s : s.slice(0, i) + '{if_==({hex_file(CUST,12524,1)},01,1600,1331)}CL' + s.slice(i + '{math({hex_to_decimal({hex_to_rhex({hex_file(CUST,32,3)})})}/1000,true)}CL'.length) },
+      expect: /«VDDQ\?25mariko»: пункт 4IFIR 2\.5 пишет в профиль Optimized Target/,
+    },
+    {
+      // Check 66: the 2.6 item writes into the S section - 2.6 takes the E-state voltages from E.
+      name: 'пункт 4IFIR 2.6 пишет в раздел частоты S',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => { const at = s.indexOf('[*VDDQ]'); const i = s.indexOf('{if_==({hex_file(CUST,12524,1)},01,1600,1331)}CL', at); return at < 0 || i < 0 ? s : s.slice(0, i) + '{math({hex_to_decimal({hex_to_rhex({hex_file(CUST,32,3)})})}/1000,true)}CL' + s.slice(i + '{if_==({hex_file(CUST,12524,1)},01,1600,1331)}CL'.length) },
+      expect: /«VDDQ»: пункт 4IFIR 2\.6 пишет в раздел частоты S/,
+    },
+    {
+      // Check 68: the reset on 2.6 zeroes the S section instead of E.
+      name: 'сброс на 4IFIR 2.6 обнуляет раздел частоты S',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.split("\nmatching_ini_val './config.ini' Firmware gen 2.6\n").join("\nmatching_ini_val './config.ini' Firmware gen 2.5\n"),
+      expect: /reset\.ini mariko \(2\.6: ключи есть, eBAL 2\): emc_timings\.ini стал/,
+    },
+    {
+      // Check 66: the items lose their generation gate - without 4IFIR.ovl they are shown (operator:
+      // "without 4IFIR.ovl this is not 4IFIR").
+      name: 'пункты VDDQ/VDD2 видны без 4IFIR',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => s.split('\n').filter(l => l !== ';visibility_condition=matching_ini_val ./config.ini Firmware gen 2.6').join('\n'),
+      expect: /\(none\/mariko\/eBAL 2\/частота 2265\): пунктов eVDQ видно 1, а ждали 0/,
+    },
+    {
+      // Check 68: Current page 2 shows the voltage rows on a console without 4IFIR.
+      name: 'страница 2 Current показывает напряжения без 4IFIR',
+      file: join(DIST, 'current.ini'),
+      hurt: s => s.split('{if_==({ini_file(Firmware,gen)},2.6,{if_==({hex_file(CUST,12524,1)},01,1600,1331)},null)}').join('{if_==({hex_file(CUST,12524,1)},01,1600,1331)}'),
+      expect: /current\.ini стр\. 2 \(none, mariko: без 4IFIR\): VDDQ\/VDD2 = «1111 mV»/,
+    },
+    {
+      // Check 68: Erista's reset names the S section from the Mariko clock (CUST 32).
+      name: 'сброс Erista на 4IFIR 2.5 берёт частоту Mariko',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.split('{hex_file(CUST,24,3)}').join('{hex_file(CUST,32,3)}'),
+      expect: /reset\.ini erista \(2\.5: ключи в разделе S, eBAL 2\): emc_timings\.ini стал/,
+    },
+    {
+      // Check 66: the Erista item reads the Mariko clock.
+      name: 'пункт Erista 4IFIR 2.5 читает частоту Mariko',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => { const at = s.indexOf('[*VDD2?25erista]'); const e = s.indexOf('\n\n', at); return at < 0 ? s : s.slice(0, at) + s.slice(at, e).split('CUST,24,3').join('CUST,32,3') + s.slice(e) },
+      expect: /«VDD2\?25erista»: имя профиля 4IFIR 2\.5 не собрано из частоты S своей ревизии/,
+    },
+    {
+      // Check 71: a condition reads the 2 MB overlay itself instead of the flag [boot] left.
+      name: 'условие читает 4IFIR.ovl само',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => s.split(';visibility_condition=matching_ini_val ./config.ini Firmware gen 2.5').join(';visibility_condition=matching_hex_val_custom /switch/.overlays/4IFIR.ovl Houdini 0 48'),
+      expect: /читает 4IFIR\.ovl сам — поколение спрашивается у \[Firmware\] gen/,
+    },
+    {
+      // Check 68: a 2.5 branch ends the tail (no force_failure) - the fingerprint is never stored and
+      // every entry on 2.5 reads the whole overlay again.
+      name: 'ветвь 2.5 обрывает хвост до записи отпечатка',
+      file: join(DIST, 'advanced', 'ram', 'package.ini'),
+      hurt: s => s.split("Firmware gen '2.5'\nforce_failure\n").join("Firmware gen '2.5'\n"),
+      expect: /по шагам: «тот же оверлей 2\.5»: тот же оверлей прочитан поиском/,
+    },
+    {
+      // Check 71: the flag is left to [boot] again - the forwarder into Optimized Mode stops detecting, [boot]
+      // detects instead; under quick launch the items would read a stale or missing flag.
+      name: 'флаг читается только из [boot]',
+      file: [join(DIST, 'advanced', 'ram', 'package.ini'), join(DIST, 'boot_package.ini')],
+      hurt: s => {
+        if (s.startsWith('[boot]')) return s + "\nset-ini-val './advanced/ram/ram-optimized/config.ini' Firmware gen '2.6'\n"
+        const i = s.indexOf("package_source './ram-optimized/package.ini'\n")
+        return i < 0 ? s : s.slice(0, i) + "package_source './ram-optimized/package.ini'" + s.slice(s.indexOf('\n\n', i))
+      },
+      expect: /advanced\/ram\/package\.ini «Optimized Mode \(1600 MHz\)» ведёт в advanced\/ram\/ram-optimized\/package\.ini, спрашивающий поколение, а не пересчитывает его/,
+    },
+    {
+      // Check 66: on 2.5 an eBAMATIC RAM clock hides the items without a word.
+      name: 'подсказка «Set Frequency» пропала',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => s.split("''='Set Frequency to use VDDQ/VDD2'").join("''=''"),
+      expect: /\(2\.5\/mariko\/eBAL 2\/частота 0\): видно подсказок 0 — «—», а ждали «Set Frequency to use VDDQ\/VDD2»/,
+    },
+    {
+      // Check 66: the old wording comes back - the operator asked for "Set Frequency".
+      name: 'подсказка не та',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => s.split("''='Set Frequency to use VDDQ/VDD2'").join("''='Set RAM Frequency to use VDDQ/VDD2'"),
+      expect: /подсказка гласит «Set RAM Frequency to use VDDQ\/VDD2»/,
+    },
+    {
+      // Check 66: the 2.5 items lose their clock gate - on an eBAMATIC clock they write into `0CL…`.
+      name: 'на 2.5 при частоте 0 видны пункты',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => s.split('\n').filter(l => l !== ';visibility_condition=!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 32 000000').join('\n'),
+      expect: /\(2\.5\/mariko\/eBAL 2\/частота 0\): пунктов eVDQ видно 1, а ждали 0/,
+    },
+    {
+      // Check 68 and 71: 2.6 is recognised by its name Nextgen - a 2.7 under a new name keeps whatever flag
+      // was there and loses the items (operator, 22.09.2026: only 2.5's name is checked).
+      name: 'поколение 2.6 опознаётся по имени Nextgen',
+      file: join(DIST, 'advanced', 'ram', 'package.ini'),
+      hurt: s => s.split("try:\nset-ini-val './ram-optimized/config.ini' Firmware gen '2.6'\n").join("try:\nmatching_hex_val_custom /switch/.overlays/4IFIR.ovl Nextgen 0 4E\nset-ini-val './ram-optimized/config.ini' Firmware gen '2.6'\n"),
+      expect: /\(4IFIR 2\.7 с неизвестным именем, mariko, было: не записан\): поколение записано как —/,
+    },
+    {
+      // Check 68: the fingerprint is never compared - every entry reads the whole overlay again.
+      name: 'отпечаток не сравнивается: поиск на каждом входе',
+      file: join(DIST, 'advanced', 'ram', 'package.ini'),
+      hurt: s => s.split("matching_hex_val /switch/.overlays/4IFIR.ovl 64 '{ini_file(Firmware,ovl_id)}'").join('force_failure'),
+      expect: /отпечаток совпал, а оверлей всё равно прочитан поиском/,
+    },
+    {
+      // Check 68: any stored fingerprint is taken on trust - after an AIO update 2.5 -> 2.6 the flag stays 2.5.
+      name: 'отпечаток не сравнивается: поиска не бывает',
+      file: join(DIST, 'advanced', 'ram', 'package.ini'),
+      hurt: s => s.split("\nmatching_hex_val /switch/.overlays/4IFIR.ovl 64 '{ini_file(Firmware,ovl_id)}'").join(''),
+      expect: /по шагам: «обновление AIO 2\.5→2\.6»: поколение 2\.5, а ждали 2\.6/,
+    },
+    {
+      // Check 68: a build-id of zeros is stored and trusted - every zero-id build looks the same.
+      name: 'нулевой build-id принимается как отпечаток',
+      file: join(DIST, 'advanced', 'ram', 'package.ini'),
+      hurt: s => s.split('\n!matching_hex_val /switch/.overlays/4IFIR.ovl 64 0000000000000000000000000000000000000000').join(''),
+      expect: /нулевой build-id отпечатком не служит/,
+    },
+    {
+      // Check 68: entering Optimized Mode writes into emc_timings.ini (operator, 22.09.2026: values already
+      // there are read and shown, never rewritten on entry).
+      name: 'вход на страницу пишет в emc_timings.ini',
+      file: join(DIST, 'advanced', 'ram', 'package.ini'),
+      hurt: s => s.replace("package_source './ram-optimized/package.ini'", "set-ini-val '/config/4IFIR/emc_timings.ini' '{if_==({hex_file(CUST,12524,1)},01,1600,1331)}CL{math({hex_to_decimal({hex_to_rhex({hex_file(CUST,12352,3)})})}*2+8,true)}' eVDQ '0'\npackage_source './ram-optimized/package.ini'"),
+      expect: /advanced\/ram\/package\.ini «Optimized Mode \(1600 MHz\)» \([^)]*\): вход на страницу изменил emc_timings\.ini/,
+    },
+    {
+      // Check 66: two hints at once on 2.5 with both on eBAMATIC — the eBAL hint loses its "clock is set" gate.
+      name: 'две подсказки сразу на 2.5',
+      file: join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'),
+      hurt: s => s.split('\n').filter(l => l !== ';visibility_condition=!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 24 000000').join('\n'),
+      expect: /\(2\.5\/erista\/eBAL 0\/частота 0\): видно подсказок 2/,
     },
   ]
   let failed = 0, skipped = 0
@@ -1680,9 +1846,21 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
       if (blocks.length !== 2) bad.push(`${rev}: блоков записи ${blocks.length}, ожидается 2 (своя раскладка и импортированная)`)
       const writes = writesOf(blocks[0] ?? '')
       const wrote = new Set(writes)
-      // The one planned difference: an imported copy never writes WL-Set or DBI (check 69).
-      if (blocks[1] && String(writesOf(blocks[1])) !== String(writes.filter(o => o !== 12432 && o !== 12528))) {
-        bad.push(`${rev}: блок для импортированных копий пишет не тот же набор`)
+      // The imported block writes exactly the Fields the converter of this revision puts into
+      // a copy: WL-Set, DBI (check 69) and whatever the old format never held are left alone
+      // explicitly, not by the engine skipping a `null` value. NOTES №349.
+      const impSec = readFileSync(join(DIST, 'service', 'package.ini'), 'utf8')
+        .split(/\n(?=\[)/).find(s => s.startsWith(`[*Import old 4IFIR backup?${rev}]`))
+      if (!impSec) bad.push(`${rev}: нет секции импорта в service/package.ini — не с чем сверить блок импортированных копий`)
+      else if (blocks[1]) {
+        const conv = new Set([...impSec.matchAll(/ Fields (\d+) '/g)].map(m => Number(m[1])))
+        const impW = writesOf(blocks[1])
+        const extraImp = impW.filter(o => !conv.has(o))
+        const lostImp = [...conv].filter(o => !impW.includes(o))
+        if (!conv.size) bad.push(`${rev}: конвертер не пишет ни одного Fields — сверять не с чем`)
+        if (extraImp.length) bad.push(`${rev}: блок импортированных копий пишет то, чего конвертер не кладёт — ${extraImp.join(', ')}`)
+        if (lostImp.length) bad.push(`${rev}: конвертер кладёт, а блок импортированных копий не пишет — ${lostImp.join(', ')}`)
+        if (String(impW) !== String(writes.filter(o => conv.has(o)))) bad.push(`${rev}: блок импортированных копий пишет не в порядке своей копии`)
       }
       seenPairs += saved.size
       const lost = [...saved].filter(o => !wrote.has(o))
@@ -1693,7 +1871,7 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
     }
   }
   if (bad.length) problems.push({ sev: 'CRITICAL', what: `копия и восстановление разошлись:\n     ${bad.join('\n     ')}` })
-  else ok.push(`backup and restore carry exactly the same fields (${seenPairs} offsets compared)`)
+  else ok.push(`backup and restore carry exactly the same fields, and an imported copy restores exactly what the converter puts into it (${seenPairs} offsets compared)`)
 }
 
 // ----------------------------------- 16. точки кривых: сетка, штатные ступени, объяснимые дыры
@@ -2038,8 +2216,8 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // Читаются под привязкой не только строки таблицы, но и аргументы `list` — движок
 // разрешает подстановки в аргументе ДО того, как присвоит источник.
 {
-  const OWN_SECTIONS = ['Restore', 'Backup', 'Import']   // секции нашего config.ini
-  const DATA_SECTIONS = ['Fields', 'Meta', 'Optimized']  // секции копии и Default.ini ([Optimized] — с 21.09.2026)
+  const OWN_SECTIONS = ['Restore', 'Backup', 'Import', 'Firmware']   // секции нашего config.ini ([Firmware] — поколение 4IFIR, с 22.09.2026)
+  const DATA_SECTIONS = ['Fields', 'Meta']  // секции копии и Default.ini ([Optimized] 21–22.09.2026 больше не читается)
   const EMC21 = '/config/4IFIR/emc_timings.ini'
   const strays = []
   const mixed = []
@@ -4386,8 +4564,9 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 {
   const bootPath = join(DIST, 'boot_package.ini')
   const bootTxt = existsSync(bootPath) ? readFileSync(bootPath, 'utf8') : ''
-  // Корневые писатели футера — те, чей путь `./config.ini`, без подкаталога.
-  const rootSeeds = bootTxt.split(/\r?\n/).filter(l => /^set-ini-val '\.\/config\.ini' /.test(l))
+  // Корневые писатели футера — те, чей путь `./config.ini`, без подкаталога, и пишут они `footer`:
+  // флаг поколения 4IFIR (`[Firmware] gen`, 22.09.2026) живёт в том же файле, но подписью не является.
+  const rootSeeds = bootTxt.split(/\r?\n/).filter(l => /^set-ini-val '\.\/config\.ini' '[^']+' footer /.test(l))
   // Из `service/` тот же файл и тот же словарь адресуются на уровень выше.
   const want = rootSeeds.map(l => l.replace(/'\.\//g, `'./../`))
   const SERVICE = ['reset.ini', 'restore-mariko.ini', 'restore-erista.ini']
@@ -4436,7 +4615,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   const KIPL = '/atmosphere/kips/loader.kip'
   const bootPath = join(DIST, 'boot_package.ini')
   const bootTxt = existsSync(bootPath) ? readFileSync(bootPath, 'utf8') : ''
-  const rootSeeds = bootTxt.split(/\r?\n/).filter(l => /^set-ini-val '\.\/config\.ini' /.test(l))
+  const rootSeeds = bootTxt.split(/\r?\n/).filter(l => /^set-ini-val '\.\/config\.ini' '[^']+' footer /.test(l))
   const rootOffsets = new Set(rootSeeds.flatMap(l =>
     [...l.matchAll(/hex_file\(CUST,(\d+),\d+\)/g)].map(m => Number(m[1]))))
   const WRITE = /^hex-by-\S+\s+\S+\s+CUST\s+(\d+)\s/
@@ -4551,7 +4730,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // переживал «Apply factory defaults» — сравнения с полем 44 в её коде нет вовсе.
 // Разбор — NOTES №278, решение — DECISIONS 05.09.2026.
 //
-// Стережём две тихие вещи:
+// Стережём три тихие вещи (третья — ниже, у самой сверки):
 //   1. ПОЛНОТА. Список смещений выводится из карты (`series === 'gpu_curve_*'`), а не
 //      перечисляется. Пропади вывод — эталон вернётся к 74 полям молча: роли `reset`
 //      у точек кривой нет, и полнота из проверки 24 их не видит.
@@ -4591,8 +4770,53 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
       bad.push(`service/reset.ini: ${m[1]} печатается напряжением, хотя заводское содержимое им не является`)
   }
 
+  //   3. ВЫБОР ТАБЛИЦЫ (22.09.2026, фото photo_2026-09-22_10-25-50). Таблица GPU Mariko
+  //      на сбросе — та, что Current покажет для заводского Fields 44: подписи и смещения
+  //      как у его варианта; ячейку, которую сброс пишет, — из Default.ini, прочие — из kip.
+  //      «not a voltage» допустимо только при заводском режиме 03, как мусор в Current.
+  const mode58 = String(factory['44'] ?? '').slice(0, 2)
+  if (!mode58) bad.push('в эталоне сброса нет поля 44 — таблицу GPU для сверки не выбрать')
+  const gpuTables58 = txt => {
+    const secs = txt.split(/\r?\n(?=\[)/)
+    return secs.map((s, i) => ({ s, i })).filter(({ s }) => /^\[Header\]/.test(s) && /^'GPU Voltage Table'\s*=/m.test(s))
+      .map(({ s, i }) => ({
+        rev: s.match(/^;system=(\w+)/m)?.[1] ?? 'both', mode: s.match(/CUST 44 ([0-9A-F]{2})/)?.[1] ?? null,
+        rows: (secs.slice(i + 1).find(x => /^\[Info\]/.test(x)) ?? '').split(/\r?\n/)
+          .map(l => l.match(/^'([^']*)'\s*=\s*'(.*)'$/)).filter(Boolean).map(m => {
+            const h = m[2].match(/hex_file\(CUST,(\d+),\d+\)/), f = m[2].match(/ini_file\(Fields,(\d+)\)/)
+            return { label: m[1], value: m[2], kind: h ? 'kip' : f ? 'ini' : null, off: Number((h ?? f)?.[1]) }
+          }),
+      }))
+  }
+  const rt58 = gpuTables58(reset)
+  const cur58 = gpuTables58(readFileSync(join(DIST, 'current.ini'), 'utf8'))
+  const rm58 = rt58.filter(t => t.rev === 'mariko'), re58 = rt58.filter(t => t.rev === 'erista')
+  if (rm58.length !== 1) bad.push(`service/reset.ini: таблиц GPU Mariko ${rm58.length}, а ровно одна`)
+  if (re58.length !== 1) bad.push(`service/reset.ini: таблиц GPU Erista ${re58.length}, а ровно одна`)
+  const want58 = cur58.find(t => t.rev === 'mariko' && t.mode === mode58)
+  if (mode58 && !want58) bad.push(`current.ini: нет варианта таблицы GPU для режима ${mode58} — сверять сброс не с чем`)
+  if (rm58.length === 1 && want58) {
+    const a = rm58[0].rows, b = want58.rows
+    if (a.map(r => r.label).join('|') !== b.map(r => r.label).join('|'))
+      bad.push(`service/reset.ini: подписи таблицы GPU Mariko расходятся с Current при заводском Fields 44 = ${mode58} (${a.length} и ${b.length} строк)`)
+    b.some((w, k) => {
+      const r = a[k]
+      if (!r) return false
+      const need = factory[String(w.off)] !== undefined ? 'ini' : 'kip'
+      if (r.off !== w.off || r.kind !== need)
+        return bad.push(`service/reset.ini: «${r.label}» читает ${r.kind} ${r.off}, а Current при Fields 44 = ${mode58} показывает ${w.off} — нужно ${need} ${w.off}`)
+      return false
+    })
+  }
+  if (mode58 && mode58 !== '03' && /not a voltage/.test(reset))
+    bad.push(`service/reset.ini: строки «not a voltage» при заводском Fields 44 = ${mode58} — Current в этом режиме ручную таблицу не показывает`)
+  const curveM58 = new Set(fields.filter(f => f.series === 'gpu_curve_mariko').map(f => f.offset))
+  for (const t of re58)
+    for (const r of t.rows)
+      if (curveM58.has(r.off)) bad.push(`service/reset.ini: таблица GPU Erista читает точку кривой Mariko ${r.off}`)
+
   if (bad.length) problems.push({ sev: 'CRITICAL', what: `эталон кривой GPU собран неверно (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
-  else ok.push(`the GPU curves are in the factory baseline and the shared cells are not called a voltage (${curve.length} points, ${notAValue.size} cells shown as bytes)`)
+  else ok.push(`the GPU curves are in the factory baseline and the shared cells are not called a voltage (${curve.length} points, ${notAValue.size} cells flagged); the reset page shows the Mariko GPU table Current shows for factory mode ${mode58}`)
 }
 
 // ---------------- 51. одно значение — одна запись в словаре поля
@@ -5368,6 +5592,10 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   const KIP66 = '/atmosphere/kips/loader.kip'
   const WRITE66 = new RegExp("^set-ini-val '" + EMC66 + "' '([^']+)' (\\w+) '\\{json_file_source\\(\\*,(\\w+)\\)\\}'$", 'm')
   const GATE66 = ';visibility_condition=!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000'
+  // The generation flag [boot] leaves in the config.ini next to the page (DECISIONS 22.09.2026).
+  const FW66 = v => `matching_ini_val ./config.ini Firmware gen ${v}`
+  const FREQ66 = { mariko: 32, erista: 24 }
+  const writers66 = []
   const bad = []
   let items66 = 0, entries66 = 0
   // Every footer written by name anywhere in the package, so an item can be asked for its own.
@@ -5388,12 +5616,35 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
       if (!w) { bad.push(`«${title}»: запись в ${EMC66} не той формы — ждали set-ini-val '<файл>' '<профиль>' <ключ> '{json_file_source(*,mv)}'`); continue }
       const [, profile, key, valKey] = w
       if (valKey !== 'mv') bad.push(`«${title}»: значение берётся ключом ${valKey}, а список несёт милливольты в mv`)
-      if (!profile.includes('{hex_file(CUST,12524,')) bad.push(`«${title}»: имя профиля не читает Optimized Target (CUST 12524) — при Target 0 база 1331, и значение уедет в профиль 1600`)
+      // WHICH PLACE THE ITEM WRITES IS DECIDED BY ITS NAME TAG (DECISIONS 22.09.2026): no tag - the
+      // E section 4IFIR 2.6+ reads; `?25<rev>` - the S section 4IFIR 2.5 reads, clock at the
+      // revision's offset. Each is shown only on its generation, so none is shown without 4IFIR.
+      const lsec = sec.split('\n').map(l => l.trim())
+      const v25 = (title.match(/\?25(mariko|erista)$/) || [])[1] ?? null
+      const sys = lsec.filter(l => l.startsWith(';system='))
+      const conds = lsec.filter(l => l.startsWith(';visibility_condition='))
+      writers66.push({ file: f, title, key, rev: v25, conds })
+      if (v25) {
+        const fo = FREQ66[v25], other = FREQ66[v25 === 'mariko' ? 'erista' : 'mariko']
+        if (sys.join('|') !== `;system=${v25}`) bad.push(`«${title}»: пункт 4IFIR 2.5 для ${v25} несёт «${sys.join(' ') || 'без ;system='}» — частота S у каждой ревизии своя`)
+        if (profile.includes('{hex_file(CUST,12524,')) bad.push(`«${title}»: пункт 4IFIR 2.5 пишет в профиль Optimized Target (12524) — это раздел E, который 2.5 не читает никогда`)
+        if (!profile.includes(`{math({hex_to_decimal({hex_to_rhex({hex_file(CUST,${fo},3)})})}/1000,true)}CL`))
+          bad.push(`«${title}»: имя профиля 4IFIR 2.5 не собрано из частоты S своей ревизии (CUST ${fo}, МГц с отбрасыванием дроби)`)
+        if (profile.includes(`{hex_file(CUST,${other},`)) bad.push(`«${title}»: имя профиля ${v25} читает частоту другой ревизии (CUST ${other})`)
+        if (!conds.includes(`;visibility_condition=${FW66('2.5')}`)) bad.push(`«${title}»: пункт 4IFIR 2.5 виден не только на 2.5 — «${FW66('2.5')}» нет`)
+        if (!conds.includes(`;visibility_condition=!matching_hex_val_custom ${KIP66} CUST ${fo} 000000`))
+          bad.push(`«${title}»: пункт 4IFIR 2.5 виден при частоте eBAMATIC — раздел S тогда не собрать`)
+      } else {
+        if (sys.length) bad.push(`«${title}»: пункт 4IFIR 2.6 несёт ${sys.join(' ')} — раздел E общий для ревизий`)
+        if (!profile.includes('{hex_file(CUST,12524,')) bad.push(`«${title}»: имя профиля не читает Optimized Target (CUST 12524) — при Target 0 база 1331, и значение уедет в профиль 1600`)
+        if (/\{hex_file\(CUST,(32|24),/.test(profile)) bad.push(`«${title}»: пункт 4IFIR 2.6 пишет в раздел частоты S — 2.6 берёт напряжения ступени E из раздела E`)
+        if (!conds.includes(`;visibility_condition=${FW66('2.6')}`)) bad.push(`«${title}»: пункт 4IFIR 2.6 виден не только на 2.6 — «${FW66('2.6')}» нет`)
+      }
       if (!profile.includes('{hex_file(CUST,12352,')) bad.push(`«${title}»: имя профиля не читает eBAL (CUST 12352) — CL профиля взят с потолка`)
       if (/\d{3,4}CL\d/.test(profile)) bad.push(`«${title}»: имя профиля несёт литерал «${profile}» — профиль обязан собираться из kip`)
-      if (!sec.split('\n').some(l => l.trim() === "hex_file '/atmosphere/kips/loader.kip'"))
+      if (!lsec.includes("hex_file '/atmosphere/kips/loader.kip'"))
         bad.push(`«${title}»: имя профиля читает CUST, а hex_file на loader.kip в секции нет — имя разрешится в null`)
-      if (!sec.split('\n').some(l => l.trim() === GATE66))
+      if (!lsec.includes(GATE66))
         bad.push(`«${title}»: пункт виден при eBAL = eBAMATIC — имя профиля тогда не собрать, а запись всё равно пойдёт`)
       // the dictionary
       const src = sec.match(/^json_file_source\s+'([^']+)'\s+name\s*$/m)
@@ -5430,36 +5681,87 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
         bad.push(`«${title}»: подпись читает ${EMC66}, а объявления ini_file на него в ${relative(ROOT, foot.file)} нет`)
     }
   }
-  // ---- the hint that stands in for the hidden items (operator, 21.09.2026)
+  // ---- the hint that stands in for the hidden items (operator, 21.09.2026; 22.09.2026)
   //
-  // On eBAMATIC eBAL the two items are hidden, and the page must say why: one table under the
-  // items, visible exactly when they are not. The two conditions are a pair — a hint shown next
-  // to working items, or missing where the items vanished, reads as a broken page.
+  // Where the items are hidden the page says why, in exactly one line (operator, 22.09.2026):
+  // 2.6+ - `Set EMC Balance…` on an eBAMATIC eBAL; 2.5 names the section after the RAM clock too,
+  // so `Set EMC Balance…`, `Set Frequency…` or `Set Frequency and EMC Balance…` by what is on
+  // eBAMATIC; no 4IFIR - and no flag at all - nothing. Judged by RUNNING the conditions on every
+  // console (generation x revision x eBAL x clock): a hint next to working items, two hints, or
+  // items gone without a word all read as a broken page.
   const HINT66 = 'Set EMC Balance to use VDDQ/VDD2'
-  const SHOW66 = GATE66.replace('=!', '=')
+  const HINT66C = 'Set Frequency to use VDDQ/VDD2'
+  const HINT66B = 'Set Frequency and EMC Balance to use VDDQ/VDD2'
+  const HINTS66 = [HINT66, HINT66C, HINT66B]
+  // visibility of a section on a made-up console: `;system=` and the two condition kinds used
+  // here; gen null = the flag is missing from config.ini, which no `matching_ini_val` matches
+  const vis66 = (lines, env) => lines.every(l => {
+    if (l.startsWith(';system=')) return l.slice(8) === env.rev
+    if (!l.startsWith(';visibility_condition=')) return true
+    let c = l.slice(22); const neg = c.startsWith('!'); if (neg) c = c.slice(1)
+    const t = c.split(' ')
+    let r
+    if (t[0] === 'matching_ini_val' && t[1] === './config.ini' && t[2] === 'Firmware' && t[3] === 'gen') r = env.gen === t.slice(4).join(' ')
+    else if (t[0] === 'matching_hex_val_custom' && t[1] === KIP66 && t[2] === 'CUST') r = (env.kip[t[3]] ?? '000000').slice(0, t[4].length) === t[4]
+    else return false                               // unknown to this model: never shown
+    return neg ? !r : r
+  })
+  const hintText66 = s => s.split('\n').map(l => l.trim()).filter(l => l.startsWith("''='")).map(l => l.slice(4, -1)).join(' ')
   let hints66 = 0
   for (const f of iniFiles) {
     const secs = readFileSync(f, 'utf8').split(/\n(?=\[)/)
     const writers = secs.filter(s => /^\[\*/.test(s) && s.includes("set-ini-val '" + EMC66 + "'"))
     if (!writers.length) continue
     const rel = relative(ROOT, f)
-    const hints = secs.filter(s => s.includes(`''='${HINT66}'`))
-    if (hints.length !== 1) { bad.push(`${rel}: подсказок «${HINT66}» ${hints.length}, а ждали одну — при eBAMATIC пункты VDDQ/VDD2 скрыты без объяснения`); continue }
-    hints66++
-    const h = hints[0].split('\n').map(l => l.trim())
-    const rows = h.filter(l => l.startsWith("''='")).map(l => l.slice(4, -1))
-    if (rows.join(' ') !== HINT66) bad.push(`${rel}: подсказка гласит «${rows.join(' ')}» вместо «${HINT66}»`)
-    const cond = h.filter(l => l.startsWith(';visibility_condition='))
-    if (cond.length !== 1 || cond[0] !== SHOW66)
-      bad.push(`${rel}: подсказка показывается по «${cond.join(' | ') || 'без условия'}», а обязана ровно по «${SHOW66}» — обратному условию пунктов`)
+    // every table on the page that talks about VDDQ/VDD2 is a hint and must say one of the three
+    const hints = secs.filter(s => /^\[[^*@]/.test(s) && /;mode=table/.test(s) && hintText66(s).includes('VDDQ/VDD2'))
+    hints66 += hints.length
+    for (const hs of hints) {
+      const h = hs.split('\n').map(l => l.trim())
+      const text = hintText66(hs)
+      if (!HINTS66.includes(text)) bad.push(`${rel}: подсказка гласит «${text}», а ждали одну из «${HINTS66.join('», «')}»`)
+      // Framed table, text in the value column: below x+13 (the label column) it touches the frame.
+      const off = +(h.find(l => l.startsWith(';offset=')) || ';offset=164').slice(8)
+      if (off < 13) bad.push(`${rel}: подсказка с ;offset=${off} — текст прижат к рамке, нужно не меньше 13`)
+      for (const w of writers) {
+        if (secs.indexOf(w) > secs.indexOf(hs)) bad.push(`${rel}: подсказка стоит выше пункта «${(w.match(/^\[\*([^\]]+)]/) || [])[1]}», а место ей под пунктами`)
+      }
+    }
+    // Every console: exactly one item per key when the profile can be named on its generation,
+    // none otherwise; exactly the one hint that names what is on eBAMATIC, or none.
+    const byKey = new Map()
     for (const w of writers) {
-      const title = (w.match(/^\[\*([^\]]+)]/) || [])[1]
-      if (!w.split('\n').some(l => l.trim() === GATE66))
-        bad.push(`${rel}: подсказка видна при eBAL = eBAMATIC, а пункт «${title}» не скрыт — экран говорит «настройте баланс» рядом с работающим пунктом`)
-      if (secs.indexOf(w) > secs.indexOf(hints[0])) bad.push(`${rel}: подсказка стоит выше пункта «${title}», а место ей под пунктами`)
+      const k = (w.match(WRITE66) || [])[2]
+      if (k) byKey.set(k, [...(byKey.get(k) ?? []), w])
+    }
+    for (const gen of ['2.5', '2.6', 'none', null]) for (const rev of ['mariko', 'erista']) for (const bal of ['020000', '000000']) for (const clk of ['009222', '000000']) {
+      const env = { gen, rev, kip: { '12352': bal, [FREQ66[rev]]: clk, [FREQ66[rev === 'mariko' ? 'erista' : 'mariko']]: '10791C', '12524': '01' } }
+      const name = `${gen ?? 'без флага'}/${rev}/eBAL ${bal === '000000' ? 0 : 2}/частота ${clk === '000000' ? 0 : 2265}`
+      const bal0 = bal === '000000', clk0 = clk === '000000'
+      const can = (gen === '2.6' && !bal0) || (gen === '2.5' && !bal0 && !clk0)
+      for (const [k, ws] of byKey) {
+        const shown = ws.filter(w => vis66(w.split('\n').map(l => l.trim()), env))
+        if (shown.length !== (can ? 1 : 0))
+          bad.push(`${rel} (${name}): пунктов ${k} видно ${shown.length}, а ждали ${can ? 1 : 0}${shown.length ? ` — «${shown.map(w => (w.match(/^\[\*([^\]]+)]/) || [])[1]).join('», «')}»` : ''}`)
+        else if (can) {
+          const t = (shown[0].match(/^\[\*([^\]]+)]/) || [])[1] || ''
+          if (gen === '2.5' ? !t.endsWith(`?25${rev}`) : t.includes('?'))
+            bad.push(`${rel} (${name}): виден пункт «${t}», а ждали ${gen === '2.5' ? `пункт 4IFIR 2.5 для ${rev}` : 'пункт раздела E'}`)
+        }
+      }
+      const want = gen === '2.6' ? (bal0 ? HINT66 : null)
+        : gen === '2.5' ? (bal0 && clk0 ? HINT66B : bal0 ? HINT66 : clk0 ? HINT66C : null)
+        : null
+      const said = hints.filter(s => vis66(s.split('\n').map(l => l.trim()), env)).map(hintText66)
+      if (said.join(' | ') !== (want ?? ''))
+        bad.push(`${rel} (${name}): видно подсказок ${said.length} — «${said.join('» + «') || '—'}», а ждали «${want ?? '—'}»`)
     }
   }
-  if (!hints66) bad.push(`подсказки «${HINT66}» нет ни на одной странице с пунктами VDDQ/VDD2`)
+  if (!hints66) bad.push(`подсказок про VDDQ/VDD2 нет ни на одной странице с пунктами VDDQ/VDD2`)
+  for (const k of ['eVDQ', 'eVD2']) {
+    const tags = writers66.filter(w => w.key === k).map(w => w.rev ?? '2.6').sort().join(',')
+    if (tags !== '2.6,erista,mariko') bad.push(`пункты ${k}: места записи «${tags}», а ждали по одному на 4IFIR 2.6 и на 4IFIR 2.5 каждой ревизии`)
+  }
 
   // ---- where the values are shown
   const OPT66 = "'Optimized Mode ({list(0)} MHz)' = ''"
@@ -5489,15 +5791,24 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
       if (!head.split(NL66).some(l => l.startsWith("list '[") && l.includes(`{if_==(${src66},01,1600,1331)}`)))
         bad.push(`${rel}: заголовок блока Optimized Mode не берёт базу из ${src66} — число в нём не про эту страницу`)
     }
-    // The block is the [Info] table right after the heading, up to the next section.
-    const info = txt.slice(txt.indexOf('[Info]', at)).split(SEC66)[0].split(NL66)
-    const rows = info.map(l => (l.match(/^'([^']*)' = '/) || [])[1]).filter(x => x != null && x !== '')
+    // The block is the [Info] table right after the heading. On Current it comes in three
+    // variants, one per place the firmware reads (DECISIONS 22.09.2026): each is checked, and on
+    // every console exactly one of them is shown.
+    const after66 = txt.slice(txt.indexOf('[Info]', at)).split(SEC66)
+    const infos = after66.slice(0, Math.max(1, after66.findIndex(x => !x.startsWith('[Info]')))).map(x => x.split(NL66))
     const onReset = rel === RESET66
+    if (rel === 'current.ini') {
+      for (const gen of ['2.5', '2.6', 'none', null]) for (const rev of ['mariko', 'erista']) {
+        const n = infos.filter(i => vis66(i.map(l => l.trim()), { gen, rev, kip: {} })).length
+        if (n !== 1) bad.push(`${rel}: на консоли ${gen}/${rev} видно ${n} таблиц блока Optimized Mode, а ждали одну`)
+      }
+    } else if (infos.length !== 1) bad.push(`${rel}: у блока Optimized Mode ${infos.length} таблиц, а ждали одну — ревизия страницы и так известна`)
+    for (const info of infos) {
+    const rows = info.map(l => (l.match(/^'([^']*)' = '/) || [])[1]).filter(x => x != null && x !== '')
     blocks66++
     // The order is the operator's decision on every page, reset included (20.09.2026).
     if (rows.join('|') !== WANT66.join('|'))
       bad.push(`${rel}: блок Optimized Mode идёт «${rows.join(' · ')}» вместо «${WANT66.join(' · ')}» — порядок задан оператором 20.09.2026`)
-    const hasVolts = ['VDDQ', 'VDD2'].every(nm => info.some(l => l.startsWith(`'${nm}' = '`)))
     if (onReset) {
       // "What will be applied" — the word the reset writes, flat, never a read of the file:
       // the value standing there now answers a different question.
@@ -5514,8 +5825,24 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
         bad.push(`${rel}: блок Optimized Mode не читает ${EMC66} — напряжения брать неоткуда`)
       const tgt66 = rel === 'current.ini' ? '{hex_file(CUST,12524,1)}' : '{ini_file(Fields,12524)}'
       const lists = info.filter(l => l.startsWith("list '["))
-      if (!lists.length || !lists.some(l => l.includes(tgt66)))
-        bad.push(`${rel}: имя профиля в блоке Optimized Mode не собрано из Optimized Target (${tgt66})`)
+      const sys66 = (info.find(l => l.startsWith(';system=')) || '').slice(8)
+      const cond66 = info.filter(l => l.startsWith(';visibility_condition='))
+      if (rel === 'current.ini' && sys66) {
+        // 4IFIR 2.5: the S section by this revision's clock; E is never read there
+        const fo = FREQ66[sys66], other = FREQ66[sys66 === 'mariko' ? 'erista' : 'mariko']
+        if (!cond66.includes(`;visibility_condition=${FW66('2.5')}`)) bad.push(`${rel}: таблица блока Optimized Mode для ${sys66} видна не только на 4IFIR 2.5`)
+        if (!lists.some(l => l.includes(`{math({hex_to_decimal({hex_to_rhex({hex_file(CUST,${fo},3)})})}/1000,true)}CL`)))
+          bad.push(`${rel}: блок Optimized Mode для 4IFIR 2.5 ${sys66} не собирает раздел из частоты S (CUST ${fo})`)
+        if (lists.some(l => l.includes(`{hex_file(CUST,${other},`))) bad.push(`${rel}: блок Optimized Mode ${sys66} читает частоту другой ревизии (CUST ${other})`)
+        if (lists.some(l => l.includes('{if_==({hex_file(CUST,12524,1)},01,1600,1331)}CL'))) bad.push(`${rel}: блок Optimized Mode для 4IFIR 2.5 читает раздел E, которого 2.5 не читает`)
+      } else {
+        if (!lists.length || !lists.some(l => l.includes(tgt66)))
+          bad.push(`${rel}: имя профиля в блоке Optimized Mode не собрано из Optimized Target (${tgt66})`)
+        if (!lists.some(l => l.includes('{ini_file(Firmware,gen)}')))
+          bad.push(`${rel}: блок Optimized Mode не спрашивает поколение 4IFIR — без 4IFIR строки напряжений останутся`)
+        if (rel !== 'current.ini' && !lists.some(l => l.includes(`{ini_file(Fields,${FREQ66[rel.includes('erista') ? 'erista' : 'mariko']})}`)))
+          bad.push(`${rel}: блок Optimized Mode копии не читает частоту S копии — на 4IFIR 2.5 раздел не собрать`)
+      }
       if (lists.some(l => /\d{3,4}CL\d/.test(l)))
         bad.push(`${rel}: имя профиля в блоке Optimized Mode несёт литерал частоты — при Target 0 база 1331`)
       for (const nm of ['VDDQ', 'VDD2']) {
@@ -5543,6 +5870,9 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
           bad.push(`${rel}: строка «${nm}» читает kip, а hex_file на этой строке — «${hex66 ?? 'нет'}»`)
       }
     }
+    }
+    const info = infos[0]
+    const hasVolts = ['VDDQ', 'VDD2'].every(nm => info.some(l => l.startsWith(`'${nm}' = '`)))
     // ОГОВОРКА И СТРОКИ — ОДНО ЦЕЛОЕ. Экран, на котором оговорка пережила строки, которые
     // она объясняет, противоречит сам себе: «здесь напряжения этой консоли, а не копии» —
     // а напряжений нет вовсе. Оговорка законна ТОЛЬКО там, где блок смешивает два источника.
@@ -5568,41 +5898,53 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
       writes66++
       const ls = sec.split(NL66).map(l => l.trim())
       const keys = ['eVDQ', 'eVD2']
-      const atW = keys.map(k => ls.findIndex(l => l.startsWith(`set-ini-val '${EMC66}' '`) && l.endsWith(`' ${k} '0'`)))
+      const rrev = head.endsWith('?erista') ? 'erista' : 'mariko'
+      const fo = FREQ66[rrev]
       const atKip = ls.findIndex(l => l.startsWith('hex-by-custom-offset '))
-      keys.forEach((k, i) => {
-        if (atW[i] < 0) bad.push(`${RESET66} «${head}»: сброс не возвращает ${k} в eBAMATIC — записи set-ini-val '${EMC66}' … ${k} '0' нет`)
-        else if (atKip >= 0 && atW[i] > atKip) bad.push(`${RESET66} «${head}»: запись ${k} стоит ПОСЛЕ правки kip — к этому моменту eBAL уже 000000, и ноль уедет в раздел CL8, которого прошивка не читает`)
-      })
-      if (!atW.every(i => i >= 0)) continue
-      const prof = ls[atW[0]].match(/^set-ini-val '[^']*' '([^']*)'/)[1]
-      if (!prof.includes('{hex_file(CUST,12524,') || !prof.includes('{hex_file(CUST,12352,'))
-        bad.push(`${RESET66} «${head}»: раздел записи собран не из живого kip (12524 и 12352) — «${prof}»`)
-      if (/\d{3,4}CL\d/.test(prof)) bad.push(`${RESET66} «${head}»: раздел записи несёт литерал частоты — «${prof}»`)
       if (!ls.includes(`hex_file '${KIP66}'`))
         bad.push(`${RESET66} «${head}»: раздел записи читает CUST, а hex_file на ${KIP66} в секции нет — имя разрешится в null`)
-      // ONE BRANCH PER KEY (21.09.2026): `try:` → eBAL gate → "key exists" gate → the zero →
-      // `force_failure` → next `try:`. `force_failure` drops the flag (fork `setCommandFailed`),
-      // only `try:` raises it again, and a `try:` meeting a SUCCESSFUL branch ends the section
-      // (`commands = {}; return true`) — so exactly one `try:` per branch plus one for the kip.
+      // TWO BRANCHES PER KEY (22.09.2026), one per generation: `try:` → eBAL gate → the generation
+      // → (2.5: a fixed clock) → "key exists" → the zero → `force_failure` → next `try:`.
+      // `force_failure` drops the flag (fork `setCommandFailed`), only `try:` raises it again, and
+      // a `try:` meeting a SUCCESSFUL branch ends the section (`commands = {}; return true`) — so
+      // exactly one `try:` per branch plus one for the kip.
       const tries = ls.reduce((a, l, i) => (l === 'try:' && a.push(i), a), [])
-      const want = keys.length + 1
-      keys.forEach((k, i) => {
-        const w = atW[i]
-        const open = tries.filter(t => t < w).pop()
-        const close = ls.findIndex((l, j) => j > w && (l === 'try:' || l === 'force_failure' || l.startsWith('hex-by-custom-offset ')))
-        const branch = open === undefined ? [] : ls.slice(open, w)
-        if (open === undefined || !branch.includes(`!matching_hex_val_custom ${KIP66} CUST 12352 000000`))
-          bad.push(`${RESET66} «${head}»: запись нулей не закрыта затвором «try: + !matching_hex_val_custom … CUST 12352 000000» (${k}) — при eBAL = eBAMATIC ноль уедет в раздел CL8`)
-        else if (!branch.includes(`!matching_ini_val '${EMC66}' '${prof}' ${k} ''`))
-          bad.push(`${RESET66} «${head}»: ноль ${k} пишется без проверки «ключ уже есть» — на чистой консоли сброс создаст файл и профиль, которых никто не сохранял`)
-        if (close < 0 || ls[close] !== 'force_failure')
-          bad.push(`${RESET66} «${head}»: после записи нулей нет force_failure (${k}) — следующий try: оборвёт секцию, и сам сброс kip не выполнится`)
-        else if (ls[close + 1] !== 'try:')
-          bad.push(`${RESET66} «${head}»: после force_failure нет второго «try:» (${k}) — флаг отказа никто не поднимет, и весь сброс kip будет пропущен молча`)
+      const want = keys.length * 2 + 1
+      keys.forEach(k => {
+        const ws = ls.reduce((a, l, i) => (l.startsWith(`set-ini-val '${EMC66}' '`) && l.endsWith(`' ${k} '0'`) && a.push(i), a), [])
+        if (!ws.length) { bad.push(`${RESET66} «${head}»: сброс не возвращает ${k} в eBAMATIC — записи set-ini-val '${EMC66}' … ${k} '0' нет`); return }
+        const kinds = new Set()
+        for (const w of ws) {
+          const prof = ls[w].match(/^set-ini-val '[^']*' '([^']*)'/)[1]
+          const isS = prof.includes(`{math({hex_to_decimal({hex_to_rhex({hex_file(CUST,${fo},3)})})}/1000,true)}CL`)
+          const isE = prof.includes('{if_==({hex_file(CUST,12524,1)},01,1600,1331)}CL')
+          const gen = isS ? '2.5' : '2.6'
+          kinds.add(isS && !isE ? 'S' : isE && !isS ? 'E' : '?')
+          if (atKip >= 0 && w > atKip) bad.push(`${RESET66} «${head}»: запись ${k} стоит ПОСЛЕ правки kip — к этому моменту eBAL уже 000000, и ноль уедет в раздел CL8, которого прошивка не читает`)
+          if (!prof.includes('{hex_file(CUST,12352,')) bad.push(`${RESET66} «${head}»: раздел записи собран не из живого kip (12352) — «${prof}»`)
+          if (/\{hex_file\(CUST,(32|24),/.test(prof) && !isS) bad.push(`${RESET66} «${head}»: раздел записи ${k} читает частоту другой ревизии — «${prof}»`)
+          if (/\d{3,4}CL\d/.test(prof)) bad.push(`${RESET66} «${head}»: раздел записи несёт литерал частоты — «${prof}»`)
+          const open = tries.filter(t => t < w).pop()
+          const close = ls.findIndex((l, j) => j > w && (l === 'try:' || l === 'force_failure' || l.startsWith('hex-by-custom-offset ')))
+          const branch = open === undefined ? [] : ls.slice(open, w)
+          if (open === undefined || !branch.includes(`!matching_hex_val_custom ${KIP66} CUST 12352 000000`))
+            bad.push(`${RESET66} «${head}»: запись нулей не закрыта затвором «try: + !matching_hex_val_custom … CUST 12352 000000» (${k}) — при eBAL = eBAMATIC ноль уедет в раздел CL8`)
+          else if (!branch.includes(`matching_ini_val './config.ini' Firmware gen ${gen}`))
+            bad.push(`${RESET66} «${head}»: ноль ${k} в раздел ${isS ? 'S' : 'E'} пишется не только на 4IFIR ${gen} — затвора поколения нет`)
+          else if (isS && !branch.includes(`!matching_hex_val_custom ${KIP66} CUST ${fo} 000000`))
+            bad.push(`${RESET66} «${head}»: ноль ${k} в раздел S пишется и при частоте eBAMATIC — раздел тогда не собрать`)
+          else if (!branch.includes(`!matching_ini_val '${EMC66}' '${prof}' ${k} ''`))
+            bad.push(`${RESET66} «${head}»: ноль ${k} пишется без проверки «ключ уже есть» — на чистой консоли сброс создаст файл и профиль, которых никто не сохранял`)
+          if (close < 0 || ls[close] !== 'force_failure')
+            bad.push(`${RESET66} «${head}»: после записи нулей нет force_failure (${k}) — следующий try: оборвёт секцию, и сам сброс kip не выполнится`)
+          else if (ls[close + 1] !== 'try:')
+            bad.push(`${RESET66} «${head}»: после force_failure нет второго «try:» (${k}) — флаг отказа никто не поднимет, и весь сброс kip будет пропущен молча`)
+        }
+        if (ws.length !== 2 || kinds.size !== 2 || kinds.has('?'))
+          bad.push(`${RESET66} «${head}»: ${k} обнуляется в ${ws.length} местах (${[...kinds].join(', ')}), а ждали два — раздел E для 4IFIR 2.6 и раздел S частоты ${rrev} для 4IFIR 2.5`)
       })
       if (tries.length !== want)
-        bad.push(`${RESET66} «${head}»: «try:» в секции ${tries.length}, а их обязано быть ${want} — по одному на ветвь ключа и один на сброс kip; лишний встретит удавшуюся ветвь и оборвёт секцию целиком`)
+        bad.push(`${RESET66} «${head}»: «try:» в секции ${tries.length}, а их обязано быть ${want} — по одному на ветвь ключа и поколения и один на сброс kip; лишний встретит удавшуюся ветвь и оборвёт секцию целиком`)
       else if (atKip >= 0 && tries[want - 1] > atKip)
         bad.push(`${RESET66} «${head}»: последний «try:» стоит ПОСЛЕ первой правки kip — команды до него выполнены не будут`)
     }
@@ -5613,9 +5955,9 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   if (!items66 || !entries66 || !blocks66 || !writes66)
     problems.push({ sev: 'CRITICAL', what: `проверка пунктов, пишущих напряжения Magician, не нашла предмета надзора (пунктов ${items66}, значений ${entries66}, блоков показа ${blocks66}, ветвей сброса ${writes66}) — она смотрит в пустоту` })
   else if (bad.length)
-    problems.push({ sev: 'CRITICAL', what: `пункт напряжения Magician пишет не то или не туда (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
+    problems.push({ sev: 'CRITICAL', what: `пункт напряжения Magician пишет не то или не туда (${bad.length}):\n     ${bad.slice(0, 40).join('\n     ')}` })
   else
-    ok.push(`the Magician voltage items address the profile from the kip, write the millivolts they name, are hidden on eBAMATIC eBAL with the hint shown exactly then, are shown in the Optimized block in the operator's order and are put back to eBAMATIC by the reset before it touches the kip (${items66} items, ${entries66} values, ${hints66} hints, ${blocks66} blocks, ${writes66} reset branches)`)
+    ok.push(`the Magician voltage items address the profile the console's 4IFIR reads (E on 2.6+, the S clock on 2.5, none without 4IFIR), write the millivolts they name, are hidden where it cannot be named with the hint shown exactly then, are shown in the Optimized block in the operator's order and are put back to eBAMATIC by the reset before it touches the kip (${items66} items, ${entries66} values, ${hints66} hints, ${blocks66} blocks, ${writes66} reset branches)`)
 }
 
 // ---------------- 67. eBAMATIC opens every option list that offers it
@@ -5662,29 +6004,31 @@ const EBAMATIC_NOT_FIRST67 = new Map([
   else ok.push(`eBAMATIC opens every option list that offers it (${lists.size} lists, ${EBAMATIC_NOT_FIRST67.size ? `${EBAMATIC_NOT_FIRST67.size} excused` : 'none excused'})`)
 }
 
-// ---------------- 68. a backup carries the Magician voltages, and restore puts them where the page would
+// ---------------- 68. VDDQ/VDD2 on entry, in backups and on page 2, run on a model of the engine
 //
-// Operator, 21.09.2026: timings from a backup without their own VDDQ/VDD2 are a combination no
-// one tested. So a backup made now saves the live profile's eVDQ/eVD2 under [Optimized] (a
-// missing key, or eBAL on eBAMATIC, saved as 0), restore writes them into the profile named by
-// the backup's own 12524 and 12352 - always, zero included - and an older backup without the
-// keys leaves emc_timings.ini alone. Page 2 shows the backup's values; the caveat "this console"
-// stays for older backups only.
+// Operator, 22.09.2026: "we cancel and do not put them in" - a backup carries no VDDQ/VDD2 and no
+// `Meta firmware` (it existed for the voltages only), Apply never touches emc_timings.ini, and a
+// 21-22.09.2026 backup's [Optimized] is ignored. Page 2 of every backup shows THIS console's
+// values under the backup's profile, with the caveat "this console".
 //
-// Read as text, all three places look right after most one-line breakages, so the sections are
-// RUN: a small model of the engine's command loop (try:/force_failure/skip, bindings per
-// command, placeholders innermost first - fork `interpretAndExecuteCommands`) plays Create and
-// Apply on made-up consoles and backups, and the page-2 rows are resolved the same way. The
-// profile recipe is also compared as text with the Optimized Mode page's own write.
+// WHICH PROFILE depends on the console's 4IFIR (DECISIONS 22.09.2026). 2.6+ reads the E section
+// `<1600|1331>CL<n>`, 2.5 the S section `<RAM MHz>CL<n>` (clock at CUST 32 on Mariko, 24 on
+// Erista), a console without 4IFIR.ovl nothing. The forwarder into each page that asks reads the
+// overlay afresh and leaves [Firmware] gen next to the page: [boot] is skipped under quick launch.
+// Entering only reads the file (operator, 22.09.2026: values already set are shown, not rewritten).
+//
+// Read as text, all these places look right after most one-line breakages, so the sections are
+// RUN: a small model of the engine's command loop (try:/force_failure/skip, bindings per command,
+// placeholders innermost first, `mariko:`/`erista:` labels, `;system=` and the conditions the
+// pages use - fork `interpretAndExecuteCommands`, `evaluateMenuCondition`) plays every forwarder,
+// [boot], Create, Apply, the reset and page 2 on made-up consoles of every generation and revision.
 {
   const EMC68 = '/config/4IFIR/emc_timings.ini'
   const KIP68 = '/atmosphere/kips/loader.kip'
+  const OVL68 = '/switch/.overlays/4IFIR.ovl'
+  const FQ68 = { mariko: '32', erista: '24' }
   const bad = []
   let runs68 = 0
-  const pageTxt = (() => { const f = join(DIST, 'advanced', 'ram', 'ram-optimized', 'package.ini'); return existsSync(f) ? readFileSync(f, 'utf8') : '' })()
-  const pageProf = (pageTxt.match(new RegExp("^set-ini-val '" + EMC68 + "' '([^']+)' eVDQ ", 'm')) || [])[1]
-  if (!pageProf) bad.push('на странице Optimized Mode нет записи eVDQ — сверять формулу раздела не с чем')
-  const copyProf = pageProf && pageProf.replace(/\{hex_file\(CUST,(\d+),\d+\)\}/g, '{ini_file(Fields,$1)}')
 
   // ---- the engine model: tokens as parseCommandLine, placeholders innermost first
   const tok68 = line => {
@@ -5708,7 +6052,8 @@ const EBAMATIC_NOT_FIRST67 = new Map([
       let v
       if (fn === 'hex_file') {
         const [, off, len] = p
-        v = st.hex === KIP68 ? (st.kip[off] ?? '00'.repeat(Number(len))).slice(0, Number(len) * 2) : 'null'
+        v = st.hex === KIP68 ? (st.kip[off] ?? '00'.repeat(Number(len))).slice(0, Number(len) * 2)
+          : st.bins?.[norm68(st.hex)] ? (hexAt68(st, st.hex, p[0], off, Number(len)) || 'UNRESOLVED_HEX_FILE') : 'null'
       } else if (fn === 'ini_file') v = st.files[norm68(st.ini)]?.[p[0]]?.[p.slice(1).join(',')] || 'null'
       else if (fn === 'list') v = st.list[Number(p[0])] ?? 'null'
       else if (fn === 'if_==') v = p[0] === p[1] ? p[2] : (p.length > 3 ? p.slice(3).join(',') : p[0])
@@ -5721,12 +6066,37 @@ const EBAMATIC_NOT_FIRST67 = new Map([
     }
     return arg
   }
+  // `matching_hex_val_custom` and `{hex_file()}` on any file: the kip by its cells, any other file
+  // (the overlay, a Buffer) by its bytes at the first pattern + offset. As in libultra, finding the
+  // pattern reads the whole file (st.scans) and only a hit is cached (hexSumCache, st.hcache).
+  // A missing file matches nothing.
+  const hexOf68 = b => b.toString('hex').toUpperCase()
+  const hexAt68 = (st, path, pat, off, len) => {
+    if (norm68(path) === KIP68) return (st.kip[off] ?? '00'.repeat(len)).slice(0, len * 2)
+    const buf = st.bins?.[norm68(path)]
+    if (!buf) return ''
+    const key = `${norm68(path)}?${pat}`
+    let at = (st.hcache ??= {})[key]
+    if (at === undefined) { st.scans = (st.scans ?? 0) + 1; at = buf.indexOf(pat); if (at >= 0) st.hcache[key] = at }
+    const from = at + Number(off)
+    return at < 0 || from + len > buf.length ? '' : hexOf68(buf.subarray(from, from + len))
+  }
+  // `matching_hex_val`: fopen, fseek, fread of the bytes asked - no search (fork `hexValMatches`).
+  const absAt68 = (st, path, off, len) => {
+    const buf = st.bins?.[norm68(path)]
+    if (!buf) return ''
+    st.reads = (st.reads ?? 0) + 1
+    return Number(off) + len > buf.length ? '' : hexOf68(buf.subarray(Number(off), Number(off) + len))
+  }
+  const hexOk68 = h => h.length > 0 && h.length % 2 === 0 && /^[0-9A-Fa-f]+$/.test(h)
   const run68 = (secText, st) => {
     st.footer = null; st.kipWrites = 0
-    let inTry = false, okFlag = true
+    let inTry = false, okFlag = true, plat = null
     for (const raw of secText.split('\n').slice(1)) {
       const line = raw.trim()
       if (!line || line.startsWith(';')) continue
+      if (line === 'mariko:' || line === 'erista:') { plat = line.slice(0, -1); continue }
+      if (plat && plat !== st.rev) continue                    // dropped before the loop runs
       if (line === 'try:') { if (inTry && okFlag) return st; okFlag = true; inTry = true; continue }
       if (inTry && !okFlag) continue
       const [cmd, ...args] = tok68(line).map(t => resolve68(t, st))
@@ -5738,19 +6108,175 @@ const EBAMATIC_NOT_FIRST67 = new Map([
         const act = st.files[norm68(args[0])]?.[args[1]]?.[args[2]] ?? ''
         okFlag = (act === args.slice(3).join(' ')) === (cmd === 'matching_ini_val')
       } else if (cmd === 'matching_hex_val_custom' || cmd === '!matching_hex_val_custom') {
-        const [kp, , off, hex = ''] = args
-        const act = norm68(kp) === KIP68 ? (st.kip[off] ?? '00'.repeat(hex.length / 2)).slice(0, hex.length) : ''
-        okFlag = (act.toUpperCase() === hex.toUpperCase()) === (cmd === 'matching_hex_val_custom')
+        const [kp, pat, off, hex = ''] = args
+        const act = hexAt68(st, kp, pat, off, hex.length / 2)
+        okFlag = (act !== '' && act.toUpperCase() === hex.toUpperCase()) === (cmd === 'matching_hex_val_custom')
+      } else if (cmd === 'matching_hex_val' || cmd === '!matching_hex_val') {
+        const [kp, off, hex = ''] = args
+        const act = hexOk68(hex) ? absAt68(st, kp, off, hex.length / 2) : ''
+        okFlag = (act !== '' && act === hex.toUpperCase()) === (cmd === 'matching_hex_val')
       } else if (cmd === 'force_failure') okFlag = false
-      else if (cmd === 'path_exists') okFlag = norm68(args[0]) in st.files
+      else if (cmd === 'path_exists' || cmd === '!path_exists') okFlag = (norm68(args[0]) in st.files || norm68(args[0]) in (st.bins ?? {})) === (cmd === 'path_exists')
+      else if (cmd === 'remove-ini-key') delete st.files[norm68(args[0])]?.[args[1]]?.[args[2]]
       else if (cmd === 'delete') delete st.files[norm68(args[0])]
       else if (cmd === 'set-footer') st.footer = args[0]
       else if (cmd === 'hex-by-custom-offset') { if (args[3] !== 'null') { st.kip[args[2]] = args[3]; st.kipWrites++ } }
     }
     return st
   }
-  const EMC_OTHER = { '1600CL12': { eVDQ: '1111', eVD2: '2222', tRAS: '7' }, '1866CL16': { tRCD: '9' } }
+  // A section's visibility, as evaluateMenuCondition and `;system=` decide it: every line holds.
+  const shown68 = (sec, st) => sec.split('\n').map(l => l.trim()).every(l => {
+    if (l.startsWith(';system=')) return l.slice(8) === st.rev
+    if (!l.startsWith(';visibility_condition=')) return true
+    let c = l.slice(22); const neg = c.startsWith('!'); if (neg) c = c.slice(1)
+    const t = c.split(' ')
+    let r
+    if (t[0] === 'matching_ini_val') r = (st.files[norm68(t[1])]?.[t[2]]?.[t[3]] ?? '') === t.slice(4).join(' ')
+    else if (t[0] === 'matching_hex_val_custom') { const act = hexAt68(st, t[1], t[2], t[3], t[4].length / 2); r = act !== '' && act.toUpperCase() === t[4].toUpperCase() }
+    else return false
+    return neg ? !r : r
+  })
+  // Rows of a table, bindings and lists as the table builder reads them.
+  const rows68 = (sec, st) => {
+    const rows = {}
+    for (const raw of sec.split('\n')) {
+      const l = raw.trim()
+      const d = l.match(/^(ini_file|hex_file|list)\s+'(.*)'$/)
+      if (d) { const v = resolve68(d[2], st); if (d[1] === 'ini_file') st.ini = v; else if (d[1] === 'hex_file') st.hex = v; else st.list = v.replace(/^\[|\]$/g, '').split(',').map(x => x.trim()); continue }
+      const r = l.match(/^'([^']*)'\s*=\s*'(.*)'$/)
+      if (r) rows[resolve68(r[1], st)] = resolve68(r[2], st)
+    }
+    return rows
+  }
   const clone = o => JSON.parse(JSON.stringify(o))
+  const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+  // The clock of the made-up console: 2265.6 MHz here, 1866 MHz at the OTHER revision's offset -
+  // a profile named from the wrong offset lands in the trap section 1866CL12.
+  const CLK = '009222', TRAP = '10791C'
+  const kipOf = (rev, bal, tgt, clk = CLK) => ({ '12352': bal, '12524': tgt, [FQ68[rev]]: clk, [FQ68[rev === 'mariko' ? 'erista' : 'mariko']]: TRAP })
+  const EMC_OTHER = { '1600CL12': { eVDQ: '1111', eVD2: '2222', tRAS: '7' }, '1866CL16': { tRCD: '9' } }
+  // A file both generations have written to: E, the S section of this clock, the trap.
+  const EMC_BOTH = { '1600CL12': { eVDQ: '1111', eVD2: '2222', tRAS: '7' }, '2265CL12': { eVDQ: '3333', eVD2: '4444', sRP: '5' }, '1866CL12': { eVDQ: '9', eVD2: '9' } }
+
+  // ---- entry: every forwarder into a page that reads the flag detects the generation afresh
+  //
+  // The engine skips [boot] when the package's boot is off or quick launch is on (fork main.cpp,
+  // `useQuickLaunch`), so a flag left there could be stale after a 2.5 -> 2.6 update or missing.
+  // Each forwarder into a page that asks [Firmware] gen runs the detection before the page is
+  // built; here each is RUN on four overlays x two revisions, starting from a right, a wrong and a
+  // missing flag. And entering writes nothing into emc_timings.ini (operator, 22.09.2026: values
+  // already there are only read and shown): every forwarder and [boot] run on a console with the
+  // file, which must come out unchanged.
+  const readsGen68 = t => t.split('\n').some(l => !l.startsWith('set-ini-val ') && !l.endsWith("Firmware gen ''") && /Firmware gen |\{ini_file\(Firmware,gen\)\}/.test(l))
+  const forwarders68 = []
+  for (const f of iniFiles) {
+    const rel = relative(DIST, f).split(String.fromCharCode(92)).join('/')
+    const dir = posix.dirname(rel)
+    for (const sec of readFileSync(f, 'utf8').split(/\n(?=\[)/)) {
+      if (!/^;mode=forwarder$/m.test(sec)) continue
+      const src = sec.match(/^package_source '([^']+)'$/m)
+      forwarders68.push({ rel, title: (sec.match(/^\[\*?([^\]]+)]/) || [])[1], sec, target: src ? posix.join(dir, src[1]) : null })
+    }
+  }
+  // Made-up overlays with the layout of the real ones (docs/research/tools/zovlgen.py): NRO0 at 0x10,
+  // build-id at 0x40, ASET, NACP right after its 0x38-byte header unless an icon comes first.
+  // 2.7+ under a name nobody knows yet reads VDDQ/VDD2 like 2.6 (operator, 22.09.2026).
+  const bid68 = n => Buffer.alloc(20, n)
+  const mkOvl68 = ({ name, bid, icon = false, code = '' }) => {
+    const b = Buffer.alloc(0x2000)
+    b.write('NRO0', 0x10, 'latin1'); bid.copy(b, 0x40); b.write(code, 0x200, 'latin1')
+    const a = 0x1000, nacp = icon ? 0x138 : 0x38
+    b.write('ASET', a, 'latin1'); b.writeBigUInt64LE(icon ? 0x38n : 0n, a + 8); b.writeBigUInt64LE(icon ? 0x100n : 0n, a + 16)
+    b.writeBigUInt64LE(BigInt(nacp), a + 24); b.writeBigUInt64LE(0x400n, a + 32); b.write(name, a + nacp, 'latin1')
+    return { buf: b, bid: bid.toString('hex').toUpperCase() }
+  }
+  const ZERO68 = '00'.repeat(20)
+  const O25 = mkOvl68({ name: '4IFIR Houdini', bid: bid68(0x25), code: 'Houdini' })
+  const O26 = mkOvl68({ name: '4IFIR Nextgen', bid: bid68(0x26) })
+  const O27 = mkOvl68({ name: '4IFIR Futurename', bid: bid68(0x27) })
+  const OZERO = mkOvl68({ name: '4IFIR Nextgen', bid: bid68(0) })
+  const OVLS68 = [
+    ['4IFIR 2.5', O25, '2.5'], ['4IFIR 2.6', O26, '2.6'], ['4IFIR 2.7 с неизвестным именем', O27, '2.6'],
+    ['4IFIR 2.7, «Houdini» в коде', mkOvl68({ name: '4IFIR Futurename', bid: bid68(0x28), code: 'Houdini' }), '2.6'],
+    ['4IFIR 2.5 с иконкой (NACP сдвинут)', mkOvl68({ name: '4IFIR Houdini', bid: bid68(0x29), icon: true, code: 'Houdini' }), '2.5'],
+    ['4IFIR 2.6 с иконкой', mkOvl68({ name: '4IFIR Nextgen', bid: bid68(0x2A), icon: true }), '2.6'],
+    ['4IFIR 2.6 с нулевым build-id', OZERO, '2.6'],
+    ['без 4IFIR.ovl', null, 'none'],
+  ]
+  // What the page's config.ini held before: a right flag, a flag with another overlay's fingerprint,
+  // a flag without one, nothing, a hand-made zero fingerprint, a fingerprint without a flag.
+  const WAS68 = [
+    ['2.5 с отпечатком 2.5', { gen: '2.5', ovl_id: O25.bid }], ['2.6 с отпечатком 2.6', { gen: '2.6', ovl_id: O26.bid }],
+    ['2.5 без отпечатка', { gen: '2.5' }], ['не записан', null], ['2.5 с нулевым отпечатком', { gen: '2.5', ovl_id: ZERO68 }],
+    ['отпечаток без флага', { ovl_id: O26.bid }],
+  ]
+  // The fingerprint is trusted only when it is this overlay's, not zero, and the flag is there.
+  const trusted68 = (ovl, was) => !!ovl && !!was?.gen && was.ovl_id === ovl.bid && ovl.bid !== ZERO68
+  const entryState68 = (rev, ovl, files) => ({ kip: kipOf(rev, '020000', '01'), hex: null, ini: null, list: [], rev,
+    bins: ovl ? { [OVL68]: ovl.buf } : {}, hcache: {}, scans: 0, reads: 0, files: { [EMC68]: clone(EMC_BOTH), ...clone(files) } })
+  let entries68 = 0, trustedRuns68 = 0
+  for (const fw of forwarders68) {
+    const tf = fw.target && join(DIST, fw.target)
+    const reads = !!tf && existsSync(tf) && readsGen68(readFileSync(tf, 'utf8'))
+    const cfgs = [...new Set([...fw.sec.matchAll(/^set-ini-val '([^']+)' Firmware gen /gm)].map(m => m[1]))]
+    const where = `${fw.rel} «${fw.title}» → ${fw.target}`
+    for (const [name, ovl, want] of OVLS68) for (const rev of ['mariko', 'erista']) for (const [wasName, was] of WAS68) {
+      runs68++
+      const st = entryState68(rev, ovl, Object.fromEntries(cfgs.map(c => [c, was ? { Firmware: { ...was } } : {}])))
+      run68(fw.sec, st)
+      if (!same(st.files[EMC68], EMC_BOTH))
+        bad.push(`${fw.rel} «${fw.title}» (${name}, ${rev}): вход на страницу изменил emc_timings.ini — ${JSON.stringify(st.files[EMC68])}`)
+      if (!reads) continue
+      entries68++
+      const trust = trusted68(ovl, was)
+      const wantGen = trust ? was.gen : want
+      const wantId = trust ? was.ovl_id : (ovl && ovl.bid !== ZERO68 ? ovl.bid : undefined)
+      const got = cfgs.map(c => st.files[c]?.Firmware?.gen ?? '—')
+      const ids = cfgs.map(c => st.files[c]?.Firmware?.ovl_id)
+      const ctx = `${where} (${name}, ${rev}, было: ${wasName})`
+      if (!cfgs.length || got.some(g => g !== wantGen))
+        bad.push(`${ctx}: поколение записано как ${got.join('/') || 'никак'}, а ждали ${wantGen}`)
+      if (ids.some(i => i !== wantId))
+        bad.push(`${ctx}: ovl_id = ${ids.map(i => i ?? '—').join('/')}, а ждали ${wantId ?? 'пусто'}${ovl?.bid === ZERO68 ? ' — нулевой build-id отпечатком не служит' : ''}`)
+      if (trust) {
+        trustedRuns68++
+        if (st.scans) bad.push(`${ctx}: отпечаток совпал, а оверлей всё равно прочитан поиском ${st.scans} раз — на совпадении полных проходов быть не должно`)
+      } else if (ovl && !st.scans) bad.push(`${ctx}: отпечаток не совпал, а поколение не определялось (полных проходов 0)`)
+    }
+    if (!reads) continue
+    // The operator's scenarios on one console in a row, each a fresh visit (empty hexSumCache).
+    const SEQ68 = [
+      ['первая установка 2.5', O25], ['тот же оверлей 2.5', O25], ['обновление AIO 2.5→2.6', O26], ['тот же оверлей 2.6', O26],
+      ['ручной откат 2.6→2.5', O25], ['2.7 с новым именем', O27], ['build-id нули', OZERO], ['build-id нули, снова', OZERO],
+      ['файла нет', null], ['снова 2.6', O26],
+    ]
+    let files = {}, prev
+    for (const [step, ovl] of SEQ68) {
+      runs68++
+      const st = entryState68('mariko', ovl, files)
+      run68(fw.sec, st)
+      files = Object.fromEntries(cfgs.map(c => [c, st.files[c] ?? {}]))
+      const want = ovl === null ? 'none' : ovl === O25 ? '2.5' : '2.6'
+      const got = cfgs.map(c => st.files[c]?.Firmware?.gen ?? '—')
+      const ctx = `${where}, по шагам: «${step}»`
+      if (got.some(g => g !== want)) bad.push(`${ctx}: поколение ${got.join('/')}, а ждали ${want}`)
+      const kept = !!prev && !!ovl && prev.bid === ovl.bid && ovl.bid !== ZERO68
+      if (kept && st.scans) bad.push(`${ctx}: тот же оверлей прочитан поиском ${st.scans} раз — ждали одно чтение build-id`)
+      if (ovl && !kept && !st.scans) bad.push(`${ctx}: оверлей сменился или без отпечатка, а поколение не определялось`)
+      prev = ovl
+    }
+  }
+  if (entries68 && !trustedRuns68) bad.push('ни одного входа с совпавшим отпечатком — чтение без поиска не проверено')
+  if (!entries68) bad.push('ни один форвардер не ведёт на страницу, спрашивающую поколение, — пересчёт флага при входе не проверен')
+  {
+    const bf = join(DIST, 'boot_package.ini')
+    if (existsSync(bf)) for (const [name, ovl] of OVLS68) {
+      runs68++
+      const st = { kip: kipOf('mariko', '020000', '01'), hex: null, ini: null, list: [], rev: 'mariko', bins: ovl ? { [OVL68]: ovl.buf } : {}, files: { [EMC68]: clone(EMC_BOTH) } }
+      run68(readFileSync(bf, 'utf8'), st)
+      if (!same(st.files[EMC68], EMC_BOTH)) bad.push(`boot_package.ini (${name}): вход в пакет изменил emc_timings.ini — ${JSON.stringify(st.files[EMC68])}`)
+    }
+  }
 
   for (const rev of ['mariko', 'erista']) {
     const rel = `service/restore-${rev}.ini`
@@ -5763,89 +6289,76 @@ const EBAMATIC_NOT_FIRST67 = new Map([
     const kipver = (create.match(/ Meta kipver '([^']+)'/) || [])[1]
     const cls = create.split('\n').map(l => l.trim())
     const als = apply.split('\n').map(l => l.trim())
+    const fq = FQ68[rev]
+    const other = rev === 'mariko' ? 'erista' : 'mariko'
 
-    // -- text: the recipe is the page's, nothing lands in Fields, the read-back covers the keys
-    if (pageProf) {
-      for (const k of ['eVDQ', 'eVD2']) {
-        if (!cls.includes(`set-ini-val './config.ini' Backup ${k} '{if_null({ini_file(${pageProf},${k})},0)}'`))
-          bad.push(`${rel} «Create backup»: ${k} читается не из раздела, который пишет страница Optimized Mode`)
-        // two branches per key: "value is not 0" and "key already exists" (21.09.2026)
-        const w = als.filter(l => l.startsWith(`set-ini-val '${EMC68}' `) && l.endsWith(` ${k} '{ini_file(Optimized,${k})}'`))
-        if (w.length !== 2) bad.push(`${rel} «Apply»: записей ${k} из [Optimized] копии ${w.length}, а ждали две — «не ноль» и «ключ уже есть»`)
-        else if (w.some(l => l !== `set-ini-val '${EMC68}' '${copyProf}' ${k} '{ini_file(Optimized,${k})}'`))
-          bad.push(`${rel} «Apply»: раздел записи ${k} не совпадает с формулой страницы Optimized Mode (12524/12352 из Fields копии)`)
-        if (!cls.some(l => l.startsWith('matching_ini_val {ini_file(Backup,Path)} Optimized ' + k + ' ')))
-          bad.push(`${rel} «Create backup»: ${k} копии не сверяется перед «saved»`)
-      }
-    }
-    if (cls.some(l => /Fields (eVDQ|eVD2) /.test(l))) bad.push(`${rel} «Create backup»: напряжения записаны в [Fields] — это не смещения kip`)
-    if (als.filter(l => l.startsWith(`set-ini-val '${EMC68}'`)).length !== 4)
-      bad.push(`${rel} «Apply»: в emc_timings.ini пишут ${als.filter(l => l.startsWith(`set-ini-val '${EMC68}'`)).length} строк, а ждали четыре (две ветви на ключ) — другие разделы и ключи не трогаем`)
+    // -- text: a backup carries no voltages and no generation mark, Apply never names the file
+    if (cls.some(l => / Optimized (eVDQ|eVD2) /.test(l))) bad.push(`${rel} «Create backup»: копия снова пишет секцию [Optimized] — напряжения в копию не кладём (DECISIONS 22.09.2026)`)
+    if (cls.some(l => / Meta firmware /.test(l))) bad.push(`${rel} «Create backup»: копия пишет пометку Meta firmware — она была нужна только напряжениям`)
+    if (cls.some(l => l.includes(EMC68))) bad.push(`${rel} «Create backup»: создание копии читает emc_timings.ini — копия напряжений не несёт`)
+    const touch = als.filter(l => l.includes(EMC68) || / Optimized /.test(l) || / Meta firmware /.test(l))
+    if (touch.length) bad.push(`${rel} «Apply»: применение копии трогает emc_timings.ini или [Optimized] копии — «${touch[0]}»`)
 
-    // -- run: Create on three consoles
+    // -- run: Create on consoles of every generation
     // emc = null: the file does not exist (a clean 4IFIR)
-    const baseSt = (kip, emc) => ({
-      kip: { ...kip }, hex: null, ini: null, list: [],
-      files: { './config.ini': {}, ...(emc ? { [EMC68]: clone(emc) } : {}) },
+    const baseSt = (kip, emc, gen) => ({
+      kip: { ...kip }, hex: null, ini: null, list: [], rev,
+      files: { './config.ini': gen ? { Firmware: { gen } } : {}, ...(emc ? { [EMC68]: clone(emc) } : {}) },
     })
-    const kipOf = (bal, tgt) => ({ '12352': bal, '12524': tgt, '32': '00A41F' })
     const creates = [
-      { name: 'eBAL 2, Target 01', kip: kipOf('020000', '01'), emc: { ...EMC_OTHER, '1600CL12': { eVDQ: '1100', eVD2: '0', tRAS: '7' } }, want: ['1100', '0'] },
-      { name: 'eBAL 2, ключей нет', kip: kipOf('020000', '01'), emc: { '1866CL16': { tRCD: '9' } }, want: ['0', '0'] },
-      { name: 'eBAL 0', kip: kipOf('000000', '01'), emc: { ...EMC_OTHER, '1600CL8': { eVDQ: '999', eVD2: '888' } }, want: ['0', '0'] },
+      { name: '2.6, eBAL 2', gen: '2.6', kip: kipOf(rev, '020000', '01'), emc: EMC_BOTH },
+      { name: '2.5, eBAL 2', gen: '2.5', kip: kipOf(rev, '020000', '01'), emc: EMC_BOTH },
+      { name: '2.5, частота eBAMATIC', gen: '2.5', kip: kipOf(rev, '020000', '01', '000000'), emc: EMC_BOTH },
+      { name: 'без 4IFIR', gen: 'none', kip: kipOf(rev, '020000', '01'), emc: EMC_BOTH },
+      { name: '2.6, нет файла', gen: '2.6', kip: kipOf(rev, '020000', '01'), emc: null },
     ]
-    const made = []
+    const made = {}
     for (const c of creates) {
       runs68++
-      const st = run68(create, baseSt(c.kip, c.emc))
+      const st = run68(create, baseSt(c.kip, c.emc, c.gen))
       // the create path is forgotten after "saved", so the backup is found by its folder
       const bak = Object.entries(st.files).find(([k]) => k.startsWith(`/atmosphere/kips/.bak/${rev}/`))?.[1]
-      const got = [bak?.Optimized?.eVDQ, bak?.Optimized?.eVD2]
       if (st.footer !== 'saved') bad.push(`${rel} «Create backup» (${c.name}): подпись «${st.footer}», а ждали saved`)
-      if (got.join('/') !== c.want.join('/')) bad.push(`${rel} «Create backup» (${c.name}): в копию легло eVDQ/eVD2 = ${got.join('/')}, а ждали ${c.want.join('/')}`)
-      if (JSON.stringify(st.files[EMC68]) !== JSON.stringify(c.emc)) bad.push(`${rel} «Create backup» (${c.name}): создание копии изменило emc_timings.ini`)
-      made.push(bak ? clone(bak) : null)
+      if (bak?.Optimized) bad.push(`${rel} «Create backup» (${c.name}): копия снова несёт [Optimized] ${JSON.stringify(bak.Optimized)}`)
+      if (bak?.Meta?.firmware !== undefined) bad.push(`${rel} «Create backup» (${c.name}): копия несёт пометку Meta firmware = «${bak.Meta.firmware}»`)
+      if (!same(st.files[EMC68], c.emc)) bad.push(`${rel} «Create backup» (${c.name}): создание копии изменило emc_timings.ini`)
+      made[c.name] = bak ? clone(bak) : null
     }
 
-    // -- run: Apply of a new backup, one with eBAL 0, an older one, a foreign one
+    // -- run: Apply never touches emc_timings.ini - whatever the backup holds, on every console
     const P = `/atmosphere/kips/.bak/${rev}/x.ini`
-    const other = rev === 'mariko' ? 'erista' : 'mariko'
-    const nb = (bal, tgt, volts) => ({
-      Meta: { revision: rev, kipver },
-      Fields: { '12352': bal, '12524': tgt, '32': '00A41F' },
+    const nb = (bal, tgt, volts, fw, clk = CLK) => ({
+      Meta: { revision: rev, kipver, ...(fw ? { firmware: fw } : {}) },
+      Fields: { '12352': bal, '12524': tgt, [fq]: clk },
       ...(volts ? { Optimized: { eVDQ: volts[0], eVD2: volts[1] } } : {}),
     })
-    // NO EMPTY ZEROS (operator, 21.09.2026): a non-zero value is written always, a zero only
-    // into a key that already exists; no file, section or key is created to hold a zero.
-    const EMC_KEYS68 = { ...clone(EMC_OTHER), '1600CL12': { eVDQ: '1111', eVD2: '2222', tRAS: '7' } }
-    const EMC_NOKEY = { '1600CL12': { tRAS: '7' }, '1866CL16': { tRCD: '9' } }
-    const applies = [
-      { name: 'нет файла, копия 0/0, eBAL 6, Target 00', emc0: null, bak: nb('060000', '00', ['0', '0']), footer: 'restored', emc: null },
-      { name: 'нет файла, копия 1150/0, eBAL 6, Target 00', emc0: null, bak: nb('060000', '00', ['1150', '0']), footer: 'restored', emc: { '1331CL20': { eVDQ: '1150' } } },
-      { name: 'раздел без ключей, копия 0/1050', emc0: EMC_NOKEY, bak: nb('020000', '01', ['0', '1050']), footer: 'restored', emc: { '1600CL12': { tRAS: '7', eVD2: '1050' }, '1866CL16': { tRCD: '9' } } },
-      { name: 'ключи есть, копия 0/1050 — поверх', emc0: EMC_KEYS68, bak: nb('020000', '01', ['0', '1050']), footer: 'restored', emc: { ...clone(EMC_OTHER), '1600CL12': { eVDQ: '0', eVD2: '1050', tRAS: '7' } } },
-      { name: 'ключи есть, копия 0/0', emc0: EMC_KEYS68, bak: nb('020000', '01', ['0', '0']), footer: 'restored', emc: { ...clone(EMC_OTHER), '1600CL12': { eVDQ: '0', eVD2: '0', tRAS: '7' } } },
-      { name: 'новая копия, eBAL 0', emc0: EMC_KEYS68, bak: nb('000000', '01', ['650', '1100']), footer: 'restored', emc: EMC_KEYS68 },
-      { name: 'старая копия без [Optimized]', emc0: EMC_KEYS68, bak: nb('020000', '01', null), footer: 'restored', emc: EMC_KEYS68 },
-      { name: 'импортированная копия', emc0: EMC_KEYS68, bak: { ...nb('020000', '01', null), Meta: { revision: rev, kipver: 'imported' } }, footer: 'restored (import)', emc: EMC_KEYS68 },
-      { name: `копия с ${other}`, emc0: EMC_KEYS68, bak: { ...nb('020000', '01', ['1200', '1200']), Meta: { revision: other, kipver } }, footer: 'not applied', emc: EMC_KEYS68 },
-      { name: 'копия, созданная выше (eBAL 2)', emc0: EMC_OTHER, bak: made[0], footer: 'restored', emc: { ...clone(EMC_OTHER), '1600CL12': { eVDQ: '1100', eVD2: '0', tRAS: '7' } } },
+    const kinds = [
+      { name: 'новая копия', bak: made['2.6, eBAL 2'], footer: 'restored' },
+      { name: 'копия 21–22.09 с [Optimized] 650/1100 и пометкой 2.5', bak: nb('020000', '01', ['650', '1100'], '2.5'), footer: 'restored' },
+      { name: 'копия 21–22.09 с [Optimized] 0/0 и пометкой 2.6', bak: nb('020000', '01', ['0', '0'], '2.6'), footer: 'restored' },
+      { name: 'копия 21.09 с [Optimized] 1150/0 без пометки, Target 00', bak: nb('060000', '00', ['1150', '0']), footer: 'restored' },
+      { name: 'старая копия без [Optimized]', bak: nb('020000', '01', null), footer: 'restored' },
+      { name: 'импортированная копия', bak: { ...nb('020000', '01', null), Meta: { revision: rev, kipver: 'imported' } }, footer: 'restored (import)' },
+      { name: `копия с ${other}`, bak: { ...nb('020000', '01', ['1200', '1200'], '2.6'), Meta: { revision: other, kipver } }, footer: 'not applied' },
     ]
-    for (const a of applies) {
-      if (!a.bak) continue
+    for (const gen of ['2.6', '2.5', 'none', null]) for (const k of kinds) for (const emc0 of [EMC_BOTH, null]) {
+      if (!k.bak) { bad.push(`${rel} «Apply» (${k.name}): копию создать не удалось — сценарий не проверен`); continue }
       runs68++
-      const st = baseSt({ '12352': '000000', '12524': '01' }, a.emc0)
-      st.files['./config.ini'] = { Restore: { Path: 'sdmc:' + P } }
-      st.files[P] = clone(a.bak)
+      const st = baseSt({ '12352': '000000', '12524': '01' }, emc0, gen)
+      st.files['./config.ini'].Restore = { Path: 'sdmc:' + P }
+      st.files[P] = clone(k.bak)
       run68(apply, st)
-      if (st.footer !== a.footer) bad.push(`${rel} «Apply» (${a.name}): подпись «${st.footer}», а ждали «${a.footer}»`)
-      if (a.footer === 'restored' && !st.kipWrites) bad.push(`${rel} «Apply» (${a.name}): kip не восстановлен — ветвь напряжений съела ветвь kip`)
-      if (a.footer === 'not applied' && st.kipWrites) bad.push(`${rel} «Apply» (${a.name}): kip записан при отказе`)
-      if (JSON.stringify(st.files[EMC68] ?? null) !== JSON.stringify(a.emc ?? null))
-        bad.push(`${rel} «Apply» (${a.name}): emc_timings.ini стал ${JSON.stringify(st.files[EMC68])}, а ждали ${JSON.stringify(a.emc)}${a.name.startsWith('старая') ? ' — старая копия получила запись' : ''}${a.emc0 || a.emc ? '' : ' — ноль создал файл'}`)
+      const nm = `${gen ?? 'без флага'}: ${k.name}${emc0 ? '' : ', файла нет'}`
+      if (st.footer !== k.footer) bad.push(`${rel} «Apply» (${nm}): подпись «${st.footer}», а ждали «${k.footer}»`)
+      if (k.footer !== 'not applied' && !st.kipWrites) bad.push(`${rel} «Apply» (${nm}): kip не восстановлен`)
+      if (k.footer === 'not applied' && st.kipWrites) bad.push(`${rel} «Apply» (${nm}): kip записан при отказе`)
+      if (!same(st.files[EMC68], emc0))
+        bad.push(`${rel} «Apply» (${nm}): применение копии изменило emc_timings.ini — стал ${JSON.stringify(st.files[EMC68])}${emc0 ? '' : ' (файла не было)'}`)
     }
 
-    // -- run: factory reset (reset.ini, this revision's button), same rule for the zeros
+    // -- run: factory reset (reset.ini, this revision's button): a zero only into a key that exists
+    const EMC_NOKEY = { '1600CL12': { tRAS: '7' }, '1866CL16': { tRCD: '9' } }
+    const S = (q, d) => ({ ...clone(EMC_BOTH), '2265CL12': { ...EMC_BOTH['2265CL12'], ...(q != null ? { eVDQ: q } : {}), ...(d != null ? { eVD2: d } : {}) } })
     {
       const rf68 = join(DIST, 'service', 'reset.ini')
       const rtxt = existsSync(rf68) ? readFileSync(rf68, 'utf8') : ''
@@ -5854,81 +6367,108 @@ const EBAMATIC_NOT_FIRST67 = new Map([
       else {
         const anyField = new Proxy({}, { get: (_, k) => typeof k === 'string' ? '000000' : undefined })
         const resets = [
-          { name: 'нет файла, eBAL 2', kip: kipOf('020000', '01'), emc0: null, emc: null },
-          { name: 'раздел без ключей, eBAL 2', kip: kipOf('020000', '01'), emc0: EMC_NOKEY, emc: EMC_NOKEY },
-          { name: 'ключи есть, eBAL 2', kip: kipOf('020000', '01'), emc0: EMC_KEYS68, emc: { ...clone(EMC_OTHER), '1600CL12': { eVDQ: '0', eVD2: '0', tRAS: '7' } } },
-          { name: 'только eVD2 есть, eBAL 2', kip: kipOf('020000', '01'), emc0: { '1600CL12': { eVD2: '1200' } }, emc: { '1600CL12': { eVD2: '0' } } },
-          { name: 'eBAL 0', kip: kipOf('000000', '01'), emc0: { ...clone(EMC_OTHER), '1600CL8': { eVDQ: '999', eVD2: '888' } }, emc: { ...clone(EMC_OTHER), '1600CL8': { eVDQ: '999', eVD2: '888' } } },
+          { gen: '2.6', name: 'нет файла, eBAL 2', kip: kipOf(rev, '020000', '01'), emc0: null, emc: null },
+          { gen: '2.6', name: 'раздел без ключей, eBAL 2', kip: kipOf(rev, '020000', '01'), emc0: EMC_NOKEY, emc: EMC_NOKEY },
+          { gen: '2.6', name: 'ключи есть, eBAL 2', kip: kipOf(rev, '020000', '01'), emc0: EMC_BOTH, emc: { ...clone(EMC_BOTH), '1600CL12': { eVDQ: '0', eVD2: '0', tRAS: '7' } } },
+          { gen: '2.6', name: 'только eVD2 есть, eBAL 2', kip: kipOf(rev, '020000', '01'), emc0: { '1600CL12': { eVD2: '1200' } }, emc: { '1600CL12': { eVD2: '0' } } },
+          { gen: '2.6', name: 'eBAL 0', kip: kipOf(rev, '000000', '01'), emc0: { ...clone(EMC_OTHER), '1600CL8': { eVDQ: '999', eVD2: '888' } }, emc: { ...clone(EMC_OTHER), '1600CL8': { eVDQ: '999', eVD2: '888' } } },
+          { gen: '2.5', name: 'ключи в разделе S, eBAL 2', kip: kipOf(rev, '020000', '01'), emc0: EMC_BOTH, emc: S('0', '0') },
+          { gen: '2.5', name: 'нет файла', kip: kipOf(rev, '020000', '01'), emc0: null, emc: null },
+          { gen: '2.5', name: 'раздел S без ключей', kip: kipOf(rev, '020000', '01'), emc0: { '2265CL12': { sRP: '5' } }, emc: { '2265CL12': { sRP: '5' } } },
+          { gen: '2.5', name: 'частота eBAMATIC', kip: kipOf(rev, '020000', '01', '000000'), emc0: { ...EMC_BOTH, '0CL12': { eVDQ: '7', eVD2: '7' } }, emc: { ...EMC_BOTH, '0CL12': { eVDQ: '7', eVD2: '7' } } },
+          { gen: '2.5', name: 'eBAL 0', kip: kipOf(rev, '000000', '01'), emc0: { ...EMC_BOTH, '2265CL8': { eVDQ: '7' } }, emc: { ...EMC_BOTH, '2265CL8': { eVDQ: '7' } } },
+          { gen: 'none', name: 'без 4IFIR, ключи есть', kip: kipOf(rev, '020000', '01'), emc0: EMC_BOTH, emc: EMC_BOTH },
         ]
         for (const r of resets) {
           runs68++
-          const st = baseSt(r.kip, r.emc0)
+          const st = baseSt(r.kip, r.emc0, r.gen)
           st.files['./Default.ini'] = { Fields: anyField }
           run68(rsec, st)
-          if (st.footer !== 'restored' || !st.kipWrites) bad.push(`service/reset.ini ${rev} (${r.name}): подпись «${st.footer}», записей kip ${st.kipWrites} — сброс kip не выполнен`)
-          if (JSON.stringify(st.files[EMC68] ?? null) !== JSON.stringify(r.emc ?? null))
-            bad.push(`service/reset.ini ${rev} (${r.name}): emc_timings.ini стал ${JSON.stringify(st.files[EMC68])}, а ждали ${JSON.stringify(r.emc)}${r.emc0 ? '' : ' — сброс создал файл'}`)
+          const nm = `${r.gen}: ${r.name}`
+          if (st.footer !== 'restored' || !st.kipWrites) bad.push(`service/reset.ini ${rev} (${nm}): подпись «${st.footer}», записей kip ${st.kipWrites} — сброс kip не выполнен`)
+          if (!same(st.files[EMC68], r.emc))
+            bad.push(`service/reset.ini ${rev} (${nm}): emc_timings.ini стал ${JSON.stringify(st.files[EMC68])}, а ждали ${JSON.stringify(r.emc)}${r.emc0 ? '' : ' — сброс создал файл'}`)
         }
       }
     }
 
-    // -- page 2: the Optimized block and its caveat, resolved for each kind of backup
+    // -- page 2: the Optimized block shows THIS console's values under the backup's profile, and
+    // says so under every backup whose rows are shown (22.09.2026)
     const at = secs.findIndex(s => s.includes("'Optimized Mode ({list(0)} MHz)' = ''"))
     const block = at < 0 ? null : secs.slice(at + 1).find(s => s.startsWith('[Info]'))
     const note = block ? secs[secs.indexOf(block) + 1] : null
     if (!block || !note || !note.includes('not the backup')) { bad.push(`${rel}: блок Optimized Mode страницы 2 или его оговорка не найдены`); continue }
-    const table = (sec, bak) => {
-      const st = baseSt({}, { '1600CL12': { eVDQ: '1111', eVD2: '2222' } })
-      st.files['./config.ini'] = { Restore: { Path: P } }
+    // The frame of the table above reaches 16 px into the note; a 16 px line needs its baseline
+    // at 32 or lower to clear it (photo 2026-09-22 09-36-22: the line sat on the frame).
+    const sg = +(note.match(/^;start_gap=(\d+)$/m) || [])[1] || 20
+    if (sg < 32) bad.push(`${rel} стр. 2: оговорка «this console - not the backup» с start_gap ${sg} — строка налезает на рамку таблицы над ней, нужно не меньше 32`)
+    const pageSt = (bak, gen) => {
+      const st = baseSt({}, EMC_BOTH, gen)
+      st.files['./config.ini'].Restore = { Path: P }
       st.files[P] = clone(bak)
-      const rows = {}
-      for (const raw of sec.split('\n')) {
-        const l = raw.trim()
-        const d = l.match(/^(ini_file|list)\s+'(.*)'$/)
-        if (d) { const v = resolve68(d[2], st); if (d[1] === 'ini_file') st.ini = v; else st.list = v.replace(/^\[|\]$/g, '').split(',').map(x => x.trim()); continue }
-        const r = l.match(/^'([^']*)'\s*=\s*'(.*)'$/)
-        if (r) rows[r[1]] = resolve68(r[2], st)
-      }
-      return rows
+      return st
     }
     const views = [
-      { name: 'новая копия', bak: nb('020000', '01', ['1100', '0']), vq: '1100 mV', v2: 'eBAMATIC', caveat: false },
-      { name: 'старая копия', bak: nb('020000', '01', null), vq: '1111 mV', v2: '2222 mV', caveat: true },
-      { name: 'копия с eBAL 0', bak: nb('000000', '01', ['0', '0']), vq: 'null', v2: 'null', caveat: false },
-      { name: 'копия с Target 0', bak: nb('020000', '00', ['1100', '0']), vq: '1100 mV', v2: 'eBAMATIC', caveat: false },
+      { gen: '2.6', name: 'новая копия', bak: made['2.6, eBAL 2'], vq: '1111 mV', v2: '2222 mV', caveat: true },
+      { gen: '2.6', name: 'копия 21–22.09 с [Optimized] 650/1100 — значения консоли, не копии', bak: nb('020000', '01', ['650', '1100'], '2.6'), vq: '1111 mV', v2: '2222 mV', caveat: true },
+      { gen: '2.6', name: 'старая копия', bak: nb('020000', '01', null), vq: '1111 mV', v2: '2222 mV', caveat: true },
+      { gen: '2.6', name: 'копия с eBAL 0', bak: nb('000000', '01', null), vq: 'null', v2: 'null', caveat: false },
+      { gen: '2.6', name: 'копия с Target 0', bak: nb('020000', '00', null), vq: 'eBAMATIC', v2: 'eBAMATIC', caveat: true },
+      { gen: '2.5', name: 'новая копия — раздел S этой консоли', bak: made['2.5, eBAL 2'], vq: '3333 mV', v2: '4444 mV', caveat: true },
+      { gen: '2.5', name: 'копия 21–22.09 с [Optimized] 650/1100', bak: nb('020000', '01', ['650', '1100'], '2.5'), vq: '3333 mV', v2: '4444 mV', caveat: true },
+      { gen: '2.5', name: 'копия с частотой eBAMATIC', bak: nb('020000', '01', null, null, '000000'), vq: 'null', v2: 'null', caveat: false },
+      { gen: 'none', name: 'копия без 4IFIR', bak: nb('020000', '01', ['1100', '0'], '2.6'), vq: 'null', v2: 'null', caveat: false },
+      { gen: null, name: 'флага нет', bak: nb('020000', '01', null), vq: 'null', v2: 'null', caveat: false },
     ]
-    // The heading of the block is resolved too: its base is the backup's, 1600 or 1331.
-    const headOf = bak => {
-      const st = baseSt({}, {})
-      st.files['./config.ini'] = { Restore: { Path: P } }
-      st.files[P] = clone(bak)
-      let key = null
-      for (const raw of secs[at].split('\n')) {
-        const l = raw.trim()
-        const d = l.match(/^(ini_file|list)\s+'(.*)'$/)
-        if (d) { const v = resolve68(d[2], st); if (d[1] === 'ini_file') st.ini = v; else st.list = v.replace(/^\[|\]$/g, '').split(',').map(x => x.trim()); continue }
-        const r = l.match(/^'([^']*)'\s*=/)
-        if (r) key = resolve68(r[1], st)
-      }
-      return key
-    }
     for (const v of views) {
+      if (!v.bak) { bad.push(`${rel} стр. 2 (${v.name}): копию создать не удалось — сценарий не проверен`); continue }
       runs68++
-      const rows = table(block, v.bak)
-      const cav = table(note, v.bak)['']
+      const rows = rows68(block, pageSt(v.bak, v.gen))
+      const cav = rows68(note, pageSt(v.bak, v.gen))['']
       const wantHead = `Optimized Mode (${v.bak.Fields['12524'] === '01' ? 1600 : 1331} MHz)`
-      const head = headOf(v.bak)
-      if (head !== wantHead) bad.push(`${rel} стр. 2 (${v.name}): заголовок блока «${head}», а ждали «${wantHead}»`)
-      if (rows.VDDQ !== v.vq || rows.VDD2 !== v.v2) bad.push(`${rel} стр. 2 (${v.name}): VDDQ/VDD2 = «${rows.VDDQ}»/«${rows.VDD2}», а ждали «${v.vq}»/«${v.v2}»`)
+      const head = Object.keys(rows68(secs[at], pageSt(v.bak, v.gen))).pop()
+      const nm = `${v.gen ?? 'без флага'}: ${v.name}`
+      if (head !== wantHead) bad.push(`${rel} стр. 2 (${nm}): заголовок блока «${head}», а ждали «${wantHead}»`)
+      if (rows.VDDQ !== v.vq || rows.VDD2 !== v.v2) bad.push(`${rel} стр. 2 (${nm}): VDDQ/VDD2 = «${rows.VDDQ}»/«${rows.VDD2}», а ждали «${v.vq}»/«${v.v2}»`)
       const shown = cav !== undefined && cav !== 'null'
-      if (shown !== v.caveat) bad.push(`${rel} стр. 2 (${v.name}): оговорка «this console - not the backup» ${shown ? 'видна' : 'не видна'}, а ${v.caveat ? 'нужна — строки читают эту консоль' : 'не нужна — строки из копии или скрыты'}`)
+      if (shown !== v.caveat) bad.push(`${rel} стр. 2 (${nm}): оговорка «this console - not the backup» ${shown ? 'видна' : 'не видна'}, а ${v.caveat ? 'нужна — строки читают эту консоль у любой копии' : 'не нужна — строк нет'}`)
+    }
+  }
+
+  // -- Current, page 2: one of the block's tables is shown, and it reads the place the firmware reads
+  {
+    const cf = join(DIST, 'current.ini')
+    const secs = existsSync(cf) ? readFileSync(cf, 'utf8').split(/\n(?=\[)/) : []
+    const at = secs.findIndex(s => s.includes("'Optimized Mode ({list(0)} MHz)' = ''"))
+    const infos = []
+    for (let i = at + 1; at >= 0 && i < secs.length && secs[i].startsWith('[Info]'); i++) infos.push(secs[i])
+    if (!infos.length) bad.push('current.ini: блок Optimized Mode страницы 2 не найден')
+    const cur = [
+      { gen: '2.6', name: 'eBAL 2', bal: '020000', clk: CLK, vq: '1111 mV', v2: '2222 mV' },
+      { gen: '2.6', name: 'eBAL 0', bal: '000000', clk: CLK, vq: 'null', v2: 'null' },
+      { gen: '2.5', name: 'eBAL 2', bal: '020000', clk: CLK, vq: '3333 mV', v2: '4444 mV' },
+      { gen: '2.5', name: 'частота eBAMATIC', bal: '020000', clk: '000000', vq: 'null', v2: 'null' },
+      { gen: '2.5', name: 'eBAL 0', bal: '000000', clk: CLK, vq: 'null', v2: 'null' },
+      { gen: 'none', name: 'без 4IFIR', bal: '020000', clk: CLK, vq: 'null', v2: 'null' },
+      { gen: null, name: 'флага нет', bal: '020000', clk: CLK, vq: 'null', v2: 'null' },
+    ]
+    for (const rev of ['mariko', 'erista']) for (const c of cur) {
+      if (!infos.length) break
+      runs68++
+      const st = { kip: kipOf(rev, c.bal, '01', c.clk), hex: null, ini: null, list: [], rev,
+        files: { './config.ini': c.gen ? { Firmware: { gen: c.gen } } : {}, [EMC68]: clone(EMC_BOTH) } }
+      const vis = infos.filter(s => shown68(s, st))
+      const nm = `${c.gen ?? 'без флага'}, ${rev}: ${c.name}`
+      if (vis.length !== 1) { bad.push(`current.ini стр. 2 (${nm}): видно ${vis.length} таблиц блока Optimized Mode, а ждали одну`); continue }
+      const rows = rows68(vis[0], st)
+      if (rows.VDDQ !== c.vq || rows.VDD2 !== c.v2) bad.push(`current.ini стр. 2 (${nm}): VDDQ/VDD2 = «${rows.VDDQ}»/«${rows.VDD2}», а ждали «${c.vq}»/«${c.v2}»`)
     }
   }
   if (!runs68)
-    problems.push({ sev: 'CRITICAL', what: 'проверка напряжений в копии не нашла предмета надзора — она смотрит в пустоту, ничего не проверив' })
+    problems.push({ sev: 'CRITICAL', what: 'проверка VDDQ/VDD2 при входе, в копии и на страницах не нашла предмета надзора — она смотрит в пустоту, ничего не проверив' })
   else if (bad.length)
-    problems.push({ sev: 'CRITICAL', what: `VDDQ/VDD2 в копии сохраняются, восстанавливаются или показываются не так (${bad.length}):\n     ${bad.join('\n     ')}` })
-  else ok.push(`a backup carries eVDQ/eVD2 of the live profile, restore writes them into the page's profile from the backup's Fields and leaves the file alone for an older backup, a zero (restore or reset) goes only into a key that exists, page 2 shows them with the caveat for older backups only (${runs68} runs of the engine model on both revisions)`)
+    problems.push({ sev: 'CRITICAL', what: `VDDQ/VDD2: вход на страницу, копия, применение или показ идут не так (${bad.length}):\n     ${bad.join('\n     ')}` })
+  else ok.push(`entering a page that reads the 4IFIR generation detects it afresh (quick launch skips [boot]), entering writes nothing into emc_timings.ini, a backup carries no VDDQ/VDD2 and no Meta firmware, Apply never touches emc_timings.ini whatever the backup holds (21-22.09.2026 ones with [Optimized] included), page 2 of every backup shows THIS console's values under the backup's profile with the caveat (${runs68} runs of the engine model on both revisions and three generations; the flag is kept without a search while the overlay's NRO build-id matches ovl_id, ${trustedRuns68} such entries)`)
 }
 
 // ---------------- 69. WL-Set and DBI never come from an old Wizard backup
@@ -6011,6 +6551,19 @@ const EBAMATIC_NOT_FIRST67 = new Map([
     const imp = pkgTxt.split(/\n(?=\[)/).find(s => s.startsWith(`[*Import old 4IFIR backup?${rev}]`))
     if (!apply || !kipver || !imp) { bad.push(`${rel}: нет ${!apply ? 'секции Apply' : !kipver ? 'версии раскладки в Create backup' : 'секции импорта в service/package.ini'}`); continue }
 
+    // -- page 2: a row the converter does not carry is an explicit dash for an imported copy
+    //    (like WL-Set/DBI), a row it carries reads the copy. NOTES №349.
+    const conv69 = new Set([...imp.matchAll(/ Fields (\d+) '/g)].map(m => Number(m[1])))
+    for (const line of secs.join('\n').split('\n')) {
+      const m = line.match(/^'([^']+)' = '\{json_file\(0,(.*)\)\}'$/)
+      const refs = m ? [...m[2].matchAll(/ini_file\(Fields,(\d+)\)/g)].map(x => Number(x[1])) : []
+      if (refs.length !== 1) continue
+      runs69++
+      const dash = m[2] === `{if_==({ini_file(Meta,kipver)},imported,null,{ini_file(Fields,${refs[0]})})}`
+      if (!conv69.has(refs[0]) && !dash) bad.push(`${rel}: строка «${m[1]}» читает Fields ${refs[0]}, которого импорт не кладёт, без явного null для импортированной копии — прочерк держится на пустом ключе`)
+      if (conv69.has(refs[0]) && dash) bad.push(`${rel}: строка «${m[1]}» прячет перенесённое импортом поле ${refs[0]} за прочерком`)
+    }
+
     // -- the converter writes neither key, whatever the donor holds
     runs69++
     for (const o of [WL, DBI])
@@ -6035,6 +6588,12 @@ const EBAMATIC_NOT_FIRST67 = new Map([
     const noteSecs = secs.filter(s => s.includes(NOTE69))
     if (noteSecs.length !== 1) bad.push(`${rel}: пометок «${NOTE69}» ${noteSecs.length}, а нужна ровно одна`)
     else if (!noteSecs[0].split('\n').includes(';skip_null=true')) bad.push(`${rel}: пометка про DBI/WL-Set без ;skip_null=true — у своей копии останется пустая строка`)
+    // As in check 68: the frame of the table above reaches 16 px into the note, start_gap 32 or
+    // more clears it (photo 2026-09-22 12-54-52: the line sat on the frame).
+    if (noteSecs.length === 1) {
+      const sg = +(noteSecs[0].match(/^;start_gap=(\d+)$/m) || [])[1] || 20
+      if (sg < 32) bad.push(`${rel} стр. 2: пометка «${NOTE69}» с start_gap ${sg} — строка налезает на рамку таблицы над ней, нужно не меньше 32`)
+    }
     for (const c of cases) {
       runs69++
       const bak = { Meta: { revision: rev, kipver: c.meta }, Fields: { '12352': '020000', '12524': '01', ...c.fields } }
@@ -6073,7 +6632,7 @@ const EBAMATIC_NOT_FIRST67 = new Map([
     problems.push({ sev: 'CRITICAL', what: 'проверка WL-Set/DBI старых копий не нашла предмета надзора — она смотрит в пустоту, ничего не проверив' })
   else if (bad.length)
     problems.push({ sev: 'CRITICAL', what: `WL-Set/DBI старой копии переносятся, восстанавливаются или показываются не так (${bad.length}):\n     ${bad.join('\n     ')}` })
-  else ok.push(`an old Wizard backup carries neither WL-Set nor DBI: the import writes neither, restore of an imported copy (also one imported earlier) leaves both as they are, our own copies restore both, page 2 shows a dash and the note for imported copies only (${runs69} runs of the engine model on both revisions)`)
+  else ok.push(`an old Wizard backup carries neither WL-Set nor DBI: the import writes neither, restore of an imported copy (also one imported earlier) leaves both as they are, our own copies restore both, page 2 shows a dash and the note for imported copies only, and a dash for every row the import does not carry (${runs69} runs of the engine model on both revisions)`)
 }
 
 // ---------------- 70. CPU Min Voltage (48): factory Eco ST1, zero named but never offered
@@ -6146,6 +6705,95 @@ const EBAMATIC_NOT_FIRST67 = new Map([
   else if (bad.length)
     problems.push({ sev: 'CRITICAL', what: `CPU Min Voltage (48): заводское не Eco ST1 или ноль не там (${bad.length}):\n     ${bad.join('\n     ')}` })
   else ok.push('CPU Min Voltage resets to Eco ST1: baseline, Default.ini and reset agree, "Default" marks Eco ST1 alone, the list opens with it and does not offer zero, the label map names zero «0 - Unknown», the help names the factory value')
+}
+
+// ---------------- 71. the 4IFIR generation is detected on the way into every page that asks it
+//
+// DECISIONS 22.09.2026: where the E-state voltages go depends on the console's 4IFIR - `Houdini`
+// in /switch/.overlays/4IFIR.ovl is 2.5, the file without it 2.6+, no file is not 4IFIR. The
+// engine skips [boot] when the package's boot is off or quick launch is on (fork main.cpp,
+// `useQuickLaunch`), so a flag written there could be stale after an update or missing. So the
+// forwarder into each page that reads [Firmware] gen ends with the detection, writing the
+// config.ini next to that page. The overlay is ~2 MB and a failed search is not cached (libultra
+// `findHexDataOffsets`), so nothing else opens it. Four things, each a quiet way to break it:
+//   1. the overlay is opened only by those detection tails - not a condition, not [boot];
+//   2. every file that asks the flag is entered only through forwarders, and each of them carries
+//      the detection into the config.ini next to that file;
+//   3. the detection is the section's tail: `none`, then 2.5 on `Houdini`, then 2.6 on the bare
+//      file, in the only two `try:` branches (the first successful one ends the section);
+//   4. a reader compares the flag only with the three values the detection writes.
+// The branches themselves are RUN on the engine model in check 68.
+{
+  const OVL71 = '/switch/.overlays/4IFIR.ovl'
+  const bad = []
+  const relOf = f => relative(DIST, f).split(String.fromCharCode(92)).join('/')
+  const readsGen71 = t => t.split('\n').some(l => !l.startsWith('set-ini-val ') && !l.endsWith("Firmware gen ''") && /Firmware gen |\{ini_file\(Firmware,gen\)\}/.test(l))
+  // Written out on purpose: an independent copy of the tail, not the generator's FW_DETECT.
+  const Z71 = '00'.repeat(20)
+  const detect71 = cfg => [
+    `ini_file '${cfg}'`, `hex_file '${OVL71}'`,
+    'try:', `!path_exists ${OVL71}`, `set-ini-val '${cfg}' Firmware gen 'none'`, `remove-ini-key '${cfg}' Firmware ovl_id`,
+    'try:', `!matching_ini_val '${cfg}' Firmware gen ''`, `!matching_hex_val ${OVL71} 64 ${Z71}`, `matching_hex_val ${OVL71} 64 '{ini_file(Firmware,ovl_id)}'`,
+    'try:', `set-ini-val '${cfg}' Firmware gen '2.6'`, `matching_hex_val_custom ${OVL71} ASET 24 3800000000000000`,
+    `matching_hex_val_custom ${OVL71} ASET 56 344946495220486F7564696E69`, `set-ini-val '${cfg}' Firmware gen '2.5'`, 'force_failure',
+    'try:', `!matching_hex_val_custom ${OVL71} ASET 24 3800000000000000`, `matching_hex_val_custom ${OVL71} Houdini 0 48`,
+    `set-ini-val '${cfg}' Firmware gen '2.5'`, 'force_failure',
+    'try:', `matching_hex_val ${OVL71} 16 4E524F30`, `!matching_hex_val ${OVL71} 64 ${Z71}`, `set-ini-val '${cfg}' Firmware ovl_id '{hex_file(NRO0,48,20)}'`,
+    'try:', `remove-ini-key '${cfg}' Firmware ovl_id`,
+  ]
+  const tries71 = detect71('.').filter(l => l === 'try:').length
+  const into = new Map()      // target file -> [{rel, title, ok}]
+  const tails = new Set()     // "rel:line" of lines that are part of a proper detection tail
+  let readers = 0
+  for (const f of iniFiles) {
+    const rel = relOf(f)
+    const dir = posix.dirname(rel)
+    let line = 0
+    for (const sec of readFileSync(f, 'utf8').split(/\n(?=\[)/)) {
+      const ls = sec.split('\n')
+      const start = line
+      line += ls.length
+      if (!/^;mode=forwarder$/m.test(sec)) continue
+      const src = sec.match(/^package_source '([^']+)'$/m)
+      if (!src) continue
+      const target = posix.join(dir, src[1])
+      const title = (ls[0].match(/^\[\*?([^\]]+)]/) || [])[1]
+      const tf = join(DIST, target)
+      if (!existsSync(tf) || !readsGen71(readFileSync(tf, 'utf8'))) continue
+      // 3. the detection is the tail, into the config.ini next to the target, and alone
+      const cfg = './' + posix.relative(dir, posix.join(posix.dirname(target), 'config.ini'))
+      const want = detect71(cfg)
+      let end = ls.length
+      while (end > 0 && !ls[end - 1].trim()) end--
+      const tail = ls.slice(end - want.length, end).map(l => l.trim())
+      const ok = tail.join('\n') === want.join('\n') && ls.filter(l => l.trim() === 'try:').length === tries71
+      if (ok) for (let i = end - want.length; i < end; i++) tails.add(`${rel}:${start + i + 1}`)
+      else bad.push(`${rel} «${title}» ведёт в ${target}, спрашивающий поколение, а не пересчитывает его в ${cfg} последними строками (нет файла → none; отпечаток build-id совпал → ничего; иначе имя NACP → 2.5/2.6 и новый отпечаток) — при быстром запуске флаг останется прежним или пустым`)
+      into.set(target, [...(into.get(target) ?? []), { rel, title, ok }])
+    }
+  }
+  // 1. the overlay is opened only by a proper detection tail
+  for (const f of iniFiles) {
+    const rel = relOf(f)
+    readFileSync(f, 'utf8').split('\n').forEach((l, i) => {
+      if (/4IFIR\.ovl|Houdini|Nextgen/.test(l) && !tails.has(`${rel}:${i + 1}`))
+        bad.push(`${rel}:${i + 1}: «${l.trim().slice(0, 90)}» читает 4IFIR.ovl сам — поколение спрашивается у [Firmware] gen, а оверлей (2 МБ, отрицательный поиск не кэшируется) читает только форвардер в страницу`)
+    })
+  }
+  // 2 and 4. every reader is entered through forwarders that detect; it compares with three values
+  for (const f of iniFiles) {
+    const rel = relOf(f)
+    const txt = readFileSync(f, 'utf8')
+    if (!readsGen71(txt)) continue
+    readers++
+    const ins = into.get(rel) ?? []
+    if (!ins.length) bad.push(`${rel} спрашивает поколение, а форвардера, пересчитывающего его при входе, нет — флаг держится только на [boot], который быстрый запуск пропускает`)
+    for (const m of txt.matchAll(/Firmware gen (\S+)/g))
+      if (!['2.5', '2.6', 'none', "'none'", "'2.5'", "'2.6'"].includes(m[1])) bad.push(`${rel}: поколение сравнивается с «${m[1]}» — пишутся только 2.5, 2.6 и none`)
+  }
+  if (!readers) bad.push('ни один файл не спрашивает поколение 4IFIR — проверка смотрит в пустоту')
+  if (bad.length) problems.push({ sev: 'CRITICAL', what: `поколение 4IFIR определяется не так (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else ok.push(`the 4IFIR generation is detected afresh by every forwarder into a page that asks it (${readers} pages, ${[...into.values()].flat().length} forwarders: kept while the NRO build-id matches ovl_id, else 2.5 on the NACP name, 2.6+ on any other file, none without it), and nothing else opens 4IFIR.ovl`)
 }
 
 // ---------------- 61. guard numbers are unique, gapless-or-retired, and every doc reference lands
@@ -6272,7 +6920,8 @@ const RETIRED61 = new Map([
   // 21.09.2026: 69 -> 70 for check 68 (backup carries VDDQ/VDD2, restore writes them).
   // 21.09.2026: 70 -> 71 for check 69 (WL-Set/DBI never come from an old Wizard backup).
   // 21.09.2026: 71 -> 72 for check 70 (CPU Min Voltage factory value is Eco ST1).
-  const EXPECTED = 72
+  // 22.09.2026: 72 -> 73 for check 71 (the 4IFIR generation is read once, in [boot]).
+  const EXPECTED = 73
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,

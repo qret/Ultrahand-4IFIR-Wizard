@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/10-profiles.md sha=c11f7fd909b9 self=efd2234a3e31 -->
+<!-- i18n: source=Guides/ru/10-profiles.md sha=f80cc23d68c2 self=11b324b29a9d -->
 # Profiles, backups and reset
 
 <!-- nav:begin -->
@@ -25,7 +25,10 @@ nothing of your own set up, it is all you need.
 The reset also puts the `VDDQ` and `VDD2` voltages of the Optimized profile back to
 `eBAMATIC` — for the memory clock and `EMC Balance` set right now. If nobody set them there,
 the `EMC Magician` file stays as it was: automatic is in effect anyway. With `EMC Balance` on
-`eBAMATIC` the reset leaves them alone, and the `EMC Magician` timings it never touches.
+`eBAMATIC` the reset leaves them alone (on 4IFIR 2.5 also with the memory clock on `eBAMATIC`),
+and the `EMC Magician` timings it never touches. Which set counts as "current" depends on the
+firmware version: on 4IFIR 2.5 the set of the memory clock, on 2.6 and newer the set of the
+1600 step.
 [More in the RAM chapter](08-ram.md#vddq-and-vdd2--the-optimized-profile-voltages).
 
 ## Backups
@@ -67,20 +70,17 @@ whether you picked the right copy.
 
 Applying is a separate press; it will not happen by accident.
 
-**The `VDDQ` and `VDD2` voltages** (`Advanced → RAM → Optimized Mode`) are kept in the
-copy too: timings without their own voltages are a combination nobody has tested. The copy
-records the ones set, when it is made, for the current memory clock and `EMC Balance`; unset
-ones are recorded as `eBAMATIC`. On
-restore they are written to the `EMC Magician` file for the memory clock and `eBal` stored
-in the copy — over whatever is there. `eBAMATIC` (zero) is written only where the file
-already holds a value of its own for that clock and `eBal`: where it does not, the firmware
-is on automatic anyway, and the configurator does not create an empty profile there. Nothing else in
-that file is touched. If the copy has `EMC Balance` at `eBAMATIC`, the voltages do not apply and are not
-written. Copies made earlier, and profiles brought over by importing from the old wizard, do
-not hold the voltages and restore as before: the `EMC Magician` file stays as it is. As when
-picked in the menu, the voltages take effect after a restart. Page two of the preview shows which case it is: under
-the `Optimized Mode` block of an older copy stands the line
-`VDDQ/VDD2: this console - not the backup`.
+**The `VDDQ` and `VDD2` voltages** (`Advanced → RAM → Optimized Mode`) are **not kept** in
+the copy, and restoring does not touch them: the `EMC Magician` file stays as it is, and the
+voltages are the ones set on the console. Copies that do hold them (made by the 21 September
+2026 releases) restore the same way: everything else in them comes back as usual, their
+voltages are not read. On page two of the preview the `Optimized Mode` block shows this
+console's values for the copy's set (on 4IFIR 2.6 and newer the 1600 step and `EMC Balance`
+stored in the copy, on 2.5 the memory clock and `EMC Balance` stored in the copy) — what the
+firmware will read once the copy is restored — with the line
+`VDDQ/VDD2: this console - not the backup` under it. If the copy's set cannot be named (the
+copy has `EMC Balance` on `eBAMATIC`, on 2.5 the clock too) or the firmware is not 4IFIR, the
+rows are not shown.
 
 If the copy was taken on the other console model, a red line above the buttons names
 both sides outright. Such a copy cannot be applied: the Erista and Mariko setting lists

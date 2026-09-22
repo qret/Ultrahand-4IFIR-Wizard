@@ -12,7 +12,7 @@
 // Run: node scripts/generate.mjs [--clean]
 
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { join, dirname, posix } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -58,15 +58,20 @@ const EMC_E_BASE = `{if_==({hex_file(CUST,12524,1)},01,1600,1331)}`
 const EMC_CL = `{math(${EMC_KIP_DEC(12352)}*2+8,true)}`
 const EMC_E_SECTION = `${EMC_E_BASE}CL${EMC_CL}`
 /**
- * THE SAME PROFILE NAME, BUILT FROM A BACKUP'S `Fields` INSTEAD OF THE LIVE KIP.
+ * 4IFIR 2.5 READS THE E-STATE VOLTAGES FROM ANOTHER SECTION (DECISIONS 22.09.2026).
  *
- * Restore writes the backup's 12524 and 12352 into the kip, so after it the Optimized Mode page
- * names exactly this section. Derived by substitution, not written out twice: the two recipes
- * cannot drift apart (check 68 compares them the same way).
+ * Its system module loads one section per boot, named after the S-state clock and eBAL:
+ * `<RAM MHz of the kip, truncated>CL<eBAL*2+8>`, the clock at CUST+32 on Mariko and +24 on
+ * Erista. 2.6 and newer read the E section above. Where the voltages go is decided by the
+ * console's generation, kept in our config.ini files as [Firmware] gen = 2.5 | 2.6 | none and
+ * detected afresh by the forwarder into every page that reads it (see FW_DETECT). `none`
+ * (no 4IFIR.ovl) shows and writes nothing.
  */
-const EMC_COPY_SECTION = EMC_E_SECTION.replace(/\{hex_file\(CUST,(\d+),\d+\)\}/g, '{ini_file(Fields,$1)}')
-/** Backup section with the two Magician voltages (21.09.2026); keys named as in emc_timings.ini. */
-const BACKUP_EMC_SECTION = 'Optimized'
+const OVL_4IFIR = '/switch/.overlays/4IFIR.ovl'
+const FW_25 = '2.5', FW_26 = '2.6', FW_NONE = 'none'
+const fwIs = (v, cfg = './config.ini') => `matching_ini_val ${cfg} Firmware gen ${v}`
+const EMC_S_FREQ = { mariko: 32, erista: 24 }
+const EMC_S_SECTION = rev => `{math(${EMC_KIP_DEC(EMC_S_FREQ[rev])}/1000,true)}CL${EMC_CL}`
 const EMC_KEYS = ['eVDQ', 'eVD2']
 /**
  * `0` IS NOT "unset", IT IS eBAMATIC — one word for the list, the footer and both pages.
@@ -84,10 +89,9 @@ const EMC_AUTO = 'eBAMATIC'
  * so the rows ride with the `Optimized Mode (1600 MHz)` block on page 2, in Current Settings
  * and in the backup preview, between `Optimized Target` and `VDDQ-VDD2 Voltage`.
  *
- * The profile is named by the page's own source: the kip in Current, the backup's `Fields` in
- * the preview. `list` carries it: 0 = base clock or null, 1 = eBAL, 2 = section; the preview
- * adds 3/4 = the backup's own [Optimized] eVDQ/eVD2. Since 21.09.2026 a backup carries them
- * and they are shown; an older backup without them shows this console's file, with the caveat.
+ * The values are always THIS console's emc_timings.ini: a backup does not carry them (operator,
+ * 22.09.2026). The profile is named by the page's own source: the kip in Current, the backup's
+ * `Fields` in the preview. `list` carries it: 0 = base clock or null, 1 = eBAL, 2 = section.
  * No base, or eBAL on eBAMATIC, means the profile cannot be named, and `;skip_null` drops the
  * two rows while the block keeps its other three.
  */
@@ -98,31 +102,42 @@ const OPT_GROUP = 'Optimized Mode (1600 MHz)'
 const OPT_HEAD = (src, v) => [...src,
   `list '[{if_null(${v},—,{if_==(${v},01,1600,1331)})}]'`,
   `'Optimized Mode ({list(0)} MHz)' = ''`]
-const EMC_VOLT_ROWS = (listLines, after = [], fromCopy = false) => {
+const EMC_VOLT_ROWS = (listLines, after = []) => {
   const out = [...listLines, `ini_file '${EMC_FILE}'`]
   EMC_KEYS.forEach((key, i) => {
     const nm = ['VDDQ', 'VDD2'][i]
     const v = `{ini_file({list(2)},${key})}`
-    let shown = `{if_null(${v},${EMC_AUTO},{if_==(${v},0,${EMC_AUTO},${v} mV)})}`
-    if (fromCopy) {
-      const c = `{list(${3 + i})}`
-      shown = `{if_null(${c},${shown},{if_==(${c},0,${EMC_AUTO},${c} mV)})}`
-    }
+    const shown = `{if_null(${v},${EMC_AUTO},{if_==(${v},0,${EMC_AUTO},${v} mV)})}`
     out.push(`'${nm}' = '{if_null({list(0)},null,{if_==({list(1)},0,null,${shown})})}'`)
   })
   return [...out, ...after]
 }
-// Current reads the kip directly; the preview reads the chosen backup and needs three steps,
-// because a missing key there is `null` and must not turn into a profile name. The backup's
-// own voltages are read here, while the backup is still bound, and ride in the list.
-const EMC_VOLT_LIST_KIP = [`list '[${EMC_E_BASE},${EMC_KIP_DEC(12352)},${EMC_E_SECTION}]'`]
-const EMC_COPY_VOLTS = EMC_KEYS.map(k => `{ini_file(${BACKUP_EMC_SECTION},${k})}`).join(',')
-const EMC_VOLT_LIST_COPY = [
-  `list '[{ini_file(Fields,12524)},{ini_file(Fields,12352)},${EMC_COPY_VOLTS}]'`,
-  `list '[{if_null({list(0)},null,{if_==({list(0)},01,1600,1331)})},`
-    + `{hex_to_decimal({hex_to_rhex({if_null({list(1)},000000,{list(1)})})})},{list(2)},{list(3)}]'`,
-  `list '[{list(0)},{list(1)},{list(0)}CL{math({list(1)}*2+8,true)},{list(2)},{list(3)}]'`,
+// Current reads the kip directly. The section depends on the generation and, on 2.5, on the
+// revision (the clock's offset), so the block's table comes in three variants, one visible:
+// 2.6 or none (none nulls the base, and the two rows leave), 2.5 Mariko, 2.5 Erista. On 2.5 an
+// eBAMATIC clock (0) nulls the base too - the section cannot be named then.
+const EMC_VOLT_VARIANTS_KIP = [
+  { sys: [], conds: [`!${fwIs(FW_25)}`], list: [`ini_file './config.ini'`,
+    `list '[{if_==({ini_file(Firmware,gen)},${FW_26},${EMC_E_BASE},null)},${EMC_KIP_DEC(12352)},${EMC_E_SECTION}]'`] },
+  ...['mariko', 'erista'].map(rev => ({ sys: [`;system=${rev}`], conds: [fwIs(FW_25)], list: [
+    `list '[{if_==(${EMC_KIP_DEC(EMC_S_FREQ[rev])},0,null,${EMC_E_BASE})},${EMC_KIP_DEC(12352)},${EMC_S_SECTION(rev)}]'`] })),
 ]
+// The preview reads the chosen backup and needs steps, because a missing key there is `null` and
+// must not turn into a profile name. `src` = [bind config.ini, bind the backup]: the generation
+// is taken while config.ini is bound, the backup's Fields after. The section is THIS console's
+// (DECISIONS 22.09.2026) under the backup's profile - what the firmware will read once the backup
+// is applied: E from 12524/12352 on 2.6, S from the clock and 12352 on 2.5, none without 4IFIR.
+// list 0 = base or null, 1 = eBAL, 2 = section.
+const emcVoltListCopy = (rev, src) => {
+  const dec = n => `{hex_to_decimal({hex_to_rhex({if_null({list(${n})},000000,{list(${n})})})})}`
+  return [
+    src[0], `list '[{ini_file(Firmware,gen)}]'`, src[1],
+    `list '[{ini_file(Fields,12524)},{ini_file(Fields,12352)},{ini_file(Fields,${EMC_S_FREQ[rev]})},{list(0)}]'`,
+    `list '[{if_null({list(0)},null,{if_==({list(0)},01,1600,1331)})},${dec(1)},${dec(2)},{list(3)}]'`,
+    `list '[{if_==({list(3)},${FW_26},{list(0)},{if_==({list(3)},${FW_25},{if_==({list(2)},0,null,{list(0)})},null)})},{list(1)},`
+      + `{if_==({list(3)},${FW_25},{math({list(2)}/1000,true)},{list(0)})}CL{math({list(1)}*2+8,true)}]'`,
+  ]
+}
 
 /**
  * FACTORY RESET PUTS BOTH VOLTAGES BACK TO eBAMATIC (operator, 20.09.2026).
@@ -149,50 +164,23 @@ const EMC_VOLT_LIST_COPY = [
  * or file (the engine reads it as an empty string).
  */
 const EMC_RESET_ROWS = [`'VDDQ' = '${EMC_AUTO}'`, `'VDD2' = '${EMC_AUTO}'`]
-const EMC_RESET_WRITES = kip => [
+// By generation (DECISIONS 22.09.2026): 2.6 zeroes the E section, 2.5 the S section of the live
+// clock (gated on a fixed clock too, and run before the kip loses it), none writes nothing.
+// Two branches per key, one per generation; the flag in our config.ini picks one of them.
+const EMC_RESET_WRITES = (kip, rev) => [
   `hex_file '${kip}'`,
-  ...EMC_KEYS.flatMap(k => [
+  ...EMC_KEYS.flatMap(k => [[FW_26, EMC_E_SECTION, []],
+    [FW_25, EMC_S_SECTION(rev), [`!matching_hex_val_custom ${kip} CUST ${EMC_S_FREQ[rev]} 000000`]]].flatMap(([fw, sec, more]) => [
     'try:',
     `!matching_hex_val_custom ${kip} CUST 12352 000000`,
-    `!matching_ini_val '${EMC_FILE}' '${EMC_E_SECTION}' ${k} ''`,
-    `set-ini-val '${EMC_FILE}' '${EMC_E_SECTION}' ${k} '0'`,
+    `matching_ini_val './config.ini' Firmware gen ${fw}`,
+    ...more,
+    `!matching_ini_val '${EMC_FILE}' '${sec}' ${k} ''`,
+    `set-ini-val '${EMC_FILE}' '${sec}' ${k} '0'`,
     'force_failure',
-  ]),
+  ])),
   'try:',
 ]
-
-/**
- * RESTORE WRITES THE BACKUP'S eVDQ/eVD2 INTO THE PROFILE ITS OWN 12524 AND 12352 NAME
- * (operator, 21.09.2026), over whatever stands there. Other sections and keys stay as they are.
- * No keys (a backup older than this) or eBAL on eBAMATIC - nothing is written.
- * A non-zero value is written always; a zero only into a key that already exists in the
- * profile - no file, section or key is created to hold it (same rule as the reset).
- * Two branches per key, both on the kip branch's own gate and each closed by `force_failure`:
- * "value is not 0" and "key exists"; writing the same value twice is harmless.
- * `src` = [bind config.ini, bind the backup]; path checks come while config.ini is bound, the
- * profile check after the backup is bound (the section name reads its Fields).
- */
-const restoreEmcWrites = (rev, src) => {
-  const path = '{ini_file(Restore,Path)}'
-  // Every branch binds config.ini first: a previous branch that passed its gates has bound the
-  // backup before its `force_failure`, and bindings outlive `try:`.
-  const gate = k => [
-    'try:',
-    src[0],
-    `!matching_ini_val ${path} Meta revision ${rev === 'mariko' ? 'erista' : 'mariko'}`,
-    `matching_ini_val ${path} Meta kipver ${KIPVER}`,
-    `!matching_ini_val ${path} Fields 12352 000000`,
-    // a profile named from a missing field would be a section nobody reads
-    `!matching_ini_val ${path} Fields 12352 ''`,
-    `!matching_ini_val ${path} Fields 12524 ''`,
-    `!matching_ini_val ${path} ${BACKUP_EMC_SECTION} ${k} ''`,
-  ]
-  const write = k => `set-ini-val '${EMC_FILE}' '${EMC_COPY_SECTION}' ${k} '{ini_file(${BACKUP_EMC_SECTION},${k})}'`
-  return EMC_KEYS.flatMap(k => [
-    ...gate(k), `!matching_ini_val ${path} ${BACKUP_EMC_SECTION} ${k} 0`, src[1], write(k), 'force_failure',
-    ...gate(k), src[1], `!matching_ini_val '${EMC_FILE}' '${EMC_COPY_SECTION}' ${k} ''`, write(k), 'force_failure',
-  ])
-}
 
 /**
  * ЗНАЧОК «УДЕРЖИВАТЬ A» — два глифа приватной области шрифта Nintendo Extended:
@@ -319,6 +307,14 @@ const backupFieldCount = rev => backupSet(rev).length + sideSet(rev).length
  * read later by the backup manager - both from one place, so they cannot disagree.
  */
 const IMPORT_FIELD_COUNT = {}
+
+/**
+ * Offsets the converter of each revision actually puts into `Fields`, filled by `emitImport`.
+ * Restore of an imported copy writes these and nothing else, and page 2 shows a dash for the
+ * rest on purpose - no longer by relying on the engine skipping a `null` write. NOTES №349.
+ */
+const IMPORT_CARRIED = {}
+const importCarries = (rev, off) => IMPORT_CARRIED[rev]?.has(off) ?? false
 
 /**
  * WL-Set (12432) and DBI (12528) never come from an old Wizard backup (operator, 21.09.2026).
@@ -1458,28 +1454,38 @@ function emitIniOption(item, lines) {
   write(`${dir}/${base}.json`, JSON.stringify(list, null, 2))
   stats.dicts++
 
-  const val = `{ini_file(${EMC_E_SECTION},${w.key})}`
-  // What the item shows when the package opens: the key as it lies in the file. Missing key
-  // and a stored zero are the same thing on screen — the firmware is deciding.
-  const foot = `{if_null(${val},${EMC_AUTO},{if_==(${val},0,${EMC_AUTO},${val} ${w.units})})}`
-
-  lines.push(`[*${title}]`)
-  lines.push(';mode=option')
+  // ONE ITEM PER PLACE THE FIRMWARE READS (DECISIONS 22.09.2026), exactly one visible: 2.6 and
+  // newer - the E section; 2.5 - the S section, whose clock sits at a revision's own offset, so
+  // one item per revision under `;system=`; no 4IFIR - none. The tag after `?` only keeps the
+  // names apart, the engine drops it on screen. A 2.5 item also hides on an eBAMATIC clock.
   const vc = visCond(item.visible_when)
-  if (vc) { lines.push(`;visibility_condition=${vc}`); stats.guards++ }
-  lines.push(`json_file_source './json/${base}.json' name`)
-  lines.push(`hex_file '${KIP}'`)
-  lines.push(`set-ini-val '${w.file}' '${EMC_E_SECTION}' ${w.key} '{json_file_source(*,mv)}'`)
-  lines.push(`set-footer '{json_file_source(*,short)}'`)
-  lines.push('')
-
-  // The footer on entry comes from the same file and the same key, so the two writers of it
-  // cannot disagree (check 53 compares them through `short`).
   const cfg = currentDir ? `./${currentDir}/config.ini` : './config.ini'
-  bootLines.push(`hex_file '${KIP}'`, `ini_file '${w.file}'`,
-                 `set-ini-val '${cfg}' '*${title}' footer '${foot}'`)
-  stats.bootLines++
-  stats.items++
+  const variants = [
+    { tag: '', sys: [], conds: [fwIs(FW_26)], sec: EMC_E_SECTION },
+    ...['mariko', 'erista'].map(rev => ({ tag: `?25${rev}`, sys: [`;system=${rev}`], sec: EMC_S_SECTION(rev),
+      conds: [fwIs(FW_25), `!matching_hex_val_custom ${KIP} CUST ${EMC_S_FREQ[rev]} 000000`] })),
+  ]
+  for (const v of variants) {
+    const val = `{ini_file(${v.sec},${w.key})}`
+    // What the item shows when the package opens: the key as it lies in the file. Missing key
+    // and a stored zero are the same thing on screen — the firmware is deciding.
+    const foot = `{if_null(${val},${EMC_AUTO},{if_==(${val},0,${EMC_AUTO},${val} ${w.units})})}`
+    lines.push(`[*${title}${v.tag}]`)
+    lines.push(';mode=option')
+    lines.push(...v.sys)
+    for (const c of [v.conds[0], ...(vc ? [vc] : []), ...v.conds.slice(1)]) { lines.push(`;visibility_condition=${c}`); stats.guards++ }
+    lines.push(`json_file_source './json/${base}.json' name`)
+    lines.push(`hex_file '${KIP}'`)
+    lines.push(`set-ini-val '${w.file}' '${v.sec}' ${w.key} '{json_file_source(*,mv)}'`)
+    lines.push(`set-footer '{json_file_source(*,short)}'`)
+    lines.push('')
+    // The footer on entry comes from the same file and the same key, so the two writers of it
+    // cannot disagree (check 53 compares them through `short`).
+    bootLines.push(`hex_file '${KIP}'`, `ini_file '${w.file}'`,
+                   `set-ini-val '${cfg}' '*${title}${v.tag}' footer '${foot}'`)
+    stats.bootLines++
+    stats.items++
+  }
 
   if (item.help) infoRows.push({ title: item.title ?? item.id, warns: [], help: item.help, platform: item.platform })
 }
@@ -1651,13 +1657,7 @@ function emitBackup(item, lines) {
     mk.push(`set-ini-val './config.ini' Backup Mhz '{math({ini_file(Backup,Khz)}/1000,true)}'`)
     mk.push(`set-ini-val './config.ini' Backup Freq '{if_==({ini_file(Backup,Khz)},0,auto,{ini_file(Backup,Mhz)})}'`)
     mk.push(`set-ini-val './config.ini' Backup Bals '{if_==({ini_file(Backup,Bal)},0,auto,eBal{ini_file(Backup,Bal)})}'`)
-    // The two Magician voltages of the live profile (21.09.2026). Staged in config.ini because
-    // the backup's path is read from there: one binding per step. A missing key or file is the
-    // firmware's own choice, saved as 0 (eBAMATIC); so is eBAL on eBAMATIC, where no profile applies.
-    mk.push(`ini_file '${EMC_FILE}'`)
-    EMC_KEYS.forEach(k => mk.push(`set-ini-val './config.ini' Backup ${k} '{if_null({ini_file(${EMC_E_SECTION},${k})},0)}'`))
-    mk.push(`ini_file './config.ini'`)
-    EMC_KEYS.forEach(k => mk.push(`set-ini-val './config.ini' Backup ${k} '{if_==({ini_file(Backup,Bal)},0,0,{ini_file(Backup,${k})})}'`))
+    // No Magician voltages in a backup (operator, 22.09.2026: "we cancel and do not put them in").
     // name first, values second — otherwise a second boundary splits the file in two
     mk.push(`set-ini-val './config.ini' Backup Path '${dir}/{ini_file(Backup,Freq)}-{ini_file(Backup,Bals)}-{timestamp(%d%m%y-%H%M%S)}.ini'`)
     // the backup's passport: where it came from and whether it fits this console
@@ -1681,8 +1681,6 @@ function emitBackup(item, lines) {
     for (const f of sideSet(rev)) {
       mk.push(`set-ini-val '${path}' Fields ${f.offset} '{hex_file(CUST,${f.offset},${f.length})}'`)
     }
-    // Not in Fields: these are not kip offsets and Meta fields does not count them.
-    EMC_KEYS.forEach(k => mk.push(`set-ini-val '${path}' ${BACKUP_EMC_SECTION} ${k} '{ini_file(Backup,${k})}'`))
     // ПОДПИСЬ ОБ УСПЕХЕ ОСТАЁТСЯ ПОДПИСЬЮ, а не превращается в `notify`.
     //
     // `set-footer` у обычного пункта садится на сам пункт, а не на родительский:
@@ -1704,7 +1702,6 @@ function emitBackup(item, lines) {
     // an unreadable kip reads `null` on both sides of the comparison
     mk.push(`!matching_ini_val ${path} Fields ${readBack[0][0]} null`)
     for (const [off, len] of readBack) mk.push(`matching_ini_val ${path} Fields ${off} '{hex_file(CUST,${off},${len})}'`)
-    EMC_KEYS.forEach(k => mk.push(`matching_ini_val ${path} ${BACKUP_EMC_SECTION} ${k} '{ini_file(Backup,${k})}'`))
     // The path lives only for one press: a stale one left by an unwritable config.ini
     // must never point the delete below at an older, good backup.
     const forget = forgetBackupPath(`'./config.ini'`)
@@ -2006,6 +2003,7 @@ function emitImport(lines, rev, dir) {
   // A dropped field still counts: copies imported before 21.09.2026 carry 12432, and a smaller
   // number would flag every one of them as an older backup.
   IMPORT_FIELD_COUNT[rev] = rows.length + dropped
+  IMPORT_CARRIED[rev] = new Set(rows.map(r => r.off))
   lines.push(`set-ini-val '${path}' Meta fields '${rows.length + dropped}'`)
   for (const r of rows) lines.push(`set-ini-val '${path}' Fields ${r.off} '${r.expr}'`)
   // ОТВЕТ ЧЕЛОВЕКУ — ЭКРАННЫМ СООБЩЕНИЕМ, А НЕ ПОДПИСЬЮ ПУНКТА.
@@ -2417,15 +2415,32 @@ function emitPackage(node, dirPath, depth = 0) {
     if (gates.size !== 1 || [...gates][0] == null)
       throw new Error(`${node.id}: hidden_hint needs one common visible_when on ${h.for.join(', ')}`)
     const gate = [...gates][0]
-    lines.push('[Not in use]')
-    lines.push(';mode=table')
-    lines.push(`;visibility_condition=${gate.startsWith('!') ? gate.slice(1) : '!' + gate}`)
-    lines.push(';alignment=left')
-    lines.push(';offset=10')
-    lines.push(';spacing=4')
-    lines.push(';gap=20')
-    for (const ln of wrap(h.text)) lines.push(`''='${ln}'`)
-    lines.push('')
+    const hint = (conds, sys, text) => {
+      lines.push('[Not in use]')
+      lines.push(';mode=table')
+      lines.push(...sys)
+      for (const c of conds) lines.push(`;visibility_condition=${c}`)
+      lines.push(';alignment=left')
+      // 13 = the label column (x+13): at 10 the text sat against the frame (operator, 22.09.2026).
+      lines.push(';offset=13')
+      lines.push(';spacing=4')
+      lines.push(';gap=20')
+      for (const ln of wrap(text)) lines.push(`''='${ln}'`)
+      lines.push('')
+    }
+    // Exactly one line names what is missing (operator, 22.09.2026). 2.6+: eBAL only. 2.5 names
+    // the section after the RAM clock too, so eBAL, the clock or both, per revision (the clock's
+    // offset). Positive generation tests: no 4IFIR - or no flag at all - shows nothing.
+    if (h.text_clock && !h.text_both) throw new Error(`${node.id}: hidden_hint has text_clock but no text_both`)
+    const balAuto = gate.startsWith('!') ? gate.slice(1) : '!' + gate
+    hint([balAuto, fwIs(FW_26)], [], h.text)
+    if (h.text_clock) for (const rev of ['mariko', 'erista']) {
+      const clkAuto = `matching_hex_val_custom ${KIP} CUST ${EMC_S_FREQ[rev]} 000000`
+      const sys = [`;system=${rev}`]
+      hint([fwIs(FW_25), balAuto, '!' + clkAuto], sys, h.text)
+      hint([fwIs(FW_25), gate, clkAuto], sys, h.text_clock)
+      hint([fwIs(FW_25), balAuto, clkAuto], sys, h.text_both)
+    }
   }
 
   const body = [...links, ...lines]
@@ -2644,9 +2659,20 @@ if (kipRows.length) {
       // The Optimized block carries two rows that are not kip fields (see EMC_VOLT_ROWS);
       // `;skip_null` is what lets them leave when the profile cannot be named.
       const opt = g.name === OPT_GROUP
-      kl.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ...(opt ? [';skip_null=true'] : []), ...sys, ...gate, ...src)
-      emitGroupRows(kl, rows, valueOf, scoped, opt ? new Map([[12524, EMC_VOLT_ROWS(EMC_VOLT_LIST_KIP)]]) : null)
-      kl.push('')
+      if (!opt) {
+        kl.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ...sys, ...gate, ...src)
+        emitGroupRows(kl, rows, valueOf, scoped, null)
+        kl.push('')
+      } else {
+        // One of three tables is visible: the section depends on the generation (see EMC_VOLT_VARIANTS_KIP).
+        if (sys.length || valueOf !== FROM_KIP) throw new Error('the Optimized block of Current is expected unscoped and on the live kip')
+        for (const v of EMC_VOLT_VARIANTS_KIP) {
+          kl.push('[Info]', ';mode=table', ';spacing=0', ';gap=0', ';skip_null=true', ...v.sys, ...gate,
+                  ...v.conds.map(c => `;visibility_condition=${c}`), ...src)
+          emitGroupRows(kl, rows, valueOf, scoped, new Map([[12524, EMC_VOLT_ROWS(v.list)]]))
+          kl.push('')
+        }
+      }
     }
 
     const platOf = r => (r.platform === 'mariko' || r.platform === 'erista' ? r.platform : 'both')
@@ -3398,6 +3424,17 @@ if (kipRows.length) {
     const gpuGate = hex => hex === '01'
       ? `{if_null(${MODE44},y,{if_==(${MODE44},010000,y,null)})}`
       : `{if_==(${MODE44},${hex}0000,y,null)}`
+    // Labels and offsets of Current's GPU table for one Fields 44 mode, the ceiling last.
+    const modeCells = hex => {
+      const m = curveTables.modes.find(x => x.hex === hex)
+      if (!m) throw new Error(`curveTables has no mode ${hex}: a preview page would miss a GPU table`)
+      const cells = curveTables.labels.map((title, i) => [title, m.base + curveTables.step * i + 32])
+      cells.push(['Max Clock', m.base + curveTables.step * curveTables.labels.length])
+      return cells
+    }
+    // The reset page knows its Fields 44 at build time: Default.ini is fixed.
+    if (factory && FACTORY[44] === undefined) throw new Error('factory set has no Fields 44: the reset page cannot pick its GPU table')
+    const factoryMode = factory && curveTables?.labels.length ? String(FACTORY[44]).slice(0, 2) : null
     // Gap, heading and rows all carry the gate: a table left empty is not added at all.
     const gpuTable = (gate, name, extraSrc, rows) => {
       const on = v => `{if_null({list(0)},null,${v})}`
@@ -3529,11 +3566,10 @@ if (kipRows.length) {
         const ctx = rev ? '' : (g.ctx ?? '')
 
         // THE TWO MAGICIAN VOLTAGES ARE ON BOTH PREVIEWS, BUT THEY ANSWER DIFFERENT QUESTIONS.
-        // The backup preview shows the backup's own [Optimized] voltages; a backup older than
-        // 21.09.2026 has none, and then it shows THIS console's emc_timings.ini under the
-        // backup's profile with the caveat the timings carry. The factory-reset page answers "what
-        // will be written", and since 20.09.2026 the reset writes both keys back to eBAMATIC,
-        // so it prints that word flat: the current value would be a different question.
+        // A backup does not carry them (22.09.2026), so its preview shows THIS console's
+        // emc_timings.ini under the backup's profile, with the caveat. The factory-reset page
+        // answers "what will be written", and since 20.09.2026 the reset writes both keys back to
+        // eBAMATIC, so it prints that word flat: the current value would be a different question.
         const optHere = g.name === OPT_GROUP && !!rev
         const optReset = g.name === OPT_GROUP && factory
         for (const t of tables) {
@@ -3556,6 +3592,17 @@ if (kipRows.length) {
           // (`JsonScope`, `utils.hpp`, коммит 215270d5). Повторное `json_file` внутри той же
           // таблицы кэш не рушит, но лишние объявления сводят выигрыш на нет, а на второй
           // странице строк вчетверо больше, чем на первой.
+          // Reset page, Mariko: the table Current shows for the factory Fields 44 (22.09.2026).
+          // Only mode 03 reads the manual array 88...208; any other mode reads a kip table the
+          // reset does not write, so it is read live and the top seven cells stay unseen.
+          if (factoryMode && factoryMode !== '03' && g.name === 'GPU Voltage Table' && t.sys.includes(';system=mariko')) {
+            const cells = modeCells(factoryMode)
+            const written = cells.filter(([, off]) => only.has(off))
+            if (written.length) throw new Error(`reset writes GPU table cells ${written.map(c => c[1])}: read them from Default.ini`)
+            out.push(`hex_file '${KIP}'`, `json_file '${rebase(curveTables.map, depth)}'`,
+                     ...cells.map(([title, off]) => `'${safeName(title)}' = '{if_null({json_file(0,{hex_file(CUST,${off},4)})},—)}'`), '')
+            continue
+          }
           let lastMap = null
           const sink = gate ? body : out
           for (const r of t.rows) {
@@ -3575,8 +3622,9 @@ if (kipRows.length) {
             // Поэтому ключ достраивается ТОЛЬКО когда источник её содержит; иначе строка
             // читается плоским словарём, где тот же режим назван без оглядки на таблицу.
             const probeInSrc = r.probe && (!only || only.has(r.probe.offset))
-            // A chosen backup may be imported: its restore writes neither WL-Set nor DBI.
-            const asImported = chooser && IMPORT_DROPPED.includes(r.offset)
+            // A chosen backup may be imported: its restore writes only what the converter
+            // carries, so every other row (WL-Set, DBI, isKefir, ...) is an explicit dash.
+            const asImported = chooser && !importCarries(rev, r.offset)
             const key = probeInSrc
               ? `{ini_file(Fields,${r.offset})}{ini_file(Fields,${r.probe.offset})}`
               : asImported
@@ -3602,24 +3650,26 @@ if (kipRows.length) {
             sink.push(`'${safeName(label)}' = '{json_file(0,${key})}'`)
             // The two voltage rows sit right after Optimized Target, and they read a DIFFERENT
             // ini file — so the binding has to go back to the backup for the rows below them.
-            if (optHere && r.offset === 12524) sink.push(...EMC_VOLT_ROWS(EMC_VOLT_LIST_COPY, source, true))
+            if (optHere && r.offset === 12524) sink.push(...EMC_VOLT_ROWS(emcVoltListCopy(rev, source), source))
             else if (optReset && r.offset === 12524) sink.push(...EMC_RESET_ROWS)
           }
           if (gate) out.push(...gpuTable(gate, g.name, [], body))
           else out.push('')
         }
-        // Only a backup made before 21.09.2026 lacks its own [Optimized] voltages: then the rows
-        // read THIS console's emc_timings.ini and the block says so. Gated by the same list, so
-        // the line leaves with the rows it explains and never shows under a backup's own values.
+        // The rows read THIS console's emc_timings.ini for every backup, and the block says so.
+        // Gated by the same list, so the line leaves with the rows it explains. The table above ends with ;gap=0 and its frame reaches 16 px into this one: start_gap 36
+        // drops the line clear of it, gap 16 gives the same 16 back to the next block (22.09.2026).
         if (optHere) {
           out.push('[Note]', ';mode=table', ';background=false', ';alignment=left', ';offset=10',
-                   ';spacing=4', ';gap=0', ';skip_null=true', ...source, ...EMC_VOLT_LIST_COPY,
-                   `''='{if_null({list(0)},null,{if_==({list(1)},0,null,{if_null({list(3)},VDDQ/VDD2: this console - not the backup,null)})})}'`, '')
+                   ';spacing=4', ';start_gap=36', ';gap=16', ';skip_null=true', ...source, ...emcVoltListCopy(rev, source),
+                   `''='{if_null({list(0)},null,{if_==({list(1)},0,null,VDDQ/VDD2: this console - not the backup)})}'`, '')
         }
         // Under the group holding DBI: an imported backup does not restore WL-Set or DBI.
+        // Same frame as the VDDQ/VDD2 note: the table above ends with ;gap=0 and its frame reaches
+        // 16 px into this one, start_gap 36 / gap 16 clear it (photo 2026-09-22 12-54-52).
         if (chooser && tables.some(t => t.rows.some(r => r.offset === IMPORT_DROPPED[1]))) {
           out.push('[Note]', ';mode=table', ';background=false', ';alignment=left', ';offset=10',
-                   ';spacing=4', ';gap=0', ';skip_null=true', ...source,
+                   ';spacing=4', ';start_gap=36', ';gap=16', ';skip_null=true', ...source,
                    `''='{if_==({ini_file(Meta,kipver)},imported,${IMPORT_DROPPED_NOTE},null)}'`, '')
         }
       }
@@ -3707,11 +3757,7 @@ if (kipRows.length) {
       if (!gpuGated(groupName)) return []
       const out = []
       for (const hex of ['00', '01', '02']) {
-        const m = curveTables.modes.find(x => x.hex === hex)
-        if (!m) throw new Error(`curveTables has no mode ${hex}: the backup page would miss a GPU table`)
-        const cells = curveTables.labels.map((title, i) => [title, m.base + curveTables.step * i + 32])
-        // The ceiling sits after the grid, as in Current.
-        cells.push(['Max Clock', m.base + curveTables.step * curveTables.labels.length])
+        const cells = modeCells(hex)
         const fromCopy = hex === '01'
         const read = off => fromCopy ? `{ini_file(Fields,${off})}` : `{hex_file(CUST,${off},4)}`
         // One json_file per table: the parsed-json cache lives for one table build.
@@ -3741,6 +3787,8 @@ if (kipRows.length) {
     const mine = kipRows.filter(r => (r.platform ?? 'both') === 'both' || r.platform === rev)
     for (const o of IMPORT_DROPPED)
       if (!backupSet(rev).some(f => f.offset === o)) throw new Error(`${rev}: ${o} is not in the backup set - IMPORT_DROPPED is stale`)
+    // The import branch and page 2 read IMPORT_CARRIED: the converter must have run first.
+    if (IMPORT_MAP?.[rev]?.length && !IMPORT_CARRIED[rev]) throw new Error(`${rev}: restore page built before the import converter`)
     const page = `service/restore-${rev}.ini`
     const pageDir = page.slice(0, page.lastIndexOf('/'))
     const applyHead = `Apply this backup ${HOLD_A}`
@@ -3857,12 +3905,8 @@ if (kipRows.length) {
         // `commandSuccess` не трогает (`handleHexByCustom` возвращает void), так что
         // девяносто команд внутри блока цепочку не порвут.
         src[0],
-        // THE BACKUP'S MAGICIAN VOLTAGES (21.09.2026), before the kip branch and on its gate
-        // (see restoreEmcWrites). A branch that passed its gates has rebound to the backup
-        // before `force_failure`, so the kip branch binds config.ini again right after `try:`.
-        ...restoreEmcWrites(rev, src),
+        // emc_timings.ini is not touched: a backup carries no Magician voltages (22.09.2026).
         'try:',
-        src[0],
         /**
          * Must come BEFORE `ini_file '{ini_file(Restore,Path)}'`: that rebinds reads to
          * the backup file, where section `Restore` does not exist, and the predicate would
@@ -3896,9 +3940,9 @@ if (kipRows.length) {
         `!matching_ini_val {ini_file(Restore,Path)} Meta revision ${rev === 'mariko' ? 'erista' : 'mariko'}`,
         `matching_ini_val {ini_file(Restore,Path)} Meta kipver imported`,
         src[1],
-        // WL-Set and DBI stay as they are on the console (IMPORT_DROPPED)
-        ...backupSet(rev).filter(f => !IMPORT_DROPPED.includes(f.offset)).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
-        ...sideSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
+        // Only what the converter carries (IMPORT_CARRIED): WL-Set, DBI and every field the old
+        // format never held stay as they are on the console.
+        ...[...backupSet(rev), ...sideSet(rev)].filter(f => importCarries(rev, f.offset)).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
         `set-footer 'restored (import)'`,
         rebuildOn(applyHead),
         'try:',
@@ -3966,7 +4010,7 @@ if (kipRows.length) {
       `[${resetHead(rev)}]`, ';hold=true', `;system=${rev}`,
       ...src,
       // eVDQ/eVD2 back to eBAMATIC, BEFORE the kip loses the eBAL this profile is named after.
-      ...EMC_RESET_WRITES(KIP),
+      ...EMC_RESET_WRITES(KIP, rev),
       /**
        * СБРОС ФИЛЬТРУЕТСЯ ПО РЕВИЗИИ — И У ЭТОГО ЕСТЬ ОДНО ИСКЛЮЧЕНИЕ.
        *
@@ -3997,8 +4041,9 @@ if (kipRows.length) {
     emitPreviewPage(resetPage, {
       title: 'Factory Defaults', rev: null, source: src, depth: 1,
       chooser: null,
-      // `factory` tells the row printer that the source is the factory set, where the top
-      // seven curve cells are not voltages at all. Only this page has that problem.
+      // `factory` tells the row printer that the source is the factory set: the Mariko GPU table
+      // follows the factory Fields 44 as Current does, and in mode 03 the top seven curve cells
+      // are not voltages at all. Only this page has that problem.
       factory: true,
       only: new Set(factoryOffsets),
       apply: [...applyFor('mariko'), '', ...applyFor('erista')],
@@ -4008,9 +4053,13 @@ if (kipRows.length) {
       // не знала. Теперь предложение появляется, только если ему есть что сказать.
       note: 'This is what the firmware ships with, the GPU voltage curves included: their factory '
           + 'bytes are read from the console kip, because the snapshot carries a different table. '
-          + 'The top seven Mariko cells are shown as raw bytes — at factory they hold row 0 of the '
-          + 'Erista CPU table, which is not a voltage, and the reset puts that row back on both '
-          + 'revisions.'
+          + (String(FACTORY[44]).startsWith('03')
+              ? 'The top seven Mariko cells are shown as raw bytes — at factory they hold row 0 of the '
+                + 'Erista CPU table, which is not a voltage, and the reset puts that row back on both '
+                + 'revisions.'
+              : 'On Mariko the table shown is the one the factory undervolt mode uses, as Current '
+                + 'Settings will show it after the reset. The manual table is reset too, but that mode '
+                + 'does not read it.')
           + (notCovered.length
               ? ` On Erista the snapshot also has no value for ${notCovered.join(' or ')}, so those keep their current setting.`
               : ''),
@@ -4223,6 +4272,67 @@ const oneShotClear = [
   ...[...oneShotChoice].flatMap(([dir, keys]) => keys.map(k => `set-ini-val ${cfgAt(dir)} Restore ${k} ''`)),
   ...[...oneShotBackupPath].map(dir => forgetBackupPath(cfgAt(dir))),
 ]
+/**
+ * THE 4IFIR GENERATION IS KEPT WITH THE OVERLAY'S BUILD-ID (DECISIONS 22.09.2026, MAGICIAN-PAGE §0.10).
+ * Tail of every forwarder into a page that reads [Firmware] gen. Build-id at 0x40 equals the
+ * stored ovl_id (not zero) - one 20-byte read, done. Else: NACP name `4IFIR Houdini` -> 2.5
+ * (any `Houdini` if the NACP is not right after ASET), other file -> 2.6+, none -> none.
+ */
+const OVL_ZERO_ID = '00'.repeat(20)
+const FW_DETECT = cfg => [
+  `ini_file '${cfg}'`,
+  `hex_file '${OVL_4IFIR}'`,
+  'try:',
+  `!path_exists ${OVL_4IFIR}`,
+  `set-ini-val '${cfg}' Firmware gen '${FW_NONE}'`,
+  `remove-ini-key '${cfg}' Firmware ovl_id`,
+  'try:',
+  `!matching_ini_val '${cfg}' Firmware gen ''`,
+  `!matching_hex_val ${OVL_4IFIR} 64 ${OVL_ZERO_ID}`,
+  `matching_hex_val ${OVL_4IFIR} 64 '{ini_file(Firmware,ovl_id)}'`,
+  'try:',
+  `set-ini-val '${cfg}' Firmware gen '${FW_26}'`,
+  `matching_hex_val_custom ${OVL_4IFIR} ASET 24 3800000000000000`,
+  `matching_hex_val_custom ${OVL_4IFIR} ASET 56 344946495220486F7564696E69`,
+  `set-ini-val '${cfg}' Firmware gen '${FW_25}'`,
+  'force_failure',
+  'try:',
+  `!matching_hex_val_custom ${OVL_4IFIR} ASET 24 3800000000000000`,
+  `matching_hex_val_custom ${OVL_4IFIR} Houdini 0 48`,
+  `set-ini-val '${cfg}' Firmware gen '${FW_25}'`,
+  'force_failure',
+  'try:',
+  `matching_hex_val ${OVL_4IFIR} 16 4E524F30`,
+  `!matching_hex_val ${OVL_4IFIR} 64 ${OVL_ZERO_ID}`,
+  `set-ini-val '${cfg}' Firmware ovl_id '{hex_file(NRO0,48,20)}'`,
+  'try:',
+  `remove-ini-key '${cfg}' Firmware ovl_id`,
+]
+// A reader asks the flag; the detection's own writes and its "flag present" gate are not a read.
+const readsGen = text => text.split('\n').some(l => !l.startsWith('set-ini-val ') && !l.endsWith("Firmware gen ''") && /Firmware gen |\{ini_file\(Firmware,gen\)\}/.test(l))
+function detectGenerationOnEntry () {
+  let n = 0
+  for (const [rel, text] of FILES) {
+    if (!rel.endsWith('.ini')) continue
+    const dir = posix.dirname(rel)
+    let changed = false
+    const secs = text.split(/\n(?=\[)/).map(sec => {
+      if (!/^;mode=forwarder$/m.test(sec)) return sec
+      const src = sec.match(/^package_source '([^']+)'$/m)
+      const target = src && posix.join(dir, src[1])
+      if (!target || !readsGen(FILES.get(target) ?? '')) return sec
+      if (sec.split('\n').includes('try:')) throw new Error(`${rel}: forwarder into ${target} already has try: - the detection must end the section alone`)
+      const cfg = './' + posix.relative(dir, posix.join(posix.dirname(target), 'config.ini'))
+      const ls = sec.split('\n')
+      ls.splice(ls.indexOf(src[0]) + 1, 0, ...FW_DETECT(cfg))
+      changed = true; n++
+      return ls.join('\n')
+    })
+    if (changed) FILES.set(rel, secs.join('\n'))
+  }
+  if (!n) throw new Error('no forwarder leads into a page that reads [Firmware] gen - the flag would never be set')
+  return n
+}
 if (boot.some(l => l.startsWith('set-ini-val'))) {
   write('boot_package.ini', [
     '[boot]',
@@ -4307,6 +4417,7 @@ function reseedRootFooters () {
   return patched
 }
 
+stats.fwDetect = detectGenerationOnEntry()
 stats.rootReseeds = reseedRootFooters()
 flushFiles()
 
