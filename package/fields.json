@@ -23805,7 +23805,7 @@
     },
     {
       "offset": 12440,
-      "length": 1,
+      "length": 4,
       "write_kind": "hex",
       "units": "mV_offset",
       "name": "pMeh 19 vMINetune ST",
@@ -23839,127 +23839,225 @@
       "values": [
         {
           "name": "+75 mV",
-          "hex": "F2"
+          "hex": "F2FFFFFF"
         },
         {
           "name": "+70 mV",
-          "hex": "F3"
+          "hex": "F3FFFFFF"
         },
         {
           "name": "+65 mV",
-          "hex": "F4"
+          "hex": "F4FFFFFF"
         },
         {
           "name": "+60 mV",
-          "hex": "F5"
+          "hex": "F5FFFFFF"
         },
         {
           "name": "+55 mV",
-          "hex": "F6"
+          "hex": "F6FFFFFF"
         },
         {
           "name": "+50 mV",
-          "hex": "F7"
+          "hex": "F7FFFFFF"
         },
         {
           "name": "+45 mV",
-          "hex": "F8"
+          "hex": "F8FFFFFF"
         },
         {
           "name": "+40 mV",
-          "hex": "F9"
+          "hex": "F9FFFFFF"
         },
         {
           "name": "+35 mV",
-          "hex": "FA"
+          "hex": "FAFFFFFF"
         },
         {
           "name": "+30 mV",
-          "hex": "FB"
+          "hex": "FBFFFFFF"
         },
         {
           "name": "+25 mV",
-          "hex": "FC"
+          "hex": "FCFFFFFF"
         },
         {
           "name": "+20 mV",
-          "hex": "FD"
+          "hex": "FDFFFFFF"
         },
         {
           "name": "+15 mV",
-          "hex": "FE"
+          "hex": "FEFFFFFF"
         },
         {
           "name": "+10 mV",
-          "hex": "FF"
+          "hex": "FFFFFFFF"
         },
         {
           "name": "+5 mV",
-          "hex": "00"
+          "hex": "00000000"
         },
         {
           "name": "0 - Default",
-          "hex": "01"
+          "hex": "01000000"
         },
         {
           "name": "-5 mV",
-          "hex": "02"
+          "hex": "02000000"
         },
         {
           "name": "-10 mV",
-          "hex": "03"
+          "hex": "03000000"
         },
         {
           "name": "-15 mV",
-          "hex": "04"
+          "hex": "04000000"
         },
         {
           "name": "-20 mV",
-          "hex": "05"
+          "hex": "05000000"
         },
         {
           "name": "-25 mV",
-          "hex": "06"
+          "hex": "06000000"
         },
         {
           "name": "-30 mV",
-          "hex": "07"
+          "hex": "07000000"
         },
         {
           "name": "-35 mV",
-          "hex": "08"
+          "hex": "08000000"
         },
         {
           "name": "-40 mV",
-          "hex": "09"
+          "hex": "09000000"
         },
         {
           "name": "-45 mV",
-          "hex": "0A"
+          "hex": "0A000000"
         },
         {
           "name": "-50 mV",
-          "hex": "0B"
+          "hex": "0B000000"
         },
         {
           "name": "-55 mV",
-          "hex": "0C"
+          "hex": "0C000000"
         },
         {
           "name": "-60 mV",
-          "hex": "0D"
+          "hex": "0D000000"
         },
         {
           "name": "-65 mV",
-          "hex": "0E"
+          "hex": "0E000000"
         },
         {
           "name": "-70 mV",
-          "hex": "0F"
+          "hex": "0F000000"
         },
         {
           "name": "-75 mV",
-          "hex": "10"
+          "hex": "10000000"
+        },
+        {
+          "name": "242 - Unknown",
+          "hex": "F2000000",
+          "not_in_menu": true,
+          "map_label": "242 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "243 - Unknown",
+          "hex": "F3000000",
+          "not_in_menu": true,
+          "map_label": "243 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "244 - Unknown",
+          "hex": "F4000000",
+          "not_in_menu": true,
+          "map_label": "244 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "245 - Unknown",
+          "hex": "F5000000",
+          "not_in_menu": true,
+          "map_label": "245 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "246 - Unknown",
+          "hex": "F6000000",
+          "not_in_menu": true,
+          "map_label": "246 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "247 - Unknown",
+          "hex": "F7000000",
+          "not_in_menu": true,
+          "map_label": "247 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "248 - Unknown",
+          "hex": "F8000000",
+          "not_in_menu": true,
+          "map_label": "248 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "249 - Unknown",
+          "hex": "F9000000",
+          "not_in_menu": true,
+          "map_label": "249 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "250 - Unknown",
+          "hex": "FA000000",
+          "not_in_menu": true,
+          "map_label": "250 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "251 - Unknown",
+          "hex": "FB000000",
+          "not_in_menu": true,
+          "map_label": "251 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "252 - Unknown",
+          "hex": "FC000000",
+          "not_in_menu": true,
+          "map_label": "252 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "253 - Unknown",
+          "hex": "FD000000",
+          "not_in_menu": true,
+          "map_label": "253 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "254 - Unknown",
+          "hex": "FE000000",
+          "not_in_menu": true,
+          "map_label": "254 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "255 - Unknown",
+          "hex": "FF000000",
+          "not_in_menu": true,
+          "map_label": "255 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
         }
       ],
       "menu_path": {
@@ -24109,9 +24207,10 @@
         ]
       },
       "platform_source": "pMEH[19] vMINetune ST — Ebal GPU.ini:99 | 29.08.2026: снята пометка mariko — в оригинальном 4IFIR Wizard оба поля лежат в RAM > MICRO-ENHANCE LOGIC без фильтра платформы и видны на обеих ревизиях, и его сброс к заводским пишет в них безусловно. Решение оператора: как в оригинале.",
-      "help_text": "Shifts the automatic GPU voltage floor for Optimized E RAM. This is a shift, not the voltage itself: plus raises it, minus lowers it. Step is 5 mV. KIP tool in hekate shows the raw value, where stock is 1.",
+      "help_text": "Shifts the voltage of the lowest point of the GPU curve (307 MHz) — the floor the firmware works out for Optimized E RAM. This is a shift, not the voltage itself: plus raises it, minus lowers it. Step is 5 mV. KIP tool in hekate shows the raw value, where stock is 1.",
       "help_source": "4IFIR Wizard Help/pMeh 19 vMINetune ST.txt",
-      "range_note": "ДИАПАЗОН РАСШИРЕН АВТОРОМ ПРОШИВКИ ПО ПРОСЬБЕ. Строка-легенда в customize.cpp говорит «0-9», но это устаревший комментарий: Cooler3D добавил значения выше и ниже по личной просьбе оператора. НЕ ОБРЕЗАТЬ по легенде. 03.09.2026 ряд расширен до ±15 ступеней (+75…-75 мВ, 31 пункт) решением оператора — это за пределами ВСЕХ доноров: оригинальный 4IFIR Wizard даёт сырые уровни 0…14 (байты 00…0E) и плюсовой стороны не имеет вовсе, декодер Ebal называет милливольтами до 0F (-70) у 12440 и до 0B (-45) у 12448. Обкатаны людьми только донорские пункты; за ними — решение оператора, см. NOTES №227."
+      "range_note": "ДИАПАЗОН РАСШИРЕН АВТОРОМ ПРОШИВКИ ПО ПРОСЬБЕ. Строка-легенда в customize.cpp говорит «0-9», но это устаревший комментарий: Cooler3D добавил значения выше и ниже по личной просьбе оператора. НЕ ОБРЕЗАТЬ по легенде. 03.09.2026 ряд расширен до ±15 ступеней (+75…-75 мВ, 31 пункт) решением оператора — это за пределами ВСЕХ доноров: оригинальный 4IFIR Wizard даёт сырые уровни 0…14 (байты 00…0E) и плюсовой стороны не имеет вовсе, декодер Ebal называет милливольтами до 0F (-70) у 12440 и до 0B (-45) у 12448. Обкатаны людьми только донорские пункты; за ними — решение оператора, см. NOTES №227.",
+      "legacy_length": 1
     },
     {
       "offset": 12444,
@@ -24286,7 +24385,7 @@
     },
     {
       "offset": 12448,
-      "length": 1,
+      "length": 4,
       "write_kind": "hex",
       "units": "mV_offset",
       "name": "pMeh 21 gVMINDick",
@@ -24322,127 +24421,218 @@
       "values": [
         {
           "name": "+75 mV",
-          "hex": "F3"
+          "hex": "F3FFFFFF"
         },
         {
           "name": "+70 mV",
-          "hex": "F4"
+          "hex": "F4FFFFFF"
         },
         {
           "name": "+65 mV",
-          "hex": "F5"
+          "hex": "F5FFFFFF"
         },
         {
           "name": "+60 mV",
-          "hex": "F6"
+          "hex": "F6FFFFFF"
         },
         {
           "name": "+55 mV",
-          "hex": "F7"
+          "hex": "F7FFFFFF"
         },
         {
           "name": "+50 mV",
-          "hex": "F8"
+          "hex": "F8FFFFFF"
         },
         {
           "name": "+45 mV",
-          "hex": "F9"
+          "hex": "F9FFFFFF"
         },
         {
           "name": "+40 mV",
-          "hex": "FA"
+          "hex": "FAFFFFFF"
         },
         {
           "name": "+35 mV",
-          "hex": "FB"
+          "hex": "FBFFFFFF"
         },
         {
           "name": "+30 mV",
-          "hex": "FC"
+          "hex": "FCFFFFFF"
         },
         {
           "name": "+25 mV",
-          "hex": "FD"
+          "hex": "FDFFFFFF"
         },
         {
           "name": "+20 mV",
-          "hex": "FE"
+          "hex": "FEFFFFFF"
         },
         {
           "name": "+15 mV",
-          "hex": "FF"
+          "hex": "FFFFFFFF"
         },
         {
           "name": "+10 mV",
-          "hex": "00"
+          "hex": "00000000"
         },
         {
           "name": "+5 mV",
-          "hex": "01"
+          "hex": "01000000"
         },
         {
           "name": "0 - Default",
-          "hex": "02"
+          "hex": "02000000"
         },
         {
           "name": "-5 mV",
-          "hex": "03"
+          "hex": "03000000"
         },
         {
           "name": "-10 mV",
-          "hex": "04"
+          "hex": "04000000"
         },
         {
           "name": "-15 mV",
-          "hex": "05"
+          "hex": "05000000"
         },
         {
           "name": "-20 mV",
-          "hex": "06"
+          "hex": "06000000"
         },
         {
           "name": "-25 mV",
-          "hex": "07"
+          "hex": "07000000"
         },
         {
           "name": "-30 mV",
-          "hex": "08"
+          "hex": "08000000"
         },
         {
           "name": "-35 mV",
-          "hex": "09"
+          "hex": "09000000"
         },
         {
           "name": "-40 mV",
-          "hex": "0A"
+          "hex": "0A000000"
         },
         {
           "name": "-45 mV",
-          "hex": "0B"
+          "hex": "0B000000"
         },
         {
           "name": "-50 mV",
-          "hex": "0C"
+          "hex": "0C000000"
         },
         {
           "name": "-55 mV",
-          "hex": "0D"
+          "hex": "0D000000"
         },
         {
           "name": "-60 mV",
-          "hex": "0E"
+          "hex": "0E000000"
         },
         {
           "name": "-65 mV",
-          "hex": "0F"
+          "hex": "0F000000"
         },
         {
           "name": "-70 mV",
-          "hex": "10"
+          "hex": "10000000"
         },
         {
           "name": "-75 mV",
-          "hex": "11"
+          "hex": "11000000"
+        },
+        {
+          "name": "243 - Unknown",
+          "hex": "F3000000",
+          "not_in_menu": true,
+          "map_label": "243 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "244 - Unknown",
+          "hex": "F4000000",
+          "not_in_menu": true,
+          "map_label": "244 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "245 - Unknown",
+          "hex": "F5000000",
+          "not_in_menu": true,
+          "map_label": "245 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "246 - Unknown",
+          "hex": "F6000000",
+          "not_in_menu": true,
+          "map_label": "246 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "247 - Unknown",
+          "hex": "F7000000",
+          "not_in_menu": true,
+          "map_label": "247 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "248 - Unknown",
+          "hex": "F8000000",
+          "not_in_menu": true,
+          "map_label": "248 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "249 - Unknown",
+          "hex": "F9000000",
+          "not_in_menu": true,
+          "map_label": "249 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "250 - Unknown",
+          "hex": "FA000000",
+          "not_in_menu": true,
+          "map_label": "250 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "251 - Unknown",
+          "hex": "FB000000",
+          "not_in_menu": true,
+          "map_label": "251 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "252 - Unknown",
+          "hex": "FC000000",
+          "not_in_menu": true,
+          "map_label": "252 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "253 - Unknown",
+          "hex": "FD000000",
+          "not_in_menu": true,
+          "map_label": "253 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "254 - Unknown",
+          "hex": "FE000000",
+          "not_in_menu": true,
+          "map_label": "254 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
+        },
+        {
+          "name": "255 - Unknown",
+          "hex": "FF000000",
+          "not_in_menu": true,
+          "map_label": "255 - Unknown",
+          "legacy": "одним байтом писали сборки до 22.09.2026: в поле лежит само число, а не смещение"
         }
       ],
       "menu_path": {
@@ -24592,9 +24782,10 @@
         ]
       },
       "platform_source": "pMEH[21] — Ebal GPU.ini:107 | 29.08.2026: снята пометка mariko — в оригинальном 4IFIR Wizard оба поля лежат в RAM > MICRO-ENHANCE LOGIC без фильтра платформы и видны на обеих ревизиях, и его сброс к заводским пишет в них безусловно. Решение оператора: как в оригинале.",
-      "help_text": "Shifts the automatic GPU voltage floor for the top RAM step (Optimized S, max RAM frequency). This is a shift, not the voltage itself: plus raises it, minus lowers it. Step is 5 mV. KIP tool in hekate shows the raw value, where stock is 2.",
+      "help_text": "Shifts the voltage of the lowest point of the GPU curve (307 MHz) — the floor the firmware works out for the top RAM step (Optimized S, max RAM frequency). This is a shift, not the voltage itself: plus raises it, minus lowers it. Step is 5 mV. KIP tool in hekate shows the raw value, where stock is 2.",
       "help_source": "4IFIR Wizard Help/pMeh 21 gVMINDick.txt",
-      "range_note": "ДИАПАЗОН РАСШИРЕН АВТОРОМ ПРОШИВКИ ПО ПРОСЬБЕ. Строка-легенда в customize.cpp говорит «0-9», но это устаревший комментарий: Cooler3D добавил значения выше и ниже по личной просьбе оператора. НЕ ОБРЕЗАТЬ по легенде. 03.09.2026 ряд расширен до ±15 ступеней (+75…-75 мВ, 31 пункт) решением оператора — это за пределами ВСЕХ доноров: оригинальный 4IFIR Wizard даёт сырые уровни 0…14 (байты 00…0E) и плюсовой стороны не имеет вовсе, декодер Ebal называет милливольтами до 0F (-70) у 12440 и до 0B (-45) у 12448. Обкатаны людьми только донорские пункты; за ними — решение оператора, см. NOTES №227."
+      "range_note": "ДИАПАЗОН РАСШИРЕН АВТОРОМ ПРОШИВКИ ПО ПРОСЬБЕ. Строка-легенда в customize.cpp говорит «0-9», но это устаревший комментарий: Cooler3D добавил значения выше и ниже по личной просьбе оператора. НЕ ОБРЕЗАТЬ по легенде. 03.09.2026 ряд расширен до ±15 ступеней (+75…-75 мВ, 31 пункт) решением оператора — это за пределами ВСЕХ доноров: оригинальный 4IFIR Wizard даёт сырые уровни 0…14 (байты 00…0E) и плюсовой стороны не имеет вовсе, декодер Ebal называет милливольтами до 0F (-70) у 12440 и до 0B (-45) у 12448. Обкатаны людьми только донорские пункты; за ними — решение оператора, см. NOTES №227.",
+      "legacy_length": 1
     },
     {
       "offset": 12452,

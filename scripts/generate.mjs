@@ -352,6 +352,30 @@ try {
   }
 } catch { /* no dependency map yet — carry on without it */ }
 const byOffset = new Map(fieldsDoc.fields.map(f => [f.offset, f]))
+
+/**
+ * A VALUE COMING OUT OF A BACKUP IS WIDENED TO THE FIELD'S WIDTH.
+ *
+ * `hex-by-custom-offset` writes as many bytes as the hex string carries. A backup made
+ * before the field's width was fixed carries fewer — one byte for `12440`/`12448` until
+ * 22.09.2026 — and restoring it would leave the upper bytes of the cell untouched: the
+ * old byte `01` landing on our `FCFFFFFF` gives `01FFFFFF` — 33 million, where the value
+ * meant was 1. Zero-padding is the honest widening here: that is exactly what the
+ * old package left in the kip, so the copy is restored as taken and nothing is silently
+ * "fixed". Only fields that declare `legacy_length` are wrapped — everyone else keeps
+ * the plain read, and the wrapper costs nothing where widths never changed.
+ *
+ * `null` is preserved as `null`: a missing key padded with zeros would become `null0000`,
+ * and `handleHexByCustom` skips only a value equal to `NULL_STR` (fork
+ * `source/utils.hpp:4761-4762`). The same shape guards the import, see `fit`.
+ */
+const fromBackup = off => {
+  const f = byOffset.get(off)
+  const read = `{ini_file(Fields,${off})}`
+  if (!f?.legacy_length || f.legacy_length === (f.length ?? 3)) return read
+  const w = (f.length ?? 3) * 2
+  return `{if_==(${read},null,null,{slice(${read}${'0'.repeat(w)},0,${w})})}`
+}
 const bySeries = new Map()
 for (const f of fieldsDoc.fields) {
   if (typeof f.series === 'string' && f.series) {
@@ -1822,9 +1846,18 @@ function emitImport(lines, rev, dir) {
   // (24 байта) донор даёт 4, добивка ещё 3, итого 7 — `slice` упирается в конец строки
   // и отдаёт 14 знаков вместо 48. Записалось бы напряжение и три младших байта
   // коэффициента, остальные 17 байт остались бы от прежней строки.
-  const fit = (expr, len, sentinel = 'null', guard = expr) =>
-    `{if_==(${guard},${sentinel},null,{slice(${expr}${'0'.repeat(len * 2)},0,${len * 2})})}`
+  //
+  // A SIGNED CELL IS PADDED BY ITS SIGN, NOT BY ZEROES. The donor profile keeps a
+  // pMEH element in 2 bytes; taken off a kip this build wrote, +25 mV reads back as
+  // `FCFF`, and zero padding would make it 65532 - the same boot failure again.
+  // `pad` is therefore per field. NOTES №351.
+  const fit = (expr, len, sentinel = 'null', guard = expr, pad = '0'.repeat(len * 2)) =>
+    `{if_==(${guard},${sentinel},null,{slice(${expr}${pad},0,${len * 2})})}`
   const val = (row, k = 0) => `{json_file(${row.index},${row.key})}`
+  // Top nibble of the element's top byte: above 7 the sign bit is set.
+  // `hex_to_decimal` takes both `F` and `f`; `if_>` is already used in the package.
+  const signPad = (row, at, bytes) =>
+    `{if_>({hex_to_decimal({slice(${val(row)},${at},${at + 1})})},7,${'FF'.repeat(bytes)},${'00'.repeat(bytes)})}`
 
   // поле «GPU Eco Mode» нужно как условие для точек кривой
   const eco = imp.find(r => r.name === 'GPU Eco Mode')
@@ -1916,7 +1949,12 @@ function emitImport(lines, rev, dir) {
       // У ряда сторожем служит ПЕРВЫЙ элемент, а не свой: только он гарантированно
       // вырезает начало слова `null`, когда записи в профиле нет.
       const guard = isRow ? `{slice(${val(r)},0,${w})}` : src
-      let expr = fit(src, len, isRow ? 'null'.slice(0, w) : 'null', guard)
+      // Sign padding applies only where the donor element is narrower than the cell.
+      const short = len > r.length
+      const pad = f.units === 'mV_offset' && short
+        ? signPad(r, (isRow ? i * stride : 0) + w - 2, len - r.length)
+        : '0'.repeat(len * 2)
+      let expr = fit(src, len, isRow ? 'null'.slice(0, w) : 'null', guard, pad)
       // условие по режиму — только для точек кривой Mariko
       if (r.only_when && eco) {
         expr = `{if_==({json_file(${eco.index},${eco.key})},${r.only_when.equals},${expr},null)}`
@@ -2116,7 +2154,7 @@ function emitAction(item, lines) {
       // anyway, and writing it would only put noise into the kip.
       const only = byOffset.get(off)?.platform ?? 'both'
       if (only !== 'both' && plat !== 'both' && only !== plat) continue
-      resetCmds.push(`hex-by-custom-offset ${KIP} CUST ${off} {ini_file(Fields,${off})}`)
+      resetCmds.push(`hex-by-custom-offset ${KIP} CUST ${off} ${fromBackup(off)}`)
     }
   }
 
@@ -3918,8 +3956,8 @@ if (kipRows.length) {
         src[1],
         // Список пишущих команд строится из ТОГО ЖЕ набора, что и копия, а не из kipRows:
         // иначе read_only-поля сохраняются и не возвращаются.
-        ...backupSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
-        ...sideSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
+        ...backupSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} ${fromBackup(f.offset)}`),
+        ...sideSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} ${fromBackup(f.offset)}`),
         // NO re-seed of the root footer written by hand here or in the import branch below:
         // `reseedRootFooters` adds it to every try-block that writes a root-footer offset.
         `set-footer 'restored'`,
@@ -3942,7 +3980,7 @@ if (kipRows.length) {
         src[1],
         // Only what the converter carries (IMPORT_CARRIED): WL-Set, DBI and every field the old
         // format never held stay as they are on the console.
-        ...[...backupSet(rev), ...sideSet(rev)].filter(f => importCarries(rev, f.offset)).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} {ini_file(Fields,${f.offset})}`),
+        ...[...backupSet(rev), ...sideSet(rev)].filter(f => importCarries(rev, f.offset)).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} ${fromBackup(f.offset)}`),
         `set-footer 'restored (import)'`,
         rebuildOn(applyHead),
         'try:',
@@ -4028,7 +4066,7 @@ if (kipRows.length) {
        * строки из эристовского блока.
        */
       ...factoryOffsets.filter(o => platOf(o) === 'both' || platOf(o) === rev || bothOnReset.has(o))
-        .map(o => `hex-by-custom-offset ${KIP} CUST ${o} {ini_file(Fields,${o})}`),
+        .map(o => `hex-by-custom-offset ${KIP} CUST ${o} ${fromBackup(o)}`),
       `set-footer 'restored'`,
       rebuildOn(resetHead(rev)),
     ]

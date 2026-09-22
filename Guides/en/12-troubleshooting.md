@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=978db18fb11a self=478ae28ae596 -->
+<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=775cd5871e84 self=1dea6fe832ef -->
 # If something goes wrong
 
 <!-- nav:begin -->
@@ -68,6 +68,17 @@ reset a category at once.
 Look `pMeh` and `sMeh` fields up in KipTool **by number**, not by name: number 17 carries
 an outdated name there, and `sMeh 17` is missing altogether —
 [details](09a-micro-enhance.md#names-in-kiptool-and-older-descriptions).
+
+> [!WARNING]
+> **GPU vMin offsets, builds before 22.09.2026.** Those builds wrote one byte into `pMeh 19`
+> and `pMeh 21` instead of four, so any offset **in plus** (`+5 mV` and above) turned into a
+> huge number. The sign: a black screen after the logo, or an orange one a few seconds into
+> the boot, with `vMin Offset` or `vMin Offset (max RAM)` the last thing that was changed.
+>
+> The fix: in KipTool type `1` for `pMeh 19` and `2` for `pMeh 21` — those are the factory
+> values. Type both even if only one was changed: the fields sit next to each other and are
+> easy to mix up. After a configurator update the plus offsets work, and an old value still
+> sitting in the file is shown as it stands (`252 - Unknown` and the like) and is not offered.
 
 > [!WARNING]
 <!-- spelling: ECO ST1/ST2/ST3 in this box are KipTool's labels, not the configurator's. Do NOT fold them into the package spelling "Eco". Decided 07.09.2026. -->

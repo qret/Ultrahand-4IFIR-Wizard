@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/09a-micro-enhance.md sha=0ebf9e08a2b7 self=4c52345e8b01 -->
+<!-- i18n: source=Guides/ru/09a-micro-enhance.md sha=ed1fae8db66f self=488b0ac0dffc -->
 # Micro-Enhance Logic: pMeh and sMeh
 
 <!-- nav:begin -->
@@ -100,9 +100,9 @@ or it is a debug tool.
 | 16 | `lovec` | Lowers the performance of the system timings | `0` | leave alone |
 | 17 | `WL-Set` | No description beyond the name. **This is not DBI** — [see below](#names-in-kiptool-and-older-descriptions) | `0` | leave alone |
 | 18 | `eBAMATIC ST` | The eBAMATIC auto-selection stage, the same as `eBAMATIC Stage` | `0` | worth it, via [`eBAMATIC Stage`](05-ebamatic.md) |
-| 19 | `vMINetune ST` | Offset of the automatic GPU voltage floor (vMin) for step E, from +75 to −75 mV in 5 mV steps: plus raises the floor, minus lowers it. The same as `vMin Offset` | `0 — Default`; KipTool shows the raw `1`, and `0` there is +5 mV | worth it |
+| 19 | `vMINetune ST` | Offset of the automatic GPU voltage floor (vMin) for step E, from +75 to −75 mV in 5 mV steps: plus raises the floor, minus lowers it. The same as `vMin Offset` | `0 - Default`; KipTool shows the raw `1`, and `0` there is +5 mV | worth it |
 | 20 | `rVDDick` | Level of the `VDDQ`/`VDD2` memory voltages of step E, `0` to `6`: a higher value means a higher voltage. The same as `VDDQ-VDD2 Voltage`; not to be confused with the `VDDQ` and `VDD2` items, which set millivolts in the EMC Magician file | `4` | careful |
-| 21 | `gVMINDick` | Offset of the same floor for step S (maximum memory clock), same scale; `pMeh 19` is for step E. The same as `vMin Offset (max RAM)` | `0 — Default`; KipTool shows the raw `2`, and `0` there is +10 mV | worth it |
+| 21 | `gVMINDick` | Offset of the same floor for step S (maximum memory clock), same scale; `pMeh 19` is for step E. The same as `vMin Offset (max RAM)` | `0 - Default`; KipTool shows the raw `2`, and `0` there is +10 mV | worth it |
 | 22 | `isKefir` | No description | `0` | leave alone |
 
 ## sMeh — the secondary row

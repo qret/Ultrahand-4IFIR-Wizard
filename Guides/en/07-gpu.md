@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=8cba0ab68bf0 self=d5f3a61b94e8 -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=202975a41fcd self=903d0acead6f -->
 # GPU and stages
 
 <!-- nav:begin -->
@@ -140,12 +140,33 @@ both memory clock modes at once, while a stage works out the floor for each sepa
 
 ### vMin offsets
 
-The two entries below it shift the automatic floor from +75 to −75 mV in 5 mV steps: plus
-raises the floor, minus lowers it. `vMin Offset` is for memory step E, `vMin Offset (max RAM)`
-for step S (maximum memory clock). The factory value is `0 — Default`. Both are shown on
+The two entries below it shift by +75 to −75 mV in 5 mV steps: plus raises the voltage,
+minus lowers it. `vMin Offset` is for memory step E, `vMin Offset (max RAM)` for step S
+(maximum memory clock).
+
+The factory value is `0 - Default`. Both are shown on
 either revision. They are the firmware fields `pMeh 19` and `pMeh 21`, and KipTool lists them
 under those numbers. **KipTool shows the raw value on a different scale:** the factory values
 there are `1` (`pMeh 19`) and `2` (`pMeh 21`), and `0` in KipTool is +5 and +10 mV respectively.
+
+What moves is **the voltage of the lowest point of the GPU curve — 307 MHz** — not a
+separate limit of its own: the firmware works a number out from the offset and writes it
+into whichever table row is closest to it in voltage. Across the usable range that row is
+the bottom one. Hence the symptom when the offset is pushed too far: the console stumbles
+at idle, when the GPU asks for its lowest clock.
+
+> [!NOTE]
+> The firmware keeps this field as a signed whole number, so **a plus offset is stored as a
+> negative value**. It therefore looks unfamiliar in KipTool, and that is not a fault. To put
+> the factory value back, type `1` for `pMeh 19` and `2` for `pMeh 21` there.
+>
+> Configurator builds before 22.09.2026 wrote one byte into this field instead of four, and
+> every plus offset turned into a huge number: after a reboot the console did not start — a
+> black screen after the logo, or an orange one shortly after boot. If that happened, it is
+> fixed from the bootloader — [KipTool, step 3](12-troubleshooting.md#3-fix-it-from-the-bootloader-with-kiptool).
+> A value left by an older build is named as it stands — `252 - Unknown` and the like — and is
+> not offered in the option list; picking any entry from the list writes the correct value.
+
 Touch them once the stage is settled — the order and the risks are
 [on the pMeh and sMeh page](09a-micro-enhance.md#what-to-try-and-in-what-order).
 

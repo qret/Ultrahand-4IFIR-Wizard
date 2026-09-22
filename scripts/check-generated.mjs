@@ -1183,6 +1183,40 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       hurt: s => s.split('\n').filter(l => l !== ';visibility_condition=!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 24 000000').join('\n'),
       expect: /\(2\.5\/erista\/eBAL 0\/частота 0\): видно подсказок 2/,
     },
+    {
+      // Check 72, РОВНО ТА ПОРЧА, ЧТО РОНЯЛА КОНСОЛИ: офсет vMin снова объявлен однобайтовым,
+      // и плюсовая сторона ряда ложится в kip как 242…255. Длина 4 стоит только у этих двух
+      // полей, поэтому замена бьёт по обоим разом.
+      name: 'офсет vMin снова пишется одним байтом',
+      file: join(ROOT, 'package', 'fields.json'),
+      hurt: s => s.split('"length": 4').join('"length": 1'),
+      expect: /старшие байты останутся нулями/,
+    },
+    {
+      // Check 72: ширина та, а старший байт у отрицательного значения не FF. В поле ляжет
+      // 16 711 154 вместо −14 — та же беда, только тише: словарь и подпись сойдутся.
+      name: 'отрицательное смещение vMin не расширено знаком',
+      file: join(ROOT, 'package', 'fields.json'),
+      hurt: s => s.replace('"hex": "F2FFFFFF"', '"hex": "F2FF00FF"'),
+      expect: /не расширено знаком/,
+    },
+    {
+      // Check 72: восстановление старой копии снова пишет байт как есть. На консоли, где
+      // уже лежит наш FCFFFFFF, старый `01` дал бы 01FFFFFF.
+      name: 'восстановление vMin без добивки до ширины поля',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.split('{if_==({ini_file(Fields,12440)},null,null,{slice({ini_file(Fields,12440)}00000000,0,8)})}').join('{ini_file(Fields,12440)}'),
+      expect: /без добивки до 8 знаков/,
+    },
+    {
+      // Check 72(e): импорт снова добивает нулями. Профиль старого инструмента несёт
+      // элемент в два байта; снятый с kip, куда наша сборка записала FCFFFFFF, он даёт
+      // FCFF, и нули превращают +25 мВ в 65532 — та же поломка загрузки.
+      name: 'импорт чужого профиля добивает офсет vMin нулями',
+      file: join(DIST, 'service', 'package.ini'),
+      hurt: s => s.replace(/\{if_>\(\{hex_to_decimal\(\{slice\(\{json_file\(19,pMEH\(12-21\)\)\},37,38\)\}\)\},7,FFFF,0000\)\}/, '00000000'),
+      expect: /добивает узкий элемент профиля нулями/,
+    },
   ]
   let failed = 0, skipped = 0
   console.log('отрицательный прогон: ' + PROBES.length + ' проб\n')
@@ -1571,8 +1605,15 @@ if (badPaths.length) {
     const beforeReset = problems.length
     for (const [, rev, sec] of sections) {
       const written = new Set()
-      for (const m of sec.matchAll(/CUST (\d+) \{ini_file\(Fields,(\d+)\)\}/g)) {
-        if (m[1] !== m[2]) problems.push({ sev: 'CRITICAL', what: `сброс пишет в ${m[1]}, а значение берёт из ключа ${m[2]}` })
+      // ЗНАЧЕНИЕ БЕРЁТСЯ НЕ ВСЕГДА ГОЛЫМ `{ini_file(Fields,N)}`. У полей, сменивших
+      // ширину (`legacy_length` в карте: 12440/12448 с 22.09.2026), генератор оборачивает
+      // чтение добивкой до ширины поля, и прежний строгий образец переставал видеть
+      // такую строку вовсе — сторож объявлял смещение пропущенным в сбросе, хотя оно там.
+      // Ключей в обёртке два, и оба обязаны совпасть со смещением записи.
+      for (const m of sec.matchAll(/CUST (\d+) (\S+)/g)) {
+        const keys = [...m[2].matchAll(/ini_file\(Fields,(\d+)\)/g)].map(x => x[1])
+        if (!keys.length) continue
+        for (const k of keys) if (k !== m[1]) problems.push({ sev: 'CRITICAL', what: `сброс пишет в ${m[1]}, а значение берёт из ключа ${k}` })
         written.add(Number(m[1]))
       }
       if (!sec.includes("ini_file './Default.ini'")) {
@@ -6796,6 +6837,124 @@ const EBAMATIC_NOT_FIRST67 = new Map([
   else ok.push(`the 4IFIR generation is detected afresh by every forwarder into a page that asks it (${readers} pages, ${[...into.values()].flat().length} forwarders: kept while the NRO build-id matches ovl_id, else 2.5 on the NACP name, 2.6+ on any other file, none without it), and nothing else opens 4IFIR.ovl`)
 }
 
+// ---------------- 72. ширина записи равна ширине ячейки CUST, а знак не теряется
+//
+// БЕДА, КОТОРУЮ ЭТО ЛОВИТ (22.09.2026, консоли падали у людей). Ячейка блока `CUST` —
+// четыре байта: шаг сетки смещений равен четырём везде, и живой kip держит в старших
+// байтах нули. Прошивка читает её ЦЕЛИКОМ и СО ЗНАКОМ — `ldr w` + `scvtf`, без маски
+// и без отсечки. Карта же объявляла у `12440`/`12448` `length: 1`, а плюсовая сторона
+// их ряда кодируется отрицательным числом: байт `FC` ложился как `FC 00 00 00`, то есть
+// 252 вместо −4, и строка таблицы GPU-DVFS уезжала на полтора вольта. Чёрный экран
+// после лого. Разбор — `NOTES` №351, решение — `DECISIONS` 22.09.2026.
+//
+// ПОЧЕМУ СТОРОЖ НЕ ТРЕБУЕТ ЧЕТЫРЁХ БАЙТ ОТ ВСЕХ. Узкая запись безопасна ровно тогда,
+// когда ненаписанные старшие байты и так должны остаться нулями: значение неотрицательно
+// и влезает в свою ширину. Поэтому исключение здесь не «список имён, которым можно»,
+// а УСЛОВИЕ, которое проверяется на каждом значении словаря. Перестанет выполняться —
+// сторож покраснеет сам, без правки списка. Поимённых исключений два, и оба о том,
+// что ячейка не скаляр: точки кривой Erista (24 байта записи DVFS шириной 56) и
+// смещение 170, лежащее вне сетки (донорская ячейка копии, в чёрном списке).
+//
+// ЧЕТЫРЕ РАЗНЫХ ВОПРОСА, И НИ ОДИН НЕ ЗАМЕНЯЕТ ОСТАЛЬНЫЕ:
+//   a) словарь поля — нет ли значения, у которого в пределах записываемой ширины
+//      взведён старший бит (то есть оно «отрицательное», а старшие байты не пишутся);
+//   b) поля-смещения (`units: mV_offset`) — пишутся целым словом, и отрицательные
+//      значения расширены знаком `FF`, а не добиты нулями;
+//   c) собранный пакет — ширина чтения `hex_file(CUST,N,W)` совпадает с картой;
+//   d) поле, сменившее ширину (`legacy_length`), — каждое восстановление из копии
+//      добивает старое узкое значение до ширины поля, иначе старый байт лёг бы
+//      поверх наших старших `FF`.
+//   e) импорт профиля старого инструмента — у полей-смещений двухбайтовый элемент
+//      `pMEH(12-21)` расширяется ЗНАКОМ, а не нулями. Профиль, снятый с kip, куда
+//      наша сборка уже записала `FCFFFFFF`, несёт `FCFF`: нули дали бы 65532.
+{
+  const bad = []
+  const CELL = 4                              // ширина ячейки CUST: шаг сетки смещений
+  const num = h => { const b = String(h).match(/../g) ?? []; let n = 0; for (let i = b.length - 1; i >= 0; i--) n = n * 256 + parseInt(b[i], 16); return n }
+  const widthOf = new Map(fields.filter(f => f.length).map(f => [f.offset, f.length]))
+  // Поимённые исключения: ячейка не скаляр. Причина обязательна — молчаливых нет.
+  const NOT_A_CELL = f =>
+    f.series === 'gpu_curve_erista' ? 'строка DVFS Erista: 56 байт записи, пишем первые 24'
+    : f.offset === 170 ? 'донорская ячейка копии вне сетки шага 4, в чёрном списке'
+    : null
+
+  let narrow = 0, wide = 0
+  for (const f of fields) {
+    const len = f.length ?? 3
+    const why = NOT_A_CELL(f)
+    if (why) { wide++; continue }
+    if (len > CELL) { bad.push(`поле ${f.offset} (${f.name}) пишет ${len} Б в четырёхбайтовую ячейку — заденет соседнее поле`); continue }
+    // (a) и (b): смотрим сами значения, а не объявленную единицу измерения.
+    const lim = Math.pow(2, 8 * len - 1)
+    for (const v of f.values ?? []) {
+      const h = padHexLocal(v.hex, len)
+      if (!h) continue
+      if (len < CELL && num(h) >= lim)
+        bad.push(`поле ${f.offset} (${f.name}), «${v.name}» = ${h}: пишется ${len} Б, а число отрицательное — старшие байты останутся нулями, и прошивка прочитает ${num(h)}`)
+      if (len === CELL && String(v.hex).length === CELL * 2) {
+        const b = String(v.hex).toUpperCase().match(/../g)
+        const wantTail = parseInt(b[0], 16) >= 0x80 && f.units === 'mV_offset' && !v.not_in_menu ? 'FF' : null
+        if (wantTail && b.slice(1).some(x => x !== wantTail))
+          bad.push(`поле ${f.offset} (${f.name}), «${v.name}» = ${v.hex}: отрицательное смещение не расширено знаком — в поле ляжет ${num(v.hex)}`)
+      }
+    }
+    if (len < CELL) narrow++
+  }
+
+  // (c) чтение из пакета той же ширины, что объявлена в карте.
+  let reads = 0
+  for (const file of iniFiles) {
+    for (const m of readFileSync(file, 'utf8').matchAll(/hex_file\(CUST,(\d+),(\d+)\)/g)) {
+      const off = Number(m[1])
+      if (!widthOf.has(off)) continue           // вне карты — чёрный список и служебные ячейки
+      const f = fields.find(x => x.offset === off)
+      if (NOT_A_CELL(f)) continue               // у кривой Erista показ читает первые 3 байта записи
+      reads++
+      if (Number(m[2]) !== widthOf.get(off))
+        bad.push(`${relative(ROOT, file)}: ${off} читается ${m[2]} Б, а в карте ${widthOf.get(off)} Б — подпись разойдётся с записью`)
+    }
+  }
+
+  // (d) старая узкая копия добивается до ширины поля перед записью в kip.
+  let widened = 0
+  const legacy = fields.filter(f => f.legacy_length && f.legacy_length !== (f.length ?? 3))
+  for (const f of legacy) {
+    const w = (f.length ?? 3) * 2
+    const want = `{if_==({ini_file(Fields,${f.offset})},null,null,{slice({ini_file(Fields,${f.offset})}${'0'.repeat(w)},0,${w})})}`
+    for (const file of iniFiles) {
+      for (const m of readFileSync(file, 'utf8').matchAll(new RegExp(`CUST ${f.offset} (\\S+)`, 'g'))) {
+        if (!m[1].includes('ini_file(Fields,')) continue
+        widened++
+        if (m[1] !== want)
+          bad.push(`${relative(ROOT, file)}: восстановление ${f.offset} пишет «${m[1]}» без добивки до ${w} знаков — байт старой копии ляжет поверх старших байтов`)
+      }
+    }
+  }
+  if (legacy.length && !widened) bad.push('ни одна строка восстановления не найдена для полей со сменившейся шириной — проверка смотрит в пустоту')
+
+  // (e) импорт чужого профиля расширяет узкий элемент ЗНАКОМ, а не нулями.
+  let signed = 0
+  const SIGNED = fields.filter(f => f.units === 'mV_offset' && (f.length ?? 3) === CELL)
+  for (const f of SIGNED) {
+    for (const file of iniFiles) {
+      for (const m of readFileSync(file, 'utf8').matchAll(new RegExp(`Fields ${f.offset} '([^']+)'`, 'g'))) {
+        if (!m[1].includes('json_file(')) continue      // не импорт, а восстановление копии
+        signed++
+        if (!/\{if_>\(\{hex_to_decimal\(/.test(m[1]))
+          bad.push(`${relative(ROOT, file)}: импорт ${f.offset} добивает узкий элемент профиля нулями — снятое с нашего kip «FCFF» ляжет как 65532`)
+      }
+    }
+  }
+  if (SIGNED.length && !signed) bad.push('ни одной строки импорта для полей-смещений — проверка расширения знаком смотрит в пустоту')
+
+  if (!reads || !fields.length)
+    problems.push({ sev: 'CRITICAL', what: 'проверка ширины полей не нашла ни карты, ни чтений — она смотрит в пустоту' })
+  else if (bad.length)
+    problems.push({ sev: 'CRITICAL', what: `ширина записи разошлась с ячейкой CUST (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else
+    ok.push(`field writes match the 4-byte CUST cell: signed offsets go in whole and sign-extended, ${narrow} narrow writes carry only values that fit unsigned, ${wide} non-scalar cells excused by name, ${reads} reads agree with the map, ${widened} restore lines widen a legacy value, ${signed} import lines widen a foreign profile by sign`)
+}
+
 // ---------------- 61. guard numbers are unique, gapless-or-retired, and every doc reference lands
 //
 // A block number is the only address DECISIONS.md, NOTES.md and ANCHORS.md use to name a
@@ -6921,7 +7080,8 @@ const RETIRED61 = new Map([
   // 21.09.2026: 70 -> 71 for check 69 (WL-Set/DBI never come from an old Wizard backup).
   // 21.09.2026: 71 -> 72 for check 70 (CPU Min Voltage factory value is Eco ST1).
   // 22.09.2026: 72 -> 73 for check 71 (the 4IFIR generation is read once, in [boot]).
-  const EXPECTED = 73
+  // 22.09.2026: 73 -> 74 for check 72 (write width equals the CUST cell, sign kept).
+  const EXPECTED = 74
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,
