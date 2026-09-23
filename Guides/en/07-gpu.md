@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=202975a41fcd self=903d0acead6f -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=0d078e11340e self=d5daae7885d7 -->
 # GPU and stages
 
 <!-- nav:begin -->
@@ -157,15 +157,9 @@ at idle, when the GPU asks for its lowest clock.
 
 > [!NOTE]
 > The firmware keeps this field as a signed whole number, so **a plus offset is stored as a
-> negative value**. It therefore looks unfamiliar in KipTool, and that is not a fault. To put
-> the factory value back, type `1` for `pMeh 19` and `2` for `pMeh 21` there.
->
-> Configurator builds before 22.09.2026 wrote one byte into this field instead of four, and
-> every plus offset turned into a huge number: after a reboot the console did not start — a
-> black screen after the logo, or an orange one shortly after boot. If that happened, it is
-> fixed from the bootloader — [KipTool, step 3](12-troubleshooting.md#3-fix-it-from-the-bootloader-with-kiptool).
-> A value left by an older build is named as it stands — `252 - Unknown` and the like — and is
-> not offered in the option list; picking any entry from the list writes the correct value.
+> negative value**. It therefore looks unfamiliar in KipTool, and that is not a fault. The
+> factory value comes back by picking `0 - Default` in the configurator itself, or with
+> `Service → Restore Factory Defaults`.
 
 Touch them once the stage is settled — the order and the risks are
 [on the pMeh and sMeh page](09a-micro-enhance.md#what-to-try-and-in-what-order).
