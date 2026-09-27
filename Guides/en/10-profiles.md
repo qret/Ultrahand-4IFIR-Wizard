@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/10-profiles.md sha=f80cc23d68c2 self=11b324b29a9d -->
+<!-- i18n: source=Guides/ru/10-profiles.md sha=fb3fe39792bf self=8a1979c8b2ee -->
 # Profiles, backups and reset
 
 <!-- nav:begin -->
@@ -17,10 +17,12 @@ This is the simplest way back, and it needs nothing prepared in advance. While y
 nothing of your own set up, it is all you need.
 
 > [!IMPORTANT]
-> A reset changes the GPU voltage stage but **does not touch the working voltage
-> table**. If you were on a half stage, what you get afterwards is a combination the
-> menu never offers. The configurator names it correctly, but if you want a clean state, pick
-> a stage again.
+> **On a Mariko the reset takes the GPU stage back to `Eco ST1`, and that is a full factory
+> state:** in that mode the firmware reads its own ST1 table, which the configurator never
+> changes. The curve of a half stage stays in the working table, but it has no effect and is
+> overwritten the next time a stage is picked.
+>
+> An Erista has no half stages, and there the reset puts the whole voltage table back.
 
 The reset also puts the `VDDQ` and `VDD2` voltages of the Optimized profile back to
 `eBAMATIC` — for the memory clock and `EMC Balance` set right now. If nobody set them there,

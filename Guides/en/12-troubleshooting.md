@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=5920a2a43efb self=2c8eb25ec6af -->
+<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=7029b82e9d82 self=8d46a4128f13 -->
 # If something goes wrong
 
 <!-- nav:begin -->
@@ -30,8 +30,8 @@ Both open a preview page. To apply, **hold A** on the entry at the bottom.
 
 > [!NOTE]
 > A reset puts **everything** back to factory values, **the whole manual GPU curve
-> included**: all 31 points on a Mariko, all 29 on an Erista. There is a factory copy of
-> those to put back.
+> included**: all 31 points of the manual curve on a Mariko, all 29 on an Erista. There is
+> a factory copy of those to put back.
 >
 > The mode comes back with them: it becomes `Eco ST1` again, so the curve stops taking
 > effect by its switch as well as by its values.

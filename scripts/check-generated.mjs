@@ -13,15 +13,25 @@
 // Run: node scripts/check-generated.mjs
 // Exit code: 0 — everything is in place, 1 — there are discrepancies.
 
-import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
-import { join, dirname, relative, resolve, basename, posix } from 'node:path'
+import { readFileSync, readdirSync, existsSync, statSync, writeFileSync as writeFileSyncFs, mkdirSync, renameSync, rmSync, cpSync } from 'node:fs'
+import { join, dirname, relative, resolve, basename, posix, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { spawnSync } from 'node:child_process'
+import { spawnSync, spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { tmpdir, cpus } from 'node:os'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const DIST = join(ROOT, 'package', 'dist')
 
 if (!existsSync(DIST)) { console.error('no package/dist — run generate.mjs first'); process.exit(2) }
+
+// WHERE CHECK 45 KEEPS ITS PARSE CACHE. Computed here, not down in the block, because the
+// self-test hands this very path to the child runs it starts in throwaway copies of the tree:
+// the cache is keyed by file CONTENT, so one cache serves every copy and stays warm.
+const PARSE_CACHE_ENV = 'ULTRAHAND_GATE_PARSE_CACHE'
+const parseCacheFile = () => process.env[PARSE_CACHE_ENV]
+  || join(tmpdir(), 'ultrahand-4ifir-gate',
+    'parse-' + createHash('sha1').update(resolve(ROOT).toLowerCase()).digest('hex').slice(0, 12) + '.json')
 
 const menu = JSON.parse(readFileSync(join(ROOT, 'package', 'menu.json'), 'utf8'))
 const fields = JSON.parse(readFileSync(join(ROOT, 'package', 'fields.json'), 'utf8')).fields
@@ -66,15 +76,16 @@ function padHexLocal(hex, lenBytes) {
 // переполнение буфера чтения, ложь в тексте, длина подписи, чужой ключ в файле,
 // который мы раздаём, и — главное — исчезновение самого предмета надзора.
 //
-// Механика: порча вписывается в настоящий файл дерева, гейт запускается
-// отдельным процессом, файл возвращается в исходный вид в `finally` — байт
-// в байт, из памяти. Проба, которую гейт НЕ поймал, даёт КОД ВОЗВРАТА 3,
-// отличный от обычного провала (1): «отрицательный прогон не получился,
-// инструмент лжёт».
+// Механика: порча вписывается в файл, гейт запускается отдельным процессом,
+// файл возвращается в исходный вид в `finally` — байт в байт, из памяти. Проба,
+// которую гейт НЕ поймал, даёт КОД ВОЗВРАТА 3, отличный от обычного провала (1):
+// «отрицательный прогон не получился, инструмент лжёт».
 //
-// Оговорка честная: пробы врезаются в рабочее дерево на время прогона. Если
-// процесс убить между записью и восстановлением, дерево останется грязным —
-// но оно под git, и `git checkout -- package/dist docs` вернёт всё.
+// Портится не рабочее дерево, а его временная копия: пробы идут параллельно,
+// каждый поток в своей. Оговорка осталась только для запасного пути — когда
+// копию сделать нельзя, прогон возвращается к порче настоящих файлов, и убитый
+// посреди пробы процесс оставит дерево грязным. Оно под git,
+// `git checkout -- package/dist docs package/fields.json` вернёт всё.
 if (process.argv.includes('--проба-отказа') || process.argv.includes('--self-test')) {
   const { writeFileSync } = await import('node:fs')
   const A = 'a'
@@ -1218,41 +1229,110 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /добивает узкий элемент профиля нулями/,
     },
   ]
-  let failed = 0, skipped = 0
-  console.log('отрицательный прогон: ' + PROBES.length + ' проб\n')
-  for (const p of PROBES) {
-    const files = Array.isArray(p.file) ? p.file : [p.file]
+  const TOTAL = PROBES.length
+
+  // PROBES RUN IN PARALLEL, EACH THREAD IN ITS OWN THROWAWAY COPY OF THE TREE, so the working
+  // tree is never hurt and an interrupted run leaves nothing dirty. One copy per thread, not
+  // per probe: `--потоков=N` / `--jobs=N`, else ULTRAHAND_GATE_JOBS, else 8 (or the core count
+  // if lower). No copies (no space, no permission) - back to the old in-place sequential run,
+  // said out loud. Measurements, and why node copies instead of tar: NOTES №353.
+  const jobsArg = process.argv.find(a => /^--(потоков|jobs)=/.test(a))
+  const jobsRaw = jobsArg ? jobsArg.slice(jobsArg.indexOf('=') + 1) : process.env.ULTRAHAND_GATE_JOBS
+  const jobsWanted = Math.max(1, Math.min(32,
+    Number.parseInt(jobsRaw ?? '', 10) || Math.min(8, Math.max(1, cpus().length || 1))))
+
+  const cloneBase = join(tmpdir(), 'ultrahand-4ifir-gate', 'probe-' + process.pid)
+  const roots = []
+  let cloneFail = ''
+  if (jobsWanted > 1) {
+    try {
+      mkdirSync(cloneBase, { recursive: true })
+      const gitDir = join(ROOT, '.git')
+      for (let i = 0; i < jobsWanted; i++) {
+        const w = join(cloneBase, 'w' + (i + 1))
+        cpSync(ROOT, w, { recursive: true, filter: src => src !== gitDir && !src.startsWith(gitDir + sep) })
+        // A copy without the gate or without the package is useless: fall back honestly
+        // instead of probing an empty tree.
+        for (const need of [join(w, 'scripts', 'check-generated.mjs'), join(w, 'package', 'dist', 'package.ini')]) {
+          if (!existsSync(need)) throw new Error('в копии нет ' + relative(w, need))
+        }
+        roots.push(w)
+      }
+    } catch (e) {
+      cloneFail = e.message
+      roots.length = 0
+      try { rmSync(cloneBase, { recursive: true, force: true }) } catch {}
+    }
+  }
+
+  // The child runs get the path to ONE SHARED parse cache: its keys are file content, not
+  // paths, so the copies do not each warm a cold cache and step one's gain survives.
+  const childEnv = { ...process.env, [PARSE_CACHE_ENV]: parseCacheFile() }
+  const runGate = root => new Promise(done => {
+    const ch = spawn(process.execPath, [join(root, 'scripts', 'check-generated.mjs')], { env: childEnv })
+    let out = ''
+    ch.stdout.on('data', d => { out += d })
+    ch.stderr.on('data', d => { out += d })
+    ch.on('error', e => done(out + '\n' + e.message))
+    ch.on('close', () => done(out))
+  })
+
+  const runProbe = async (p, root) => {
+    const files = (Array.isArray(p.file) ? p.file : [p.file])
+      .map(f => root === ROOT ? f : join(root, relative(ROOT, f)))
     // ПРОБА БЕЗ СВОЕГО ФАЙЛА ПРОПУСКАЕТСЯ ВСЛУХ, А НЕ ПАДАЕТ НА ЧТЕНИИ. Заведено
     // 08.09.2026 вместе с пробой проверки 7: её предмет — текст `scripts/release.ps1`,
     // который в публикацию не входит ($FORBIDDEN в publish.ps1:61).
     const missing = files.filter(f => !existsSync(f))
-    if (missing.length) {
-      skipped++
-      console.log('  ⏭ пропущена  ' + p.name + ' — в этом дереве нет ' + missing.map(f => relative(ROOT, f)).join(', '))
-      continue
-    }
+    if (missing.length) return { skip: missing.map(f => relative(root, f)).join(', ') }
     const before = files.map(f => readFileSync(f))
     let out = ''
     try {
       files.forEach((f, i) => writeFileSync(f, p.hurt(before[i].toString('utf8')), 'utf8'))
-      const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], { encoding: 'utf8' })
-      out = (r.stdout ?? '') + (r.stderr ?? '')
+      out = await runGate(root)
     } finally {
       files.forEach((f, i) => writeFileSync(f, before[i]))
     }
-    const caught = p.expect.test(out)
-    if (!caught) failed++
-    console.log((caught ? '  ✅ поймана  ' : '  ❌ ПРОПУЩЕНА ') + p.name)
+    return { caught: p.expect.test(out) }
   }
-  const after = readFileSync(join(DIST, 'package.ini'))
+
+  let failed = 0, skipped = 0, done = 0
+  console.log('отрицательный прогон: ' + TOTAL + ' проб'
+    + (roots.length ? ' в ' + roots.length + ' копиях дерева (' + cloneBase + ')'
+      : ', последовательно по самому дереву'
+        + (cloneFail ? ' — копии сделать не удалось: ' + cloneFail : jobsWanted > 1 ? '' : ' (один поток)')) + '\n')
+  // One idle run in the tree itself: the parse cache is warm BEFORE every worker reaches for
+  // it, so nobody writes to the shared file in a race.
+  if (roots.length) await runGate(ROOT)
+  const queue = PROBES.slice()
+  const pad = String(TOTAL).length
+  const worker = async root => {
+    for (let p = queue.shift(); p; p = queue.shift()) {
+      const r = await runProbe(p, root)
+      const tag = '  [' + String(++done).padStart(pad) + '/' + TOTAL + '] '
+      if (r.skip) { skipped++; console.log(tag + '⏭ пропущена  ' + p.name + ' — в этом дереве нет ' + r.skip) }
+      else if (r.caught) console.log(tag + '✅ поймана  ' + p.name)
+      else { failed++; console.log(tag + '❌ ПРОПУЩЕНА ' + p.name) }
+    }
+  }
+  if (roots.length) await Promise.all(roots.map(worker))
+  else await worker(ROOT)
+
+  // Remove exactly the directory we made, by its full path. It stayed - say so, do not hide it.
+  let leftOver = ''
+  if (roots.length) {
+    try { rmSync(cloneBase, { recursive: true, force: true }) } catch (e) { leftOver = e.message }
+  }
   console.log('')
+  if (leftOver) console.log('⚠ временные копии остались: ' + cloneBase + ' — ' + leftOver)
   if (failed) {
-    console.error('ОТРИЦАТЕЛЬНЫЙ ПРОГОН НЕ ПОЛУЧИЛСЯ: ' + failed + ' из ' + PROBES.length
+    console.error('ОТРИЦАТЕЛЬНЫЙ ПРОГОН НЕ ПОЛУЧИЛСЯ: ' + failed + ' из ' + TOTAL
       + ' проб гейт не заметил. Инструмент лжёт о своей работе.')
     process.exit(3)
   }
-  console.log('все ' + (PROBES.length - skipped) + ' проб пойманы'
-    + (skipped ? ', ' + skipped + ' пропущено — файлов нет в этом дереве' : '') + '; дерево восстановлено')
+  console.log('все ' + (TOTAL - skipped) + ' проб пойманы'
+    + (skipped ? ', ' + skipped + ' пропущено — файлов нет в этом дереве' : '')
+    + '; ' + (roots.length ? 'рабочее дерево не менялось — порчи шли в копиях' : 'дерево восстановлено'))
   process.exit(0)
 }
 
@@ -4088,7 +4168,13 @@ function gateDomain(off) {
 // went green over it, because every check here reads what the generator PRODUCED, and a
 // script that is never run in the gate is never even parsed. The broken one is destructive
 // (--force rebuilds fields.json from scratch) and runs rarely - exactly the profile that
-// hides a syntax error until the day you need the script. One --check each, a second total.
+// hides a syntax error until the day you need the script.
+//
+// COST, measured 23.09.2026: 34 processes, 2.7 s of a 4.2 s run - node --check one per .mjs
+// (1.45 s) and powershell one per .ps1 (1.30 s). The self-test starts the whole gate 141 times,
+// so this block alone was ~7.5 of its ~11.5 minutes. Two changes, both below: the .ps1 go through
+// ONE powershell (0.33 s instead of 1.30), and a parse result is cached by file CONTENT outside
+// the repository, so a child run re-parses only what actually changed. See NOTES №352.
 {
   const dir = join(ROOT, 'scripts')
   // RECURSIVE. The flat listing never reached scripts/uhlint/index.mjs (476 lines) or
@@ -4106,21 +4192,86 @@ function gateDomain(off) {
   const files = all.filter(f => f.endsWith('.mjs'))
   const bad = []
   const ps1 = all.filter(f => f.endsWith('.ps1'))
-  for (const f of ps1) {
-    // Парсер PowerShell зовём его же средствами: разбор без исполнения, ошибки в $e.
-    const src = join(dir, f).split(String.fromCharCode(92)).join('/')
-    const cmd = `$e=$null;$null=[System.Management.Automation.Language.Parser]::ParseFile('${src}',[ref]$null,[ref]$e);if($e.Count){$e[0].Message}`
-    const r = spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', cmd], { encoding: 'utf8' })
-    const out = String(r.stdout || '').trim()
-    if (out) bad.push(f + ": " + out.split(String.fromCharCode(10))[0].trim().slice(0, 90))
+
+  // THE CACHE IS KEYED BY CONTENT, NOT BY TIME. Size plus SHA-1 of the bytes: a file that
+  // was hurt and put back byte for byte (every self-test probe does exactly that) keeps its
+  // key and is not re-parsed, while any real edit misses the cache and goes to the parser.
+  // It lives in the OS temp directory, never in the repository, under a name derived from
+  // the tree's own path, so two checkouts do not share it - unless the caller names one
+  // explicitly (the self-test does, so its throwaway copies share the warm cache). Node's
+  // version is part of the stamp: a different node parses differently. Unreadable cache,
+  // unwritable directory, no temp at all - every step is in try/catch and the fallback is
+  // the plain full parse.
+  const cacheFile = parseCacheFile()
+  const cacheDir = dirname(cacheFile)
+  const stamp = 'parse-v1|' + process.version
+  let cached = {}
+  try {
+    const raw = JSON.parse(readFileSync(cacheFile, 'utf8'))
+    if (raw && raw.stamp === stamp && raw.parsed && typeof raw.parsed === 'object') cached = raw.parsed
+  } catch {}
+  const keyOf = f => {
+    try {
+      const b = readFileSync(join(dir, f))
+      return b.length + ':' + createHash('sha1').update(b).digest('hex')
+    } catch { return null }
   }
-  for (const f of files) {
+  // An unreadable file gets no key and therefore always goes to the parser: it must not
+  // inherit a green verdict from the cache.
+  const keys = new Map(all.map(f => [f, keyOf(f)]))
+  const stale = all.filter(f => !keys.get(f) || cached[f] !== keys.get(f))
+
+  const failed = new Set()
+  const stalePs1 = stale.filter(f => f.endsWith('.ps1'))
+  let ps1Trusted = true
+  if (stalePs1.length) {
+    // Парсер PowerShell зовём его же средствами: разбор без исполнения, ошибки в $e.
+    // ОДИН процесс на все файлы: запуск оболочки стоит дороже самого разбора (1.30 с на
+    // четыре вызова против 0.33 с на один). Имя файла печатается рядом с сообщением.
+    const list = stalePs1.map(f => "'" + join(dir, f).split(String.fromCharCode(92)).join('/') + "'").join(',')
+    const cmd = `foreach($p in @(${list})){$e=$null;$null=[System.Management.Automation.Language.Parser]::ParseFile($p,[ref]$null,[ref]$e);if($e.Count){Write-Output ($p+'|'+$e[0].Message.Split([char]10)[0])}}`
+    const r = spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', cmd], { encoding: 'utf8' })
+    ps1Trusted = !r.error && r.status === 0
+    for (const line of String(r.stdout || '').split(/\r?\n/)) {
+      const t = line.trim()
+      if (!t || !t.includes('|')) continue
+      const p = t.slice(0, t.indexOf('|')), msg = t.slice(t.indexOf('|') + 1)
+      const f = stalePs1.find(x => p.toLowerCase().endsWith(x.toLowerCase()))
+      // Не опознали, чей это отказ, — не кэшируем ни один .ps1 этого прогона.
+      if (!f) ps1Trusted = false
+      else failed.add(f)
+      bad.push((f ?? p) + ': ' + msg.trim().slice(0, 90))
+    }
+  }
+  for (const f of stale.filter(x => x.endsWith('.mjs'))) {
     const r = spawnSync(process.execPath, ['--check', join(dir, f)], { encoding: 'utf8' })
     if (r.status !== 0) {
       const line = String(r.stderr || '').split(/\r?\n/).find(l => /SyntaxError|Error:/.test(l)) || 'не разбирается'
+      failed.add(f)
       bad.push(`${f}: ${line.trim().slice(0, 90)}`)
     }
   }
+  // Кэшируется только «разбирается»: сломанный файл проверяется каждым прогоном заново,
+  // а вердикт по .ps1 не записывается вовсе, если оболочку запустить не удалось.
+  // An unchanged cache is not rewritten: parallel probes would otherwise have a dozen
+  // processes writing the same file at once.
+  try {
+    const fresh = {}
+    for (const f of all) {
+      const k = keys.get(f)
+      if (!k || failed.has(f)) continue
+      if (f.endsWith('.ps1') && !ps1Trusted && cached[f] !== k) continue
+      fresh[f] = k
+    }
+    const same = Object.keys(fresh).length === Object.keys(cached).length
+      && Object.keys(fresh).every(f => cached[f] === fresh[f])
+    if (!same) {
+      mkdirSync(cacheDir, { recursive: true })
+      const tmp = cacheFile + '.' + process.pid + '.tmp'
+      writeFileSyncFs(tmp, JSON.stringify({ stamp, parsed: fresh }))
+      renameSync(tmp, cacheFile)
+    }
+  } catch {}
   if (!files.length) problems.push({ sev: 'CRITICAL', what: 'в scripts/ нет ни одного .mjs — проверка разбора смотрит в пустоту' })
   else if (bad.length) problems.push({ sev: 'CRITICAL', what: `сценарий не разбирается — запустить его нельзя:\n     ${bad.join('\n     ')}` })
   // .ps1 РАЗБИРАЮТСЯ ТОЖЕ, через парсер самого PowerShell. 05.09.2026 выяснилось, что
