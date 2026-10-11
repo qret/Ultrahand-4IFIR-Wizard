@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/10-profiles.md sha=fb3fe39792bf self=8a1979c8b2ee -->
+<!-- i18n: source=Guides/ru/10-profiles.md sha=247b1ce90c6c self=81603de75d2c -->
 # Profiles, backups and reset
 
 <!-- nav:begin -->
@@ -46,8 +46,8 @@ means the copy was written and the configurator checked what it wrote against yo
 settings. `not saved` means the write failed; the configurator deletes the half-written file
 straight away, so it never turns up in `Choose backup`.
 
-Result labels (`saved`, `restored` and the rest) and the chosen copy last until you
-leave: every time you open the wizard again they are cleared, and a copy is picked anew.
+Result labels (`saved` for a backup, `Done` once it is applied, `restored` after a
+factory reset, and the rest) and the chosen copy last until you leave: every time you open the wizard again they are cleared, and a copy is picked anew.
 
 A backup is not a firmware image, it is a list of values. That means it:
 

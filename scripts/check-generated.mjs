@@ -331,8 +331,8 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /подпись словаря обещает не то/,
     },
     {
-      // Check 64: "restored" is set, but the page is no longer rebuilt after it.
-      name: 'после «restored» пропала перестройка страницы',
+      // Check 64: "Done" is set, but the page is no longer rebuilt after it.
+      name: 'после «Done» пропала перестройка страницы',
       file: join(DIST, 'service', 'restore-mariko.ini'),
       hurt: s => s.replace(/\nrefresh-to 'Apply this backup'[^\n]*/, ''),
       expect: /нет перестройки страницы/,
@@ -341,8 +341,43 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       // Check 64: the backup chooser returns with a plain `back`, the page stays stale.
       name: 'выбор копии возвращается без перестройки',
       file: join(DIST, 'service', 'restore-erista.ini'),
-      hurt: s => s.split('\nrefresh-return\n').join('\n'),
+      hurt: s => s.replace(/\nrefresh-return[^\n]*/, ''),
       expect: /выбор копии возвращается без перестройки/,
+    },
+    {
+      // Check 64: the target is dropped, the cursor goes back to Choose backup (operator, 11.10.2026).
+      name: 'refresh-return в Choose backup без цели',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(/\nrefresh-return [^\n]*/, '\nrefresh-return'),
+      expect: /refresh-return без цели/,
+    },
+    {
+      // Check 64: the target names no item on the page, the jump falls through.
+      name: 'цель refresh-return не совпадает ни с одним пунктом страницы',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace("refresh-return 'Apply this backup'", "refresh-return 'Apply this backupX'"),
+      expect: /цель refresh-return «Apply this backupX» на этой странице попадает в пустоту/,
+    },
+    {
+      // Check 64: `back` no longer follows the return, the chooser stays open.
+      name: 'за refresh-return в Choose backup пропал back',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(/(\nrefresh-return [^\n]*)\nback\n/, '$1\n'),
+      expect: /за refresh-return нет back/,
+    },
+    {
+      // Check 64: a stray bare refresh-return after `back` clears the target (patch 0009).
+      name: 'лишний голый refresh-return после back в Choose backup',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace(/(\nrefresh-return [^\n]*\nback)\n/, '$1\nrefresh-return\n'),
+      expect: /refresh-return в секции 2 раза, а нужен ровно один/,
+    },
+    {
+      // Check 64: the target is set with exact matching, the substring search is lost.
+      name: 'цель refresh-return в Choose backup с точным режимом',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace("refresh-return 'Apply this backup' '' false", "refresh-return 'Apply this backup' '' true"),
+      expect: /цель refresh-return задана не той формой: нужен поиск подстрокой, '' и false/,
     },
     {
       // Check 64: refresh-to names another item, the cursor would jump away.
@@ -920,7 +955,7 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       // Check 69: restore of an imported copy writes WL-Set and DBI from its Fields.
       name: 'восстановление импортированной копии пишет WL-Set и DBI',
       file: join(DIST, 'service', 'restore-mariko.ini'),
-      hurt: s => s.replace("set-footer 'restored (import)'", 'hex-by-custom-offset /atmosphere/kips/loader.kip CUST 12432 {ini_file(Fields,12432)}\nhex-by-custom-offset /atmosphere/kips/loader.kip CUST 12528 {ini_file(Fields,12528)}\n' + "set-footer 'restored (import)'"),
+      hurt: s => s.replace("set-footer 'Done (import)'", 'hex-by-custom-offset /atmosphere/kips/loader.kip CUST 12432 {ini_file(Fields,12432)}\nhex-by-custom-offset /atmosphere/kips/loader.kip CUST 12528 {ini_file(Fields,12528)}\n' + "set-footer 'Done (import)'"),
       expect: /импортированная копия не должна его трогать/,
     },
     {
@@ -1227,6 +1262,98 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       file: join(DIST, 'service', 'package.ini'),
       hurt: s => s.replace(/\{if_>\(\{hex_to_decimal\(\{slice\(\{json_file\(19,pMEH\(12-21\)\)\},37,38\)\}\)\},7,FFFF,0000\)\}/, '00000000'),
       expect: /добивает узкий элемент профиля нулями/,
+    },
+    {
+      // Check 72(f): the backup reads a GPU table cell narrower than the menu writes it.
+      name: 'копия читает ячейку таблицы GPU уже, чем пишет меню',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.split('{hex_file(CUST,9008,4)}').join('{hex_file(CUST,9008,3)}'),
+      expect: /ячейка таблицы GPU 9008 читается 3 Б, а меню пишет 4 Б/,
+    },
+    {
+      // Check 72(f): restore cuts the 8-byte ceiling cell to four bytes.
+      name: 'восстановление пишет потолок таблицы GPU не целиком',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.split('CUST 10544 {ini_file(Fields,10544)}').join('CUST 10544 {slice({ini_file(Fields,10544)},0,8)}'),
+      expect: /ячейки таблицы GPU 10544 пишет .* не целиком — нужно 16 знаков/,
+    },
+    {
+      // Check 73: one root file is no longer removed - NOTICE.txt of the package-only archive.
+      name: 'из [boot] пропало удаление одного файла корня',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("\ndelete '/NOTICE.txt'").join(''),
+      expect: /в \[boot\] нет «delete '\/NOTICE\.txt'»/,
+    },
+    {
+      // Check 73: a trailing slash turns the file delete into a folder delete (NOTES 311).
+      name: 'путь удаления в корне получил «/» на конце',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("delete '/LICENSE'").join("delete '/LICENSE/'"),
+      expect: /«delete '\/LICENSE\/'» — путь кончается на «\/», delete удалит каталог целиком/,
+    },
+    {
+      // Check 73: a placeholder in the path - it resolves to whatever the ini holds.
+      name: 'путь удаления в корне получил подстановку',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("delete '/BUILD.txt'").join("delete '/{ini_file(Restore,Name)}'"),
+      expect: /«delete '\/\{ini_file\(Restore,Name\)\}'» — путь с подстановкой или маской/,
+    },
+    {
+      // Check 73: a revision label before the deletes - the engine never goes back to the common part.
+      name: 'перед удалениями корня встала метка erista:',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("\ndelete '/BUILD.txt'").join("\nerista:\ndelete '/BUILD.txt'"),
+      expect: /«delete '\/BUILD\.txt'» — стоит после метки erista:/,
+    },
+    {
+      // Check 73: a delete in [boot] that is not an archive root file.
+      name: 'в [boot] удаляется loader.kip',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("\ndelete '/THANKS.md'").join("\ndelete '/THANKS.md'\ndelete '/atmosphere/kips/loader.kip'"),
+      expect: /«delete '\/atmosphere\/kips\/loader\.kip'» — не файл корня архива/,
+    },
+    {
+      // Check 73: a relative delete in [boot] - the package's own file.
+      name: 'в [boot] удаляется ./package.ini',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("\ndelete '/THANKS.md'").join("\ndelete '/THANKS.md'\ndelete './package.ini'"),
+      expect: /«delete '\.\/package\.ini'» — не файл корня архива/,
+    },
+    {
+      // Check 73: a root file copied by -Destination $out, the name taken from -LiteralPath.
+      // make-build.ps1 is read as text only; the copy keeps its BOM (the hurt splices mid-file).
+      name: 'make-build.ps1 кладёт файл в корень через -Destination $out',
+      file: join(ROOT, 'scripts', 'make-build.ps1'),
+      hurt: s => s.replace(/(Copy-Item -LiteralPath "\$repo\\LICENSE" -Destination "\$out\\LICENSE" -Force)/,
+                           '$1\nCopy-Item -LiteralPath "$$repo\\CHANGELOG.md" -Destination $$out -Force'),
+      expect: /в \[boot\] нет «delete '\/CHANGELOG\.md'»/,
+    },
+    {
+      // Check 73: a root write whose file name cannot be read off the line - red, not silent.
+      name: 'make-build.ps1 пишет в корень $out незнакомой формой',
+      file: join(ROOT, 'scripts', 'make-build.ps1'),
+      hurt: s => s.replace(/(Copy-Item -LiteralPath "\$repo\\LICENSE" -Destination "\$out\\LICENSE" -Force)/,
+                           '$1\nGet-ChildItem -LiteralPath "$$repo\\docs" -Filter *.txt | Copy-Item -Destination $$out -Force'),
+      expect: /make-build\.ps1:\d+ «Get-ChildItem [^»]*» — -Destination \$out без буквального -Path\/-LiteralPath/,
+    },
+    {
+      // Check 54: the second apply block of restore-mariko.ini ("Done (import)") loses its re-seed.
+      name: 'после «Done (import)» пропал пересев корневой подписи',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => {
+        const at = s.indexOf("\nset-footer 'Done (import)'")
+        const seed = "\nset-ini-val './../config.ini' '*eBAMATIC Stage' footer "
+        const j = at < 0 ? -1 : s.indexOf(seed, at)
+        return j < 0 ? s : s.slice(0, j) + s.slice(s.indexOf('\n', j + 1))
+      },
+      expect: /restore-mariko\.ini:\d+ «set-footer 'Done \(import\)'» — корневая подпись не пересеяна/,
+    },
+    {
+      // Check 54: no apply block left in one of the three files - the footers after the writes are gone.
+      name: 'в restore-erista.ini не осталось ни одного блока применения',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.split("\nset-footer 'Done").join("\n;set-footer 'Done"),
+      expect: /restore-erista\.ini: ни одного блока применения/,
     },
   ]
   const TOTAL = PROBES.length
@@ -4749,8 +4876,8 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // пункта (сброс, восстановление копии), обязан пересеять её сам — иначе `eBAMATIC Stage`
 // показывает доприменённое значение до конца сеанса, а человек читает подпись как факт.
 //
-// Стережём три вещи разом: что блок применения вообще есть, что за каждым `set-footer
-// 'restored…'` идёт пересев, и что пересев берёт ТОТ ЖЕ словарь и ТО ЖЕ смещение, что
+// Стережём три вещи разом: что блок применения вообще есть, что за каждой его подписью
+// (`Done…`, у сброса `restored`) идёт пересев, и что пересев берёт ТОТ ЖЕ словарь и ТО ЖЕ смещение, что
 // и `[boot]`. Третье важнее первых двух: разойдись они, подпись меняла бы смысл
 // в зависимости от того, кто её написал последним.
 {
@@ -4769,9 +4896,14 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
     const p = join(DIST, 'service', name)
     if (!existsSync(p)) { bad.push(`${name}: файла нет — блоку применения негде быть`); continue }
     const ls = readFileSync(p, 'utf8').split(/\r?\n/)
+    // An apply block is a try-block that writes the kip and then sets a footer - by what it does,
+    // not by the footer's word ("restored" became "Done" on 11.10.2026 and nothing must go unseen).
+    let wrote = false, own = 0
     for (let i = 0; i < ls.length; i++) {
-      if (!/^set-footer 'restored/.test(ls[i])) continue
-      blocks++
+      if (ls[i] === 'try:' || ls[i][0] === '[') { wrote = false; continue }
+      if (/^hex-by-\S+ /.test(ls[i])) { wrote = true; continue }
+      if (!wrote || !/^set-footer '/.test(ls[i])) continue
+      blocks++; own++
       // Хвост блока — от подписи до его конца: пустая строка, `try:` или новая секция.
       // Длину не считаем: у пересева на каждый пункт своё объявление словаря.
       const tail = []
@@ -4782,6 +4914,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
         if (!tail.includes(w)) bad.push(`${name}:${i + 1} «${ls[i]}» — корневая подпись не пересеяна: ждали «${w}»`)
       }
     }
+    if (!own) bad.push(`${name}: ни одного блока применения (запись kip, затем подпись) — проверка его не видит`)
   }
 
   if (!rootSeeds.length || !blocks) {
@@ -5509,7 +5642,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 
 // ---------------- 63. one-shot footers and the backup choice do not outlive a new entry
 //
-// Operator, 13.09.2026: "saved …", "restored", "up to date" and the chosen backup are
+// Operator, 13.09.2026: "saved …", "Done", "restored", "up to date" and the chosen backup are
 // cleared when the wizard is entered. set-footer writes <own dir>/config.ini under the raw
 // section name (`?rev` and trailing space included), so [boot] must name exactly that.
 // A footer read from the kip is not one-shot: [boot] re-seeds it anyway.
@@ -5570,24 +5703,26 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 
 // ---------------- 64. a result footer is seen at once: the page is rebuilt after it
 //
-// Operator, 13.09.2026: "saved", "restored", "not applied" show right after the action, and what
+// Operator, 13.09.2026: "saved", "Done" (was "restored"), "not applied" show right after the action, and what
 // depends on the chosen backup shows right after the choice. A plain item's footer is re-read only
 // when the page is built (handleInterpreterCompletion, fork source/main.cpp:594-664), so every
 // try-block that sets a literal footer or clears the choice must end in a rebuild: `refresh`, or
-// `refresh-to` naming its own item (cursor stays). The backup chooser returns with `refresh-return`.
+// `refresh-to` naming its own item (cursor stays). The backup chooser returns with `refresh-return`;
+// in Choose backup it is called once, targets Apply this backup (operator, 11.10.2026; engine patch
+// 0009), then `back`.
 // Create backup (operator, 13.09.2026): writes report nothing, so "saved" follows a read-back of
 // the passport and every field, and a second try-block says "not saved" and rebuilds too.
 // Since the same day that failure block first deletes the half-written file, guarded to a path
 // under .bak/<revision> that is not the chosen backup; a third block says "not saved" otherwise.
 {
   const bad = []
-  let blocks = 0, choosers = 0
+  let blocks = 0, choosers = 0, applyReturns = 0
   const RESULT = l => (/^set-footer '/.test(l) && !/\{(json_file|hex_file)/.test(l)) || /^set-ini-val '\.\/config\.ini' Restore \w+ ''$/.test(l)
   for (const file of iniFiles) {
     if (file === join(DIST, 'boot_package.ini')) continue
     const rel = relative(DIST, file).split(String.fromCharCode(92)).join('/')
     const ls = readFileSync(file, 'utf8').split(/\r?\n/)
-    let head = null, block = [], picks = null, returns = false
+    let head = null, block = [], picks = null, returns = false, returnsAll = []
     const closeBlock = () => {
       let last = -1
       block.forEach(({ l }, k) => { if (RESULT(l)) last = k })
@@ -5603,21 +5738,45 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
       }
       block = []
     }
+    // section heads of each `[@page]`, `?tag` cut as the engine does: the jump target is looked up there
+    const pages = [[]]
+    for (const l of ls) {
+      const h = l.match(/^\[(.*)\]$/)
+      if (h) h[1].startsWith('@') ? pages.push([]) : pages[pages.length - 1].push(h[1].split('?')[0])
+    }
+    let pg = 0
     const closeSection = () => {
       closeBlock()
       if (picks !== null) {
         choosers++
         if (!returns) bad.push(`${rel}:${picks} «[${head}]» — выбор копии возвращается без перестройки страницы: нужен refresh-return`)
+        else if (head.startsWith('*Choose backup')) {
+          // Operator, 11.10.2026: after the choice the cursor lands on Apply (engine patch 0009).
+          applyReturns++
+          // Each call rewrites the target and a bare one clears it (patch 0009): exactly one call.
+          if (returnsAll.length !== 1) bad.push(`${rel}:${returnsAll[1].n} «[${head}]» — refresh-return в секции ${returnsAll.length} раза, а нужен ровно один: каждый вызов перезаписывает цель, голый очищает её, и курсор встанет на Choose backup`)
+          const m = returns.l.match(/^refresh-return '([^']+)' '' false$/)
+          const hit = m && pages[pg].find(x => x.includes(m[1]))
+          const WANT = `нужно «refresh-return 'Apply this backup' '' false»`
+          if (/^refresh-return\s*$/.test(returns.l)) bad.push(`${rel}:${returns.n} «[${head}]» — refresh-return без цели: курсор вернётся на Choose backup, а не на Apply this backup (${WANT})`)
+          else if (!m) bad.push(`${rel}:${returns.n} «[${head}]» — цель refresh-return задана не той формой: нужен поиск подстрокой, '' и false (${WANT})`)
+          else if (!hit || !hit.startsWith('Apply this backup')) bad.push(`${rel}:${returns.n} «[${head}]» — цель refresh-return «${m[1]}» на этой странице попадает ${hit ? `в «${hit.trim()}»` : 'в пустоту'}, а не в Apply this backup`)
+          // The engine reads the flags after the stream ends, so order is a package convention.
+          if (returns.next !== 'back') bad.push(`${rel}:${returns.n} «[${head}]» — за refresh-return нет back: принятый в пакете порядок — refresh-return, затем back`)
+        }
       }
-      picks = null; returns = false
+      picks = null; returns = false; returnsAll = []
     }
     ls.forEach((l, i) => {
       const h = l.match(/^\[(.*)\]$/)
-      if (h) { closeSection(); head = h[1]; return }
+      if (h) { closeSection(); head = h[1]; if (head.startsWith('@')) pg++; return }
       if (l === 'try:') { closeBlock(); return }
       block.push({ l, n: i + 1 })
       if (/^set-ini-val '\.\/config\.ini' Restore Path '\{file_source\}'$/.test(l)) picks = i + 1
-      if (l === 'refresh-return') returns = true
+      if (/^refresh-return(\s|$)/.test(l)) {
+        returnsAll.push({ l, n: i + 1 })
+        if (!returns) returns = { l, n: i + 1, next: ls[i + 1] }
+      }
     })
     closeSection()
   }
@@ -5674,9 +5833,10 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
       bad.push(`${head} — kip не читался: значения «null» совпадут сами с собой, а подпись скажет «saved»`)
   }
   if (creates !== 2) bad.push(`секций Create backup найдено ${creates}, а их две (mariko и erista) — исход «not saved» проверять не на чем`)
+  if (applyReturns !== 2) bad.push(`списков Choose backup с перестройкой найдено ${applyReturns}, а их два (mariko и erista) — курсор на Apply this backup проверять не на чем`)
   if (!blocks || !choosers) problems.push({ sev: 'CRITICAL', what: `проверка перестройки после подписи не нашла предмета (блоков ${blocks}, выборов копии ${choosers}) — она смотрит в пустоту, ничего не проверив` })
   else if (bad.length) problems.push({ sev: 'CRITICAL', what: `подпись-результат или выбор копии не видны сразу (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
-  else ok.push(`result footers and the backup choice rebuild the page at once (${blocks} blocks, ${choosers} choosers); Create backup reads back before saved (${creates} sections)`)
+  else ok.push(`result footers and the backup choice rebuild the page at once (${blocks} blocks, ${choosers} choosers, ${applyReturns} land on Apply); Create backup reads back before saved (${creates} sections)`)
 }
 
 // ---------------- 65. the short RAM model is one rule on every screen that shows it
@@ -6525,12 +6685,12 @@ const EBAMATIC_NOT_FIRST67 = new Map([
       ...(volts ? { Optimized: { eVDQ: volts[0], eVD2: volts[1] } } : {}),
     })
     const kinds = [
-      { name: 'новая копия', bak: made['2.6, eBAL 2'], footer: 'restored' },
-      { name: 'копия 21–22.09 с [Optimized] 650/1100 и пометкой 2.5', bak: nb('020000', '01', ['650', '1100'], '2.5'), footer: 'restored' },
-      { name: 'копия 21–22.09 с [Optimized] 0/0 и пометкой 2.6', bak: nb('020000', '01', ['0', '0'], '2.6'), footer: 'restored' },
-      { name: 'копия 21.09 с [Optimized] 1150/0 без пометки, Target 00', bak: nb('060000', '00', ['1150', '0']), footer: 'restored' },
-      { name: 'старая копия без [Optimized]', bak: nb('020000', '01', null), footer: 'restored' },
-      { name: 'импортированная копия', bak: { ...nb('020000', '01', null), Meta: { revision: rev, kipver: 'imported' } }, footer: 'restored (import)' },
+      { name: 'новая копия', bak: made['2.6, eBAL 2'], footer: 'Done' },
+      { name: 'копия 21–22.09 с [Optimized] 650/1100 и пометкой 2.5', bak: nb('020000', '01', ['650', '1100'], '2.5'), footer: 'Done' },
+      { name: 'копия 21–22.09 с [Optimized] 0/0 и пометкой 2.6', bak: nb('020000', '01', ['0', '0'], '2.6'), footer: 'Done' },
+      { name: 'копия 21.09 с [Optimized] 1150/0 без пометки, Target 00', bak: nb('060000', '00', ['1150', '0']), footer: 'Done' },
+      { name: 'старая копия без [Optimized]', bak: nb('020000', '01', null), footer: 'Done' },
+      { name: 'импортированная копия', bak: { ...nb('020000', '01', null), Meta: { revision: rev, kipver: 'imported' } }, footer: 'Done (import)' },
       { name: `копия с ${other}`, bak: { ...nb('020000', '01', ['1200', '1200'], '2.6'), Meta: { revision: other, kipver } }, footer: 'not applied' },
     ]
     for (const gen of ['2.6', '2.5', 'none', null]) for (const k of kinds) for (const emc0 of [EMC_BOTH, null]) {
@@ -6765,15 +6925,15 @@ const EBAMATIC_NOT_FIRST67 = new Map([
     const P = `/atmosphere/kips/.bak/${rev}/x.ini`
     const KIP0 = { [WL]: '01', [DBI]: '02' }
     const cases = [
-      { name: 'импорт, полей нет', meta: 'imported', fields: {}, footer: 'restored (import)', kip: KIP0, view: ['—', '—'], note: true },
-      { name: 'импорт до 21.09, 12432 = 00', meta: 'imported', fields: { [WL]: '00' }, footer: 'restored (import)', kip: KIP0, view: ['—', '—'], note: true },
-      { name: 'импорт до 21.09, 12432 = 01', meta: 'imported', fields: { [WL]: '01' }, footer: 'restored (import)', kip: { [WL]: '00', [DBI]: '00' }, view: ['—', '—'], note: true },
-      { name: 'импорт до 21.09, 12432 = 03', meta: 'imported', fields: { [WL]: '03' }, footer: 'restored (import)', kip: KIP0, view: ['—', '—'], note: true },
-      { name: 'импорт с битым 12432 и 12528', meta: 'imported', fields: { [WL]: 'nu', [DBI]: '07' }, footer: 'restored (import)', kip: KIP0, view: ['—', '—'], note: true },
+      { name: 'импорт, полей нет', meta: 'imported', fields: {}, footer: 'Done (import)', kip: KIP0, view: ['—', '—'], note: true },
+      { name: 'импорт до 21.09, 12432 = 00', meta: 'imported', fields: { [WL]: '00' }, footer: 'Done (import)', kip: KIP0, view: ['—', '—'], note: true },
+      { name: 'импорт до 21.09, 12432 = 01', meta: 'imported', fields: { [WL]: '01' }, footer: 'Done (import)', kip: { [WL]: '00', [DBI]: '00' }, view: ['—', '—'], note: true },
+      { name: 'импорт до 21.09, 12432 = 03', meta: 'imported', fields: { [WL]: '03' }, footer: 'Done (import)', kip: KIP0, view: ['—', '—'], note: true },
+      { name: 'импорт с битым 12432 и 12528', meta: 'imported', fields: { [WL]: 'nu', [DBI]: '07' }, footer: 'Done (import)', kip: KIP0, view: ['—', '—'], note: true },
       // A valid DBI under an imported copy: without the kipver condition the row would print it.
-      { name: 'импорт с валидным 12528 = 02', meta: 'imported', fields: { [DBI]: '02' }, footer: 'restored (import)', kip: KIP0, view: ['—', '—'], note: true },
-      { name: 'своя копия', meta: kipver, fields: { [WL]: '01', [DBI]: '03' }, footer: 'restored', kip: { [WL]: '00', [DBI]: '00' }, want: { [WL]: '01', [DBI]: '03' }, view: ['1', '3'], note: false },
-      { name: 'своя копия, нули', meta: kipver, fields: { [WL]: '00', [DBI]: '00' }, footer: 'restored', kip: KIP0, want: { [WL]: '00', [DBI]: '00' }, view: ['0', '0'], note: false },
+      { name: 'импорт с валидным 12528 = 02', meta: 'imported', fields: { [DBI]: '02' }, footer: 'Done (import)', kip: KIP0, view: ['—', '—'], note: true },
+      { name: 'своя копия', meta: kipver, fields: { [WL]: '01', [DBI]: '03' }, footer: 'Done', kip: { [WL]: '00', [DBI]: '00' }, want: { [WL]: '01', [DBI]: '03' }, view: ['1', '3'], note: false },
+      { name: 'своя копия, нули', meta: kipver, fields: { [WL]: '00', [DBI]: '00' }, footer: 'Done', kip: KIP0, want: { [WL]: '00', [DBI]: '00' }, view: ['0', '0'], note: false },
     ]
     const dict = n => { try { return JSON.parse(readFileSync(join(DIST, 'service', n), 'utf8'))[0] } catch { return null } }
     // the note: a skip_null table whose row resolves to NOTE69 for the backup, null otherwise
@@ -7098,12 +7258,152 @@ const EBAMATIC_NOT_FIRST67 = new Map([
   }
   if (SIGNED.length && !signed) bad.push('ни одной строки импорта для полей-смещений — проверка расширения знаком смотрит в пустоту')
 
+  // (f) GPU working table (8896…10576) is not in fields.json, so (c) skips it. The width the
+  // menu writes (`wN` keys of the stage list) is the truth: the backup must read every cell at
+  // that width and restore it whole, or a voltage row lands half-written (NOTES №351).
+  let tableReads = 0, tableWrites = 0
+  const stageList = join(DIST, 'advanced', 'gpu', 'json', 'gpu_uv_mode_mariko.json')
+  const tableWidth = new Map()
+  if (existsSync(stageList)) {
+    for (const e of JSON.parse(readFileSync(stageList, 'utf8')))
+      for (const [k, v] of Object.entries(e)) {
+        if (!/^w\d+$/.test(k)) continue
+        const off = Number(k.slice(1)), w = String(v).length / 2
+        if (tableWidth.has(off) && tableWidth.get(off) !== w)
+          bad.push(`gpu_uv_mode_mariko.json: ячейка ${off} у разных ступеней разной ширины (${tableWidth.get(off)} и ${w} Б)`)
+        tableWidth.set(off, w)
+      }
+  }
+  for (const file of iniFiles) {
+    const s = readFileSync(file, 'utf8')
+    // Backup side only: the summary page reads the ceiling's low 4 bytes for its label on purpose.
+    for (const m of s.matchAll(/Fields (\d+) '\{hex_file\(CUST,\1,(\d+)\)\}'/g)) {
+      const off = Number(m[1])
+      if (!tableWidth.has(off)) continue
+      tableReads++
+      if (Number(m[2]) !== tableWidth.get(off))
+        bad.push(`${relative(ROOT, file)}: ячейка таблицы GPU ${off} читается ${m[2]} Б, а меню пишет ${tableWidth.get(off)} Б — копия потеряет байты`)
+    }
+    for (const m of s.matchAll(/CUST (\d+) (\S+)/g)) {
+      const off = Number(m[1])
+      if (!tableWidth.has(off) || !m[2].includes(`ini_file(Fields,${off})`)) continue
+      tableWrites++
+      const cut = m[2].match(/slice\(.*,0,(\d+)\)/)
+      if (m[2] !== `{ini_file(Fields,${off})}` && !(cut && Number(cut[1]) === tableWidth.get(off) * 2))
+        bad.push(`${relative(ROOT, file)}: восстановление ячейки таблицы GPU ${off} пишет «${m[2]}» не целиком — нужно ${tableWidth.get(off) * 2} знаков`)
+    }
+  }
+  if (!tableWidth.size || !tableReads || !tableWrites)
+    bad.push(`рабочая таблица GPU: ячеек ${tableWidth.size}, чтений ${tableReads}, записей ${tableWrites} — сверка ширины смотрит в пустоту`)
+
   if (!reads || !fields.length)
     problems.push({ sev: 'CRITICAL', what: 'проверка ширины полей не нашла ни карты, ни чтений — она смотрит в пустоту' })
   else if (bad.length)
     problems.push({ sev: 'CRITICAL', what: `ширина записи разошлась с ячейкой CUST (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
   else
-    ok.push(`field writes match the 4-byte CUST cell: signed offsets go in whole and sign-extended, ${narrow} narrow writes carry only values that fit unsigned, ${wide} non-scalar cells excused by name, ${reads} reads agree with the map, ${widened} restore lines widen a legacy value, ${signed} import lines widen a foreign profile by sign`)
+    ok.push(`field writes match the 4-byte CUST cell: signed offsets go in whole and sign-extended, ${narrow} narrow writes carry only values that fit unsigned, ${wide} non-scalar cells excused by name, ${reads} reads agree with the map, ${widened} restore lines widen a legacy value, ${signed} import lines widen a foreign profile by sign, ${tableWidth.size} GPU table cells read ${tableReads} times and restored ${tableWrites} times at the menu's width`)
+}
+
+// ---------------- 73. the archive's root text files are removed from the SD root on entry
+//
+// Update unzips our archive into the SD root; operator, 11.10.2026: its text files must go from there.
+// [boot] deletes every root file make-build.ps1 puts in either archive, by a literal path: a trailing
+// `/` drops a folder (NOTES 311), a placeholder resolves to anything; no other delete in [boot].
+// No `try:` before them: a failed command skips the rest of its try-block, and the next `try:` after
+// a successful block ends the list. No `erista:`/`mariko:` either: the engine never returns to the
+// common part (utils.hpp, interpretAndExecuteCommands), so the deletes would run on one revision.
+{
+  const bootPath = join(DIST, 'boot_package.ini')
+  const bl = existsSync(bootPath) ? readFileSync(bootPath, 'utf8').split(/\r?\n/) : []
+  const from = bl.indexOf('[boot]')
+  let to = bl.findIndex((l, i) => i > from && /^\[/.test(l))
+  if (to < 0) to = bl.length
+  const boot = from < 0 ? [] : bl.slice(from + 1, to)
+
+  // Root names of the archive, from every `$out` in make-build.ps1. Known forms: "$out\NAME",
+  // Join-Path $out 'NAME', -Destination $out with a literal -Path/-LiteralPath, and whole-folder
+  // ops (Test-Path, Remove-Item, Get-ChildItem), messages, the assignment. Any other form is red.
+  const mb = join(ROOT, 'scripts', 'make-build.ps1')
+  const mbTxt = existsSync(mb) ? readFileSync(mb, 'utf8') : null
+  const want = mbTxt === null ? null : new Set()
+  const bad = []
+  let outRefs = 0
+  if (mbTxt !== null) {
+    const literal = n => n && !/[$*?`(){}]/.test(n) && n !== '..' && n !== '.'
+    let here = false
+    mbTxt.split(/\r?\n/).forEach((line, n) => {
+      if (here) { if (/^['"]@/.test(line)) here = false; return }
+      if (/@['"]\s*$/.test(line)) here = true
+      if (/^\s*#/.test(line)) return
+      for (const m of line.matchAll(/\$(?:\{out\}|out)(?!\w)/g)) {
+        outRefs++
+        const before = line.slice(0, m.index), after = line.slice(m.index + m[0].length)
+        const unknown = why => bad.push(`make-build.ps1:${n + 1} «${line.trim()}» — ${why}: какой файл ляжет в корень архива, не понять; запишите путь как "$out\\ИМЯ" или научите проверку 73`)
+        const name = rest => {
+          const seg = rest.split(/[\\/]/)
+          if (!literal(seg[0]) || seg.includes('..')) return unknown('имя в корне $out не буквальное')
+          if (seg.length === 1) want.add(seg[0])
+        }
+        if (m[0] !== '$out') { unknown('незнакомая форма записи ${out}'); continue }
+        if (after.startsWith('\\')) {
+          const q = after.match(/^\\([^"]*)"/)
+          if (!before.endsWith('"') || !q) { unknown('путь от $out не в своих кавычках'); continue }
+          name(q[1])
+          continue
+        }
+        if (/Join-Path\s+(?:-Path\s+)?$/i.test(before)) {
+          const c = after.match(/^\s+(?:-ChildPath\s+)?(['"])([^'"]*)\1/i)
+          if (!c) { unknown('Join-Path $out без буквального имени'); continue }
+          name(c[2])
+          continue
+        }
+        if (/^\s*$/.test(before) && /^\s*=/.test(after)) continue
+        if (/\b(?:Test-Path|Remove-Item|Get-ChildItem)\s+-(?:Literal)?Path\s+$/i.test(before)) continue
+        if (/^\s*Write-(?:Host|Output|Warning|Verbose)\b[^;|]*$/i.test(line)) continue
+        if (/-Destination\s+"?$/i.test(before)) {
+          // Only this command of a pipeline: a -Path left of `|` belongs to another command.
+          const cmd = before.slice(before.lastIndexOf('|') + 1) + after.split('|')[0]
+          const src = cmd.match(/-(?:Literal)?Path\s+(['"])([^'"]+)\1/i)
+          if (!src) { unknown('-Destination $out без буквального -Path/-LiteralPath'); continue }
+          name(src[2].split(/[\\/]/).pop())
+          continue
+        }
+        unknown('незнакомая форма обращения к $out')
+      }
+    })
+  }
+
+  const rootDel = new Set()
+  let tryAt = -1, revAt = -1, dels = 0
+  boot.forEach((l, i) => {
+    if (/^\s*try:(\s|$)/i.test(l) && tryAt < 0) tryAt = i
+    if (/^\s*(?:erista|mariko):(\s|$)/i.test(l) && revAt < 0) revAt = i
+    if (/^\s*mirror[-_]\S+/i.test(l) && !/^\s*mirror[-_](?:copy|cp)\s/i.test(l))
+      bad.push(`boot_package.ini:${from + 2 + i} «${l}» — массовое удаление в [boot]: здесь удаляются только файлы корня архива`)
+    const m = l.match(/^\s*(?:delete|del)\s+(.*?)\s*$/i)
+    if (!m) return
+    dels++
+    const at = `boot_package.ini:${from + 2 + i} «${l}»`
+    const path = m[1].replace(/^'(.*)'$/, '$1').replace(/^"(.*)"$/, '$1')
+    if (/[{*]/.test(path)) { bad.push(`${at} — путь с подстановкой или маской, удалит неизвестно что`); return }
+    if (path.endsWith('/')) { bad.push(`${at} — путь кончается на «/», delete удалит каталог целиком`); return }
+    if (!/^\/[^/]+$/.test(path)) { bad.push(`${at} — не файл корня архива: в [boot] удаляются только они`); return }
+    if (tryAt >= 0) bad.push(`${at} — стоит после try: (строка ${from + 2 + tryAt}), удачный блок оборвёт список раньше`)
+    if (revAt >= 0) bad.push(`${at} — стоит после метки ${boot[revAt].trim()} (строка ${from + 2 + revAt}), на другой ревизии удаление не выполнится`)
+    if (l !== `delete '${path}'`) bad.push(`${at} — ждали буквальное «delete '${path}'»`)
+    if (want && !want.has(path.slice(1))) bad.push(`${at} — лишнее удаление в корне карты: make-build.ps1 такого файла в корень архива не кладёт`)
+    rootDel.add(path.slice(1))
+  })
+  if (want) for (const n of want) if (!rootDel.has(n)) bad.push(`в [boot] нет «delete '/${n}'» — ${n} из корня архива останется в корне карты`)
+
+  if (!boot.length || !dels || (want && !want.size))
+    problems.push({ sev: 'CRITICAL', what: `проверка чистки корня карты не нашла предмета ([boot] строк ${boot.length}, delete ${dels}, файлов корня в make-build.ps1 ${want ? want.size : '—'}) — она смотрит в пустоту, ничего не проверив` })
+  else if (bad.length)
+    problems.push({ sev: 'CRITICAL', what: `текстовые файлы выпуска не убираются из корня карты как надо (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}${bad.length > 8 ? `\n     … и ещё ${bad.length - 8}` : ''}` })
+  else if (!want)
+    ok.push(`root deletes in [boot] are literal file paths (${rootDel.size}); comparison skipped - no scripts/make-build.ps1 in this tree`)
+  else
+    ok.push(`the archive's root text files are deleted on entry (${rootDel.size} literal paths = make-build.ps1 root files: ${[...want].join(', ')}; ${outRefs} uses of $out read, no other delete in [boot])`)
 }
 
 // ---------------- 61. guard numbers are unique, gapless-or-retired, and every doc reference lands
@@ -7232,7 +7532,8 @@ const RETIRED61 = new Map([
   // 21.09.2026: 71 -> 72 for check 70 (CPU Min Voltage factory value is Eco ST1).
   // 22.09.2026: 72 -> 73 for check 71 (the 4IFIR generation is read once, in [boot]).
   // 22.09.2026: 73 -> 74 for check 72 (write width equals the CUST cell, sign kept).
-  const EXPECTED = 74
+  // 11.10.2026: 74 -> 75 for check 73 (archive root text files deleted on entry).
+  const EXPECTED = 75
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,

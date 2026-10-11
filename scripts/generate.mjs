@@ -1074,7 +1074,7 @@ let lastBootMap = null
  */
 const allBoot = []
 /**
- * One-shot footers ("saved …", "restored", "up to date") and the backup choice must not
+ * One-shot footers ("saved …", "Done", "restored", "up to date") and the backup choice must not
  * outlive a reboot or a new visit: [boot] clears them on every entry (operator, 13.09.2026).
  * Keys are `dir|section`; `dir` is the package-relative folder whose config.ini the item writes.
  */
@@ -3900,10 +3900,10 @@ if (kipRows.length) {
         `ini_file './config.ini'`,
         `set-ini-val './config.ini' Restore Old '{if_==({ini_file(Restore,Have)},{ini_file(Restore,Want)},no,yes)}'`,
         // Rebuild the page on return (operator, 13.09.2026): "Older backup" and anything else
-        // gated on the choice is current at once, cursor back on this item (SelectionOverlay
-        // handleInput, fork source/main.cpp:4364-4387). `back` does not stop the section
-        // (`docs/research/07-dsl-compat-uberhand-vs-ultrahand.md` §4.2).
-        'refresh-return',
+        // gated on the choice is current at once. Cursor lands on Apply (operator, 11.10.2026):
+        // the target needs engine patch 0009; older engines ignore it and return to this item.
+        // `back` does not stop the section (`docs/research/07-dsl-compat-uberhand-vs-ultrahand.md` §4.2).
+        rebuildOn(applyHead).replace(/^refresh-to /, 'refresh-return '),
         'back',
       ],
       apply: [
@@ -3960,7 +3960,7 @@ if (kipRows.length) {
         ...sideSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} ${fromBackup(f.offset)}`),
         // NO re-seed of the root footer written by hand here or in the import branch below:
         // `reseedRootFooters` adds it to every try-block that writes a root-footer offset.
-        `set-footer 'restored'`,
+        `set-footer 'Done'`,
         rebuildOn(applyHead),
         // ВТОРОЙ БЛОК — ДЛЯ ИМПОРТИРОВАННЫХ КОПИЙ, НО КНОПКА ОДНА.
         //
@@ -3981,7 +3981,7 @@ if (kipRows.length) {
         // Only what the converter carries (IMPORT_CARRIED): WL-Set, DBI and every field the old
         // format never held stay as they are on the console.
         ...[...backupSet(rev), ...sideSet(rev)].filter(f => importCarries(rev, f.offset)).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} ${fromBackup(f.offset)}`),
-        `set-footer 'restored (import)'`,
+        `set-footer 'Done (import)'`,
         rebuildOn(applyHead),
         'try:',
         `set-footer 'not applied'`,
@@ -4310,6 +4310,10 @@ const oneShotClear = [
   ...[...oneShotChoice].flatMap(([dir, keys]) => keys.map(k => `set-ini-val ${cfgAt(dir)} Restore ${k} ''`)),
   ...[...oneShotBackupPath].map(dir => forgetBackupPath(cfgAt(dir))),
 ]
+// Text files of the release archive root: Update unzips it into the SD root. The new version's
+// [boot] removes them (Update itself runs the old version's commands). Literal paths, no `try:`
+// before them: `delete` on a path ending in `/` drops a folder. Same names as make-build.ps1 - check 73.
+const ARCHIVE_ROOT_FILES = ['BUILD.txt', 'INSTALL.txt', 'LICENSE', 'NOTICE.txt', 'NOTICE.md', 'THANKS.md']
 /**
  * THE 4IFIR GENERATION IS KEPT WITH THE OVERLAY'S BUILD-ID (DECISIONS 22.09.2026, MAGICIAN-PAGE §0.10).
  * Tail of every forwarder into a page that reads [Firmware] gen. Build-id at 0x40 equals the
@@ -4380,6 +4384,8 @@ if (boot.some(l => l.startsWith('set-ini-val'))) {
     ...boot,
     '',
     ...oneShotClear,
+    '',
+    ...ARCHIVE_ROOT_FILES.map(f => `delete '/${f}'`),
     '',
   ].join('\n'))
   stats.bootFiles = 1

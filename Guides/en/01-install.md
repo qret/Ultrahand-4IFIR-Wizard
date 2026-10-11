@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/01-install.md sha=7bb154ecbf00 self=7102751922bb -->
+<!-- i18n: source=Guides/ru/01-install.md sha=b3ef69dcbacf self=0477926d448a -->
 # Installation
 
 <!-- nav:begin -->
@@ -39,7 +39,8 @@ Unpack the contents of the archive **into the root of the SD card**, overwriting
 
 Inside the ordinary archive there is one folder of settings —
 `switch\.packages\4IFIR Wizard\` — plus `INSTALL.txt`, `BUILD.txt`, `LICENSE` and
-`NOTICE.txt` beside it.
+`NOTICE.txt` beside it. The configurator removes these text files from the root of the
+card by itself the first time it is opened.
 
 > [!IMPORTANT]
 > **The engine is not in the ordinary archive, and that is on purpose.** Ultrahand and

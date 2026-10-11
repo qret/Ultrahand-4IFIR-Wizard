@@ -36,7 +36,8 @@ switch\.packages\config.ini
 Распакуйте содержимое архива **в корень карты памяти**, с заменой.
 
 В обычном архиве один каталог с настройками — `switch\.packages\4IFIR Wizard\` — и рядом
-`INSTALL.txt`, `BUILD.txt`, `LICENSE`, `NOTICE.txt`.
+`INSTALL.txt`, `BUILD.txt`, `LICENSE`, `NOTICE.txt`. Эти текстовые файлы конфигуратор сам убирает
+из корня карты при первом открытии.
 
 > [!IMPORTANT]
 > **Движка в обычном архиве нет, и это нарочно.** Ultrahand и его `config\ultrahand\` —

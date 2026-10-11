@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/11-update.md sha=faf1c8582cf3 self=9e9e38b46ca5 -->
+<!-- i18n: source=Guides/ru/11-update.md sha=225cb88fdfa6 self=1d4c10482f98 -->
 # Updating
 
 <!-- nav:begin -->
@@ -46,6 +46,9 @@ which archive came out: there are two kinds, and the release page says which one
   replaced by the copies from the archive — that is the intent. If you had edited a theme from that
   store, or dropped in your own sound files under the same names, your files are
   replaced.
+
+The release's text files — install notes, build passport, licence — are removed from the
+root of the card by the configurator itself the first time it is opened after the update.
 
 > [!NOTE]
 > The configurator checks whether it recognises your firmware version, and refuses to work with
