@@ -13,17 +13,89 @@
 // Run: node scripts/check-generated.mjs
 // Exit code: 0 — everything is in place, 1 — there are discrepancies.
 
-import { readFileSync, readdirSync, existsSync, statSync, writeFileSync as writeFileSyncFs, mkdirSync, renameSync, rmSync, cpSync } from 'node:fs'
+import { readFileSync as readFileSyncFs, readdirSync, existsSync as existsSyncFs, statSync, writeFileSync as writeFileSyncFs, mkdirSync, renameSync, rmSync, cpSync } from 'node:fs'
 import { join, dirname, relative, resolve, basename, posix, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { tmpdir, cpus } from 'node:os'
 
+// ONE READ PER FILE PER RUN. The checks reread the same files thousands of times, and on
+// Windows every open costs ~0.6 ms. A run writes nothing it reads back (the check-45 cache
+// is read before it is written). The self-test parent rewrites files between child runs,
+// so it reads straight from disk; every child is a process of its own with its own cache.
+const DIRECT_FS = process.argv.includes('--проба-отказа') || process.argv.includes('--self-test')
+const COPY74 = "copy '{if_==({ini_file(Firmware,emc_keep)},null,/config/4IFIR/emc_timings.ini,/emc-none)}' '/config/4IFIR/emc_timings.ini.bak'"
+// A block is one set-ini-val with line breaks in its value (generate.mjs iniBlock). The checks read
+// it as the lines it stands for, so each key answers to the same rules as before. Check 75 and the
+// line limit read the file as it is. A footer gathered in `list` goes back to the line that read it.
+const INI_NL = '{base64_decode(Cg==)}'
+const unlist = lines => {
+  const out = []
+  const at = []
+  for (const l of lines) {
+    if (l.startsWith('[')) at.length = 0
+    const item = l.match(/^list '\[(?:\{list\(\d+\)\},)*(\{json_file\(.*\)\})\]'$/)
+    if (item) { at.push([out.length, item[1]]); out.push(l); continue }
+    const m = l.match(/^(set-ini-val .* footer) '\{list\((\d+)\)\}'$/)
+    if (m && at[m[2]]) {
+      out[at[m[2]][0]] = `${m[1]} ${at[m[2]][1]}`
+      if (out.at(-1)?.startsWith('delete ')) out.pop()
+      continue
+    }
+    out.push(l)
+  }
+  return out
+}
+const unblock = text => text.includes(INI_NL) ? unlist(text.split('\n').flatMap(l => {
+  const m = l.includes(INI_NL) && l.match(/^(set-ini-val (?:'[^']*'|\S+)) ('[^']*'|\S+) (\S+) '(.*)'$/)
+  if (!m) return [l]
+  let section = m[2]
+  return m[4].split(INI_NL).flatMap((part, i) => {
+    if (!i) return [`${m[1]} ${m[2]} ${m[3]} '${part}'`]
+    if (!part) return []
+    if (part.startsWith('[') && part.endsWith(']')) { section = `'${part.slice(1, -1)}'`; return [] }
+    const at = part.indexOf('=')
+    return [`${m[1]} ${section} ${part.slice(0, at)} '${part.slice(at + 1)}'`]
+  })
+})).join('\n') : text
+const fileCache = new Map()
+const readFileSync = (p, enc) => {
+  if (DIRECT_FS || typeof p !== 'string') return readFileSyncFs(p, enc)
+  const k = resolve(p)
+  let buf = fileCache.get(k)
+  if (!buf) { buf = readFileSyncFs(p); fileCache.set(k, buf) }
+  const e = typeof enc === 'string' ? enc : enc?.encoding
+  if (!e) return Buffer.from(buf)
+  const sk = e + '|' + k
+  let str = fileCache.get(sk)
+  if (str === undefined) {
+    str = buf.toString(e)
+    if (k.endsWith('.ini')) str = unblock(str)
+    fileCache.set(sk, str)
+  }
+  return str
+}
+const existsCache = new Map()
+const existsSync = p => {
+  if (DIRECT_FS) return existsSyncFs(p)
+  const k = resolve(String(p))
+  let v = existsCache.get(k)
+  if (v === undefined) { v = existsSyncFs(p); existsCache.set(k, v) }
+  return v
+}
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const DIST = join(ROOT, 'package', 'dist')
 
 if (!existsSync(DIST)) { console.error('no package/dist — run generate.mjs first'); process.exit(2) }
+
+// Result marks of an action footer (operator, 30.10.2026): the engine's CHECKMARK_SYMBOL and
+// CROSSMARK_SYMBOL. showMark keeps gate messages readable: the glyphs print as tofu in a console.
+const MARK_OK = '\uE14B'
+const MARK_FAIL = '\uE14C'
+const MARK_IMPORT = `${MARK_OK} (import)`
+const showMark = s => String(s).replace(/[\uE000-\uF8FF]/g, c => 'U+' + c.codePointAt(0).toString(16).toUpperCase())
 
 // WHERE CHECK 45 KEEPS ITS PARSE CACHE. Computed here, not down in the block, because the
 // self-test hands this very path to the child runs it starts in throwaway copies of the tree:
@@ -101,6 +173,13 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       name: 'подпись, выдавливающая имя пункта',
       file: join(DIST, 'package.ini'),
       hurt: s => s + "\nset-footer '" + A.repeat(28) + "'\n",
+      expect: /футер длиннее/,
+    },
+    {
+      // Check 38: a font glyph is wider than a letter, 11 marks pass by .length alone.
+      name: 'подпись из глифов шрифта короче предела по знакам, но не по ширине',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s + "\nset-footer '" + MARK_OK.repeat(11) + "'\n",
       expect: /футер длиннее/,
     },
     {
@@ -264,7 +343,7 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /слоты не покрывают страницу/,
     },
     {
-      // Check 63: the boot line clearing one footer is gone - "saved …" survives the reboot.
+      // Check 63: the boot line clearing one footer is gone - the result mark survives the reboot.
       name: 'из [boot] пропала очистка разовой подписи',
       file: join(DIST, 'boot_package.ini'),
       hurt: s => s.split('\n').filter(l => !/^remove-ini-key .*'Create backup\?mariko' footer\r?$/.test(l)).join('\n'),
@@ -331,8 +410,8 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /подпись словаря обещает не то/,
     },
     {
-      // Check 64: "Done" is set, but the page is no longer rebuilt after it.
-      name: 'после «Done» пропала перестройка страницы',
+      // Check 64: the Apply mark is set, but the page is no longer rebuilt after it.
+      name: 'после подписи Apply пропала перестройка страницы',
       file: join(DIST, 'service', 'restore-mariko.ini'),
       hurt: s => s.replace(/\nrefresh-to 'Apply this backup'[^\n]*/, ''),
       expect: /нет перестройки страницы/,
@@ -387,29 +466,29 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /ставит курсор не на свой пункт/,
     },
     {
-      // Check 64, Create backup: the "not saved" branch is gone, a failed write says nothing.
-      name: 'у Create backup пропал исход «not saved»',
+      // Check 64, Create backup: the failure branch is gone, a failed write says nothing.
+      name: 'у Create backup пропал исход с крестиком',
       file: join(DIST, 'service', 'restore-mariko.ini'),
-      hurt: s => s.replace(/\ntry:\nset-footer 'not saved'\nrefresh-to 'Create backup'[^\n]*/, ''),
-      expect: /без исхода «not saved»/,
+      hurt: s => s.replace(/\ntry:\nset-footer '\uE14C'\nrefresh-to 'Create backup'[^\n]*/, ''),
+      expect: /без исхода с крестиком/,
     },
     {
-      // Check 64, Create backup: "not saved" is set, but the page is not rebuilt after it.
-      name: 'после «not saved» пропала перестройка страницы',
+      // Check 64, Create backup: the cross is set, but the page is not rebuilt after it.
+      name: 'после крестика Create backup пропала перестройка страницы',
       file: join(DIST, 'service', 'restore-erista.ini'),
-      hurt: s => s.replace(/(\nset-footer 'not saved')\nrefresh-to [^\n]*/, '$1'),
+      hurt: s => s.replace(/(\nset-footer '\uE14C')\nrefresh-to [^\n]*/, '$1'),
       expect: /нет перестройки страницы/,
     },
     {
-      // Check 64, Create backup: one field is written but not read back before "saved".
-      name: '«saved» не сверяет одно поле копии',
+      // Check 64, Create backup: one field is written but not read back before the check mark.
+      name: 'галочка Create backup не сверяет одно поле копии',
       file: join(DIST, 'service', 'restore-mariko.ini'),
       hurt: s => s.replace(/\nmatching_ini_val \{ini_file\(Backup,Path\)\} Fields 12 [^\n]*/, ''),
-      expect: /«saved» не сверяет/,
+      expect: /галочка не сверяет/,
     },
     {
-      // Check 64, Create backup: the null guard is gone, a missing kip still reads as saved.
-      name: '«saved» без защиты от нечитаемого kip',
+      // Check 64, Create backup: the null guard is gone, a missing kip still earns the check mark.
+      name: 'галочка Create backup без защиты от нечитаемого kip',
       file: join(DIST, 'service', 'restore-erista.ini'),
       hurt: s => s.replace(/\n!matching_ini_val \{ini_file\(Backup,Path\)\} Fields \d+ null/, ''),
       expect: /kip не читался/,
@@ -429,11 +508,53 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /удаление без доказательства/,
     },
     {
-      // Check 64, Create backup: "saved" keeps the path, a later failure could delete a good backup.
-      name: 'после «saved» путь копии не забыт',
+      // Check 64, Create backup: the check mark keeps the path, a later failure could delete a good backup.
+      name: 'после галочки Create backup путь копии не забыт',
       file: join(DIST, 'service', 'restore-mariko.ini'),
-      hurt: s => s.replace("\nset-footer 'saved'\nset-ini-val './config.ini' Backup Path ''", "\nset-footer 'saved'"),
+      hurt: s => s.replace(`\nset-footer '${MARK_OK}'\nset-ini-val './config.ini' Backup Path ''`, `\nset-footer '${MARK_OK}'`),
       expect: /путь копии не забыт/,
+    },
+    {
+      // Check 64, the words guard: Apply says Done again.
+      name: 'слово Done вернулось в подпись Apply',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(`\nset-footer '${MARK_OK}'\nrefresh-to 'Apply this backup'`, `\nset-footer 'Done'\nrefresh-to 'Apply this backup'`),
+      expect: /вернулось слово «Done»/,
+    },
+    {
+      // Check 64, the words guard: quoting must not hide a word, the engine unquotes both ways.
+      name: 'слово not saved вернулось в двойных кавычках',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace(`\nset-footer '${MARK_FAIL}'`, '\nset-footer "not saved"'),
+      expect: /вернулось слово «not saved»/,
+    },
+    {
+      // Check 64, the words guard: a tail after the word must not hide it either.
+      name: 'слово restored с хвостом вернулось в подпись сброса',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.replace(`\nset-footer '${MARK_OK}'`, "\nset-footer 'restored (import)'"),
+      expect: /вернулось слово «restored \(import\)»/,
+    },
+    {
+      // Check 64, the words guard: no quotes at all, the engine takes that form too.
+      name: 'слово check failed вернулось без кавычек',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace(`\nset-footer '${MARK_FAIL}'`, '\nset-footer check failed'),
+      expect: /вернулось слово «check failed»/,
+    },
+    {
+      // Check 64, the marks: a new word is no listed word, the section's outcomes still differ.
+      name: 'исход Check for updates сменился на чужое слово',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace(`\nset-footer '${MARK_FAIL}'`, "\nset-footer 'failed'"),
+      expect: /«\[Check for updates\]» — исходы .* а ждали/,
+    },
+    {
+      // Check 64, the marks: "up to date" stays a word (operator, 30.10.2026).
+      name: 'подпись up to date заменена галочкой',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\nset-footer 'up to date'", `\nset-footer '${MARK_OK}'`),
+      expect: /«\[Check for updates\]» — исходы .* а ждали/,
     },
     {
       // Check 65: System Info goes back to the full model while the heading stays short.
@@ -719,7 +840,7 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       // Check 68: Create writes the [Optimized] section again (operator, 22.09.2026: "we do not put them in").
       name: 'копия снова пишет [Optimized]',
       file: join(DIST, 'service', 'restore-erista.ini'),
-      hurt: s => s.replace("set-ini-val '{ini_file(Backup,Path)}' Meta fields ", "set-ini-val '{ini_file(Backup,Path)}' Optimized eVDQ '0'\nset-ini-val '{ini_file(Backup,Path)}' Meta fields "),
+      hurt: s => s.replace("set-ini-val '{ini_file(Backup,Path)}' Fields ", "set-ini-val '{ini_file(Backup,Path)}' Optimized eVDQ '0'\nset-ini-val '{ini_file(Backup,Path)}' Fields "),
       expect: /restore-erista\.ini «Create backup»: копия снова пишет секцию \[Optimized\]/,
     },
     {
@@ -817,10 +938,10 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       hurt: s => {
         const ls = s.split('\n')
         const i = ls.findIndex(l => /^set-ini-val '\/config\/4IFIR\/emc_timings\.ini'.* eVD2 '0'$/.test(l))
-        const j = ls.findIndex(l => l.startsWith("set-footer 'restored'"))
+        const j = ls.findIndex(l => l.startsWith(`set-footer '${MARK_OK}'`))
         if (i < 0 || j < 0) return s
         const [moved] = ls.splice(i, 1)
-        ls.splice(ls.findIndex(l => l.startsWith("set-footer 'restored'")), 0, moved)
+        ls.splice(ls.findIndex(l => l.startsWith(`set-footer '${MARK_OK}'`)), 0, moved)
         return ls.join('\n')
       },
       expect: /«Apply factory defaults[^»]*»: запись eVD2 стоит ПОСЛЕ правки kip/,
@@ -948,14 +1069,14 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       // Check 69: the import writes the old pMeh 17 again - the value lands in WL-Set.
       name: 'импорт старой копии снова пишет 12432',
       file: join(DIST, 'service', 'package.ini'),
-      hurt: s => s.replace(/(set-ini-val '\{ini_file\(Import,Path\)\}' Meta fields '\d+'\n)/, "$1set-ini-val '{ini_file(Import,Path)}' Fields 12432 '03'\n"),
+      hurt: s => s.replace("set-ini-val '{ini_file(Import,Path)}' Fields ", "set-ini-val '{ini_file(Import,Path)}' Fields 12432 '03'\nset-ini-val '{ini_file(Import,Path)}' Fields "),
       expect: /пишет Fields 12432/,
     },
     {
       // Check 69: restore of an imported copy writes WL-Set and DBI from its Fields.
       name: 'восстановление импортированной копии пишет WL-Set и DBI',
       file: join(DIST, 'service', 'restore-mariko.ini'),
-      hurt: s => s.replace("set-footer 'Done (import)'", 'hex-by-custom-offset /atmosphere/kips/loader.kip CUST 12432 {ini_file(Fields,12432)}\nhex-by-custom-offset /atmosphere/kips/loader.kip CUST 12528 {ini_file(Fields,12528)}\n' + "set-footer 'Done (import)'"),
+      hurt: s => s.replace(`set-footer '${MARK_IMPORT}'`, 'hex-by-custom-offset /atmosphere/kips/loader.kip CUST 12432 {ini_file(Fields,12432)}\nhex-by-custom-offset /atmosphere/kips/loader.kip CUST 12528 {ini_file(Fields,12528)}\n' + `set-footer '${MARK_IMPORT}'`),
       expect: /импортированная копия не должна его трогать/,
     },
     {
@@ -1337,22 +1458,358 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       expect: /make-build\.ps1:\d+ «Get-ChildItem [^»]*» — -Destination \$out без буквального -Path\/-LiteralPath/,
     },
     {
-      // Check 54: the second apply block of restore-mariko.ini ("Done (import)") loses its re-seed.
-      name: 'после «Done (import)» пропал пересев корневой подписи',
+      // Check 74: the move runs on 2.6+ too: it would fill S sections that firmware never reads.
+      name: 'перенос без затвора по поколению',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("[Move E mariko]\ntry:\nmatching_ini_val './config.ini' Firmware gen 2.5\n").join('[Move E mariko]\ntry:\n'),
+      expect: /\[Move E mariko\]: нет затвора по поколению 2\.5/,
+    },
+    {
+      // Check 74: the operator's rule is sMeh 8 = 2.
+      name: 'перенос без затвора sMeh 8',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split('matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12492 02\n').join(''),
+      expect: /нет затвора sMeh 8 = 2/,
+    },
+    {
+      // Check 74: a gate on eBAL for the whole pass: existing sections name their own clock and CL.
+      name: 'общий затвор на eBAL у переноса',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split('[Move E erista]\ntry:\n').join('[Move E erista]\ntry:\n!matching_hex_val_custom /atmosphere/kips/loader.kip CUST 12352 000000\n'),
+      expect: /\[Move E erista\]: общий затвор на eBAL или частоту/,
+    },
+    {
+      // Check 74: the pinned section is built from the other revision's clock.
+      name: 'секция текущей связки из частоты другой ревизии',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => { const at = s.indexOf('[Move E here erista]'); const e = s.indexOf('\n\n', at); return s.slice(0, at) + s.slice(at, e).split('CUST,24,3').join('CUST,32,3') + s.slice(e) },
+      expect: /\[Move E here erista\]: имя секции не из частоты своей ревизии/,
+    },
+    {
+      // Check 74: one slot goes missing, a section would silently stay without timings.
+      name: 'пропал слот прохода по файлу',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.replace("list '[{ini_file(7)}]'\n", "list '[{ini_file(6)}]'\n"),
+      expect: /слоты прохода по файлу/,
+    },
+    {
+      // Check 74: a voltage joins the copy.
+      name: 'перенос копирует eVDQ',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("list '[{list(0)},{ini_file({list(1)},eRP)},").join("list '[{list(0)},{ini_file({list(1)},eVDQ)},{ini_file({list(1)},eRP)},"),
+      expect: /копируются ключи [^\n]*eVDQ/,
+    },
+    {
+      // Check 74: the "section holds none of them" gate loses a key: values edited on 2.5 are overwritten.
+      name: 'затвор «секция пуста» потерял ключ',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split('{ini_file({list(0)},aeRCDW)}').join(''),
+      expect: /затвор «секция пуста» держит 23 ключей/,
+    },
+    {
+      // Check 74: a failed gate in a sub-list stops the caller: emc_seen is never written.
+      name: 'подсписок без завершающего try:',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("exec 'Move E keys'\ntry:\n").join("exec 'Move E keys'\n"),
+      expect: /\[Move E one\] не кончается голым try:/,
+    },
+    {
+      // Check 74: `try:` after a label ends the list on the other revision (the engine tests it first).
+      name: 'try: после метки в форвардере',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.split("mariko:\nexec 'Move E mariko'\n").join("mariko:\ntry:\nexec 'Move E mariko'\n"),
+      expect: /try: после метки mariko:/,
+    },
+    {
+      // Check 75: a block into a file that outlives the press: the keys it holds would come twice.
+      name: 'блок ключей в постоянный файл',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace("set-ini-val './config.ini' Backup Mhz ", "set-ini-val './config.ini' Backup Qq '1{base64_decode(Cg==)}Rr=2'\nset-ini-val './config.ini' Backup Mhz "),
+      expect: /блок ключей в '\.\/config\.ini'/,
+    },
+    {
+      // Check 75: the delete before a multi-section block is gone: every footer would stay and come twice.
+      name: 'блок подписей без delete',
+      file: join(DIST, 'advanced', 'gpu', 'package.ini'),
+      hurt: s => s.split("delete './gpu-curve-mariko/config.ini'\n").join(''),
+      expect: /блок ключей в '\.\/gpu-curve-mariko\/config\.ini'/,
+    },
+    {
+      // Check 75: a footer lost in a block: the page would show nothing for that point.
+      name: 'блок подписей потерял пункт',
+      file: join(DIST, 'advanced', 'gpu', 'package.ini'),
+      hurt: s => s.split('[*384MHz]{base64_decode(Cg==)}footer=').join('[*9999MHz]{base64_decode(Cg==)}footer='),
+      expect: /\[\*384MHz\]: пункт \(option\) не получает подпись/,
+    },
+    {
+      // Check 75: something else starts writing a rebuilt file: its value would vanish on the next entry.
+      name: 'чужая запись в пересобираемый файл',
+      file: join(DIST, 'advanced', 'gpu', 'package.ini'),
+      hurt: s => s.replace("[*Undervolt Mode]\n", "[*Undervolt Mode]\nset-ini-val './gpu-curve-mariko/config.ini' Keep me '1'\n"),
+      expect: /gpu-curve-mariko\/config\.ini пересобирается на входе/,
+    },
+    {
+      // Check 75: a gathered footer lost: the page shows nothing for that item.
+      name: 'собранная подпись не легла в блок',
+      file: join(DIST, 'advanced', 'package.ini'),
+      hurt: s => s.split('{base64_decode(Cg==)}[*Max Voltage]{base64_decode(Cg==)}footer={list(2)}').join(''),
+      expect: /\[\*Max Voltage\]: пункт \(option\) не получает подпись/,
+    },
+    {
+      // Check 63: a clear loses its gate: with the rest empty, that footer outlives the entry.
+      name: 'очистка при входе без своей проверки',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.replace("matching_ini_val './service/config.ini' Restore Name ''\n", ''),
+      expect: /\[Entry clear\]: у «set-ini-val '\.\/service\/config\.ini' Restore [^»]*» нет своей проверки/,
+    },
+    {
+      // Check 63: [boot] stops calling the clearing list.
+      name: '[boot] не зовёт очистку',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("exec 'Entry clear'\n").join(''),
+      expect: /\[boot\] не зовёт \[Entry clear\]/,
+    },
+    {
+      // Check 75: one key twice in a block: the copy would carry a line the read-back never sees.
+      name: 'ключ дважды в блоке копии',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace('{base64_decode(Cg==)}12={hex_file(CUST,12,3)}', '{base64_decode(Cg==)}12={hex_file(CUST,12,3)}{base64_decode(Cg==)}12={hex_file(CUST,12,3)}'),
+      expect: /ключ 12 в блоке дважды/,
+    },
+    {
+      // Check 75: a part of the block lost its key: garbage goes into the copy.
+      name: 'часть блока без ключа',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace('{base64_decode(Cg==)}12={hex_file(CUST,12,3)}', '{base64_decode(Cg==)}{hex_file(CUST,12,3)}'),
+      expect: /часть блока «\{hex_file\(CUST,12,3\)\}[^»]*» не «ключ=значение»/,
+    },
+    {
+      // Check 72 through the block: a field cell is read one byte short inside a block.
+      name: 'в блоке копии ячейка таблицы GPU читается не целиком',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace('{hex_file(CUST,10544,8)}', '{hex_file(CUST,10544,4)}'),
+      expect: /ячейка таблицы GPU 10544 читается 4 Б/,
+    },
+    {
+      // Check 74: a label in [boot] never resets, and whatever follows runs on one revision.
+      name: 'метка в [boot]',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("\nexec 'Move E entry'\n\n[Entry clear]").join("\nmariko:\nexec 'Move E mariko'\n\n[Entry clear]"),
+      expect: /в \[boot\] метка или try:/,
+    },
+    {
+      // Check 74: the move is gone from the opening of the wizard, only Current is left.
+      name: 'вход в визард не зовёт перенос',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("\nexec 'Move E entry'\n\n[Entry clear]").join('\n\n[Entry clear]'),
+      expect: /\[boot\] не кончается «exec 'Move E entry'»/,
+    },
+    {
+      // Check 74: the move runs before the detection and asks a stale flag.
+      name: 'перенос раньше определения поколения',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("[Move E entry]\nexec 'Generation'\n").join('[Move E entry]\n'),
+      expect: /\[Move E entry\]: не «Generation, затем перенос/,
+    },
+    {
+      // Check 74: the stamp without the file's CRC: a save never runs the pass again.
+      name: 'emc_seen без CRC',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("Firmware emc_seen '{crc32(/config/4IFIR/emc_timings.ini)}{list(0)}{list(1)}'").join("Firmware emc_seen '{list(0)}{list(1)}'"),
+      expect: /emc_seen без CRC файла/,
+    },
+    {
+      // Check 74: the stamp without the S section: a new clock never runs the pass again.
+      name: 'emc_seen без S-секции',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("Firmware emc_seen '{crc32(/config/4IFIR/emc_timings.ini)}{list(0)}{list(1)}'").join("Firmware emc_seen '{crc32(/config/4IFIR/emc_timings.ini)}{list(1)}'"),
+      expect: /emc_seen без S-секции/,
+    },
+    {
+      // Check 74: the stamp without the base: a new target never runs the pass again.
+      name: 'emc_seen без базы',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("Firmware emc_seen '{crc32(/config/4IFIR/emc_timings.ini)}{list(0)}{list(1)}'").join("Firmware emc_seen '{crc32(/config/4IFIR/emc_timings.ini)}{list(0)}'"),
+      expect: /emc_seen без базы/,
+    },
+    {
+      // Check 74: a key takes its neighbour's value: the indices of the block drift from the read.
+      name: 'ключ блока взял чужое значение',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split('{if_null({list(3)},,eRCD={list(3)}').join('{if_null({list(4)},,eRCD={list(4)}'),
+      expect: /ключ взял не своё значение/,
+    },
+    {
+      // Check 74: a missing key is written as `k=null`, which the module would load.
+      name: 'блок пишет отсутствующий ключ',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split('{if_null({list(2)},,aeRP={list(2)}{base64_decode(Cg==)})}').join('aeRP={list(2)}{base64_decode(Cg==)}'),
+      expect: /каждый со своей проверкой на null/,
+    },
+    {
+      // Check 74: the copy before the rewrite is gone: a truncated file has nothing to come back from.
+      name: 'нет копии файла перед записью',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.replace(COPY74 + "\nset-ini-val '/config/4IFIR/emc_timings.ini' '{list(0)}' '{split", "set-ini-val '/config/4IFIR/emc_timings.ini' '{list(0)}' '{split"),
+      expect: /нет «copy» файла/,
+    },
+    {
+      // Check 74: the copy before the gates: every pass would write it, moved or not.
+      name: 'копия снимается до затворов',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.replace(COPY74 + "\nset-ini-val '/config/4IFIR/emc_timings.ini' '{list(0)}' '{split", "set-ini-val '/config/4IFIR/emc_timings.ini' '{list(0)}' '{split").replace('[Move E one]\n', `[Move E one]\n${COPY74}\n`),
+      expect: /нет «copy» файла/,
+    },
+    {
+      // Check 74: the copy ignores a pass cut short: the torn file replaces the one good copy.
+      name: 'копия без emc_keep',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split(COPY74).join("copy '/config/4IFIR/emc_timings.ini' '/config/4IFIR/emc_timings.ini.bak'"),
+      expect: /нет «copy» файла/,
+    },
+    {
+      // Check 74: a cut pass stops being noticed.
+      name: 'оборванный проход не ставит emc_keep',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.split("set-ini-val './config.ini' Firmware emc_keep '1'\n").join(''),
+      expect: /\[Move E here mariko\]: оборванный проход не ставит emc_keep/,
+    },
+    {
+      // Check 74: a comma in a source value goes into the block: values land in foreign keys.
+      name: 'блок без затвора на запятую',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.replace("path_exists '{if_==({list(25)},null,/config/4IFIR/emc_timings.ini,/emc-none)}'\n", ''),
+      expect: /нет затвора блока «path_exists '\{if_==\(\{list\(25\)\}/,
+    },
+    {
+      // Check 74: an empty key in the file goes into the block: the key comes twice, readers take the empty one.
+      name: 'блок без затвора на пустой ключ',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.replace("!matching_hex_val_custom /config/4IFIR/emc_timings.ini '{base64_decode(PQo=)}' 0 3D0A\n", ''),
+      expect: /нет затвора блока «!matching_hex_val_custom/,
+    },
+    {
+      // Check 74: the second branch runs with no gate: a section with keys gets the rest of them.
+      name: 'ветвь по ключам без затвора «секция пуста»',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => { const at = s.lastIndexOf("path_exists '{if_==({ini_file({list(0)},eRP)}"); const e = s.indexOf('\n', at); return s.slice(0, at) + s.slice(e + 1) },
+      expect: /вторая ветвь \[Move E one\] без своего затвора/,
+    },
+    {
+      // Check 74: the cached hit of the empty-key search outlives the writes.
+      name: 'ветвь по ключам не чистит кэш смещений',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.replace('[Move E keys]\nclear hex_sum_cache\n', '[Move E keys]\n'),
+      expect: /\[Move E keys\]: найденный пустой ключ остаётся в кэше/,
+    },
+    {
+      // Check 74: the section is written key by key again: a cut leaves it torn for good.
+      name: 'секция пишется двумя записями',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.replace(COPY74 + "\nset-ini-val '/config/4IFIR/emc_timings.ini' '{list(0)}' '{split", COPY74 + "\nset-ini-val '/config/4IFIR/emc_timings.ini' '{list(0)}' eRP '1'\nset-ini-val '/config/4IFIR/emc_timings.ini' '{list(0)}' '{split"),
+      expect: /запись в emc_timings\.ini: 2 строк/,
+    },
+    {
+      // Check 75: an unquoted path names a rebuilt file too.
+      name: 'чужой delete пересобираемого файла без кавычек',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.replace("delete '/BUILD.txt'\n", "delete '/BUILD.txt'\ndelete ./advanced/cpu/config.ini\n"),
+      expect: /advanced\/cpu\/config\.ini пересобирается на входе/,
+    },
+    {
+      // Check 75: the path of a copy loses its seconds: a second press lands in the same file.
+      name: 'путь копии без секунд',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace('-{timestamp(%d%m%y-%H%M%S)}.ini', '.ini'),
+      expect: /путь Backup Path без секунд/,
+    },
+    {
+      // Check 75: a stray key in the passport of a copy.
+      name: 'лишний ключ в паспорте копии',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace('{base64_decode(Cg==)}fields=', '{base64_decode(Cg==)}odd=1{base64_decode(Cg==)}fields='),
+      expect: /паспорт revision kipver created ram odd fields/,
+    },
+    {
+      // Check 75: the passport of a copy loses its date.
+      name: 'паспорт копии без created',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace(/\{base64_decode\(Cg==\)\}created=\{timestamp\([^)]*\)\}/, ''),
+      expect: /паспорт revision kipver ram fields/,
+    },
+    {
+      // Check 75: an import loses the name of its source.
+      name: 'паспорт импорта без source',
+      file: join(DIST, 'service', 'package.ini'),
+      hurt: s => s.replace('{base64_decode(Cg==)}source={file_name}', ''),
+      expect: /паспорт revision kipver created ram (curve )?fields/,
+    },
+    {
+      // Check 75: an import poses as a copy of this layout: Apply would write its fields.
+      name: 'импорт с kipver копии',
+      file: join(DIST, 'service', 'package.ini'),
+      hurt: s => s.replace('kipver=imported', 'kipver=27'),
+      expect: /Meta kipver = «27»/,
+    },
+    {
+      // Check 74: the pass ends on the same file it was called for, an empty slot ends it early.
+      name: 'слот не выходит на конце файла',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.replace("path_exists '{if_==({list(0)},null,/config/4IFIR/emc_timings.ini,/emc-none)}'\n", ''),
+      expect: /не каждый слот выходит на конце файла/,
+    },
+    {
+      // Check 71: Current stops detecting: the move would ask a stale flag.
+      name: 'Current не зовёт определение поколения',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.split("exec 'Generation'\n").join(''),
+      expect: /«Current Settings» ведёт в current\.ini, спрашивающий поколение/,
+    },
+    {
+      // Check 74: the move on another page: Backup manager would write the file too.
+      name: 'перенос запускается не из Current',
+      file: join(DIST, 'service', 'package.ini'),
+      hurt: s => s.split("[*Backup manager?mariko]\n").join("[*Backup manager?mariko]\nexec 'Move E mariko'\n"),
+      expect: /«exec 'Move E mariko'» — перенос запускается только при входе в визард и из Current/,
+    },
+    {
+      // Check 74: the page on 2.5 reads the E section first again, as before 30.10.2026.
+      name: 'страница 3 на Гудини показывает раздел E',
+      file: join(DIST, 'current.ini'),
+      hurt: s => s.split('{if_==({list(0)},2.5,').join('{if_==({list(0)},9.9,'),
+      expect: /Current mariko, [^\n]*: (шапка|RP = )/,
+    },
+    {
+      // Check 74: a wrong mark.
+      name: 'пометка not used пропала',
+      file: join(DIST, 'current.ini'),
+      hurt: s => s.split(' · new format · not used').join(' · new format'),
+      expect: /нет пометки « · new format · not used»/,
+    },
+    {
+      // Check 62: the backup page reads the generation under the backup, where it does not live.
+      name: 'страница копии читает поколение из копии',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => { const at = s.indexOf('[@Magician]'); return s.slice(0, at) + s.slice(at).replace("list '[{ini_file(Firmware,gen)}]'\nini_file '{ini_file(Restore,Path)}'\n", "ini_file '{ini_file(Restore,Path)}'\nlist '[{ini_file(Firmware,gen)}]'\n") },
+      expect: /поколение читается не из config\.ini/,
+    },
+    {
+      // Check 54: the second apply block of restore-mariko.ini (the import mark) loses its re-seed.
+      name: 'после подписи импортированной копии пропал пересев корневой подписи',
       file: join(DIST, 'service', 'restore-mariko.ini'),
       hurt: s => {
-        const at = s.indexOf("\nset-footer 'Done (import)'")
+        const at = s.indexOf(`\nset-footer '${MARK_IMPORT}'`)
         const seed = "\nset-ini-val './../config.ini' '*eBAMATIC Stage' footer "
         const j = at < 0 ? -1 : s.indexOf(seed, at)
         return j < 0 ? s : s.slice(0, j) + s.slice(s.indexOf('\n', j + 1))
       },
-      expect: /restore-mariko\.ini:\d+ «set-footer 'Done \(import\)'» — корневая подпись не пересеяна/,
+      expect: /restore-mariko\.ini:\d+ «set-footer '\uE14B \(import\)'» — корневая подпись не пересеяна/,
     },
     {
       // Check 54: no apply block left in one of the three files - the footers after the writes are gone.
       name: 'в restore-erista.ini не осталось ни одного блока применения',
       file: join(DIST, 'service', 'restore-erista.ini'),
-      hurt: s => s.split("\nset-footer 'Done").join("\n;set-footer 'Done"),
+      hurt: s => s.split(`\nset-footer '${MARK_OK}`).join(`\n;set-footer '${MARK_OK}`),
       expect: /restore-erista\.ini: ни одного блока применения/,
     },
   ]
@@ -1400,8 +1857,8 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
     let out = ''
     ch.stdout.on('data', d => { out += d })
     ch.stderr.on('data', d => { out += d })
-    ch.on('error', e => done(out + '\n' + e.message))
-    ch.on('close', () => done(out))
+    ch.on('error', e => done({ out: out + '\n' + e.message, code: null }))
+    ch.on('close', code => done({ out, code }))
   })
 
   const runProbe = async (p, root) => {
@@ -1413,14 +1870,16 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
     const missing = files.filter(f => !existsSync(f))
     if (missing.length) return { skip: missing.map(f => relative(root, f)).join(', ') }
     const before = files.map(f => readFileSync(f))
-    let out = ''
+    let res = { out: '', code: null }
     try {
       files.forEach((f, i) => writeFileSync(f, p.hurt(before[i].toString('utf8')), 'utf8'))
-      out = await runGate(root)
+      res = await runGate(root)
     } finally {
       files.forEach((f, i) => writeFileSync(f, before[i]))
     }
-    return { caught: p.expect.test(out) }
+    // Caught means refused: exit code 1 AND the expected message. The text alone could come
+    // from a known warning (exit 0) or from a crash.
+    return { caught: res.code === 1 && p.expect.test(res.out) }
   }
 
   let failed = 0, skipped = 0, done = 0
@@ -2751,21 +3210,26 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 {
   const bad = []
   let checked = 0, widened = 0, computed = 0
+  // Offset -> its naming maps, built once: per-field rescans of every ini were half the run.
+  // Same order as a scan per field: file by file, section by section, once per section.
+  const mapsByOffset = new Map()
+  for (const file of iniFiles) {
+    for (const sec of readFileSync(file, 'utf8').split(/\r?\n(?=\[)/)) {
+      const m = sec.match(/json_file_source\s+'([^']+)'/)
+      if (!m) continue
+      const target = join(dirname(file), m[1].replace(/^\.\//, '').replace(/\.json$/, '.map.json'))
+      for (const o of new Set([...sec.matchAll(/CUST (\d+) \{json_file_source/g)].map(x => x[1]))) {
+        if (!mapsByOffset.has(o)) mapsByOffset.set(o, [])
+        mapsByOffset.get(o).push(target)
+      }
+    }
+  }
   for (const f of fields) {
     if (blacklist.has(f.offset) || !(f.values ?? []).length) continue
     const len = f.length ?? 3
     const want = new Set((f.values ?? []).map(v => padHexLocal(v.hex, len)).filter(Boolean))
     // Карта названий может обслуживать несколько пунктов; ищем все, где это поле пишется.
-    for (const mapFile of iniFiles.flatMap(file => {
-      const body = readFileSync(file, 'utf8')
-      const out = []
-      for (const sec of body.split(/\r?\n(?=\[)/)) {
-        if (!new RegExp(`CUST ${f.offset} \{json_file_source`).test(sec)) continue
-        const m = sec.match(/json_file_source\s+'([^']+)'/)
-        if (m) out.push(join(dirname(file), m[1].replace(/^\.\//, '').replace(/\.json$/, '.map.json')))
-      }
-      return out
-    })) {
+    for (const mapFile of mapsByOffset.get(String(f.offset)) ?? []) {
       // ПРОПУСК ОБЯЗАН БЫТЬ ИМЕНОВАННЫМ, А НЕ МОЛЧАЛИВЫМ.
       //
       // У точек кривой GPU словаря показа нет вовсе с 03.09.2026: подпись считается
@@ -3706,8 +4170,11 @@ function gateDomain(off) {
 // The footer sits in the value slot and squeezes the label out of the row: a long
 // one leaves the button unreadable. Only plain footers are measured - one built
 // from a placeholder is unknown until the console renders it. Debt U21.
+// The limit is in letters. A font glyph (the result marks) counts as two: it is wider than a
+// letter and .length sees one unit; the exact advance exists only in the console's font.
 {
   const LIMIT = 20
+  const width = t => t.length + (t.match(/[\uE000-\uF8FF]/g)?.length ?? 0)
   const bad = []
   let checked = 0
   for (const file of iniFiles) {
@@ -3716,7 +4183,7 @@ function gateDomain(off) {
       const t = m[1]
       if (t.includes('{')) continue
       checked++
-      if (t.length > LIMIT) bad.push(`${rel}: футер в ${t.length} знаков — «${t}»`)
+      if (width(t) > LIMIT) bad.push(`${rel}: футер в ${width(t)} знаков — «${showMark(t)}»`)
       }
 
       // A FOOTER BUILT FROM A DICTIONARY IS STILL A FOOTER. The loop above skips anything
@@ -3735,8 +4202,8 @@ function gateDomain(off) {
         for (const e of dict) {
           if (typeof e?.short !== 'string') continue
           checked++
-          if (e.short.length > LIMIT)
-            bad.push(`${rel}: подпись из словаря в ${e.short.length} знаков — «${e.short}»`)
+          if (width(e.short) > LIMIT)
+            bad.push(`${rel}: подпись из словаря в ${width(e.short)} знаков — «${showMark(e.short)}»`)
         }
       }
   }
@@ -4329,9 +4796,12 @@ function gateDomain(off) {
   // version is part of the stamp: a different node parses differently. Unreadable cache,
   // unwritable directory, no temp at all - every step is in try/catch and the fallback is
   // the plain full parse.
+  // v2: the cache is a SET of good keys, not path -> key. A probe that rewrites one script no
+  // longer evicts the verdict another thread needs for the original; the extension is part of
+  // the key, since the same bytes parse differently as .mjs and as .ps1.
   const cacheFile = parseCacheFile()
   const cacheDir = dirname(cacheFile)
-  const stamp = 'parse-v1|' + process.version
+  const stamp = 'parse-v2|' + process.version
   let cached = {}
   try {
     const raw = JSON.parse(readFileSync(cacheFile, 'utf8'))
@@ -4340,13 +4810,13 @@ function gateDomain(off) {
   const keyOf = f => {
     try {
       const b = readFileSync(join(dir, f))
-      return b.length + ':' + createHash('sha1').update(b).digest('hex')
+      return f.slice(f.lastIndexOf('.')) + ':' + b.length + ':' + createHash('sha1').update(b).digest('hex')
     } catch { return null }
   }
   // An unreadable file gets no key and therefore always goes to the parser: it must not
   // inherit a green verdict from the cache.
   const keys = new Map(all.map(f => [f, keyOf(f)]))
-  const stale = all.filter(f => !keys.get(f) || cached[f] !== keys.get(f))
+  const stale = all.filter(f => !keys.get(f) || cached[keys.get(f)] !== 1)
 
   const failed = new Set()
   const stalePs1 = stale.filter(f => f.endsWith('.ps1'))
@@ -4382,21 +4852,34 @@ function gateDomain(off) {
   // а вердикт по .ps1 не записывается вовсе, если оболочку запустить не удалось.
   // An unchanged cache is not rewritten: parallel probes would otherwise have a dozen
   // processes writing the same file at once.
+  // Old keys are kept (other threads may still hold those bytes); past CACHE_MAX the set
+  // restarts from this run's keys, so it cannot grow without bound.
   try {
-    const fresh = {}
+    const CACHE_MAX = 2000
+    const now = {}
     for (const f of all) {
       const k = keys.get(f)
       if (!k || failed.has(f)) continue
-      if (f.endsWith('.ps1') && !ps1Trusted && cached[f] !== k) continue
-      fresh[f] = k
+      if (f.endsWith('.ps1') && !ps1Trusted && cached[k] !== 1) continue
+      now[k] = 1
     }
-    const same = Object.keys(fresh).length === Object.keys(cached).length
-      && Object.keys(fresh).every(f => cached[f] === fresh[f])
-    if (!same) {
+    const added = Object.keys(now).filter(k => cached[k] !== 1).length
+    if (added) {
+      const merged = { ...cached, ...now }
+      const fresh = Object.keys(merged).length > CACHE_MAX ? now : merged
       mkdirSync(cacheDir, { recursive: true })
+      // Windows refuses to replace a file someone holds open (a reader, the antivirus): retry
+      // briefly, and on failure remove our own temp file instead of leaving it behind.
       const tmp = cacheFile + '.' + process.pid + '.tmp'
-      writeFileSyncFs(tmp, JSON.stringify({ stamp, parsed: fresh }))
-      renameSync(tmp, cacheFile)
+      try {
+        writeFileSyncFs(tmp, JSON.stringify({ stamp, parsed: fresh }))
+        for (let i = 0; ; i++) {
+          try { renameSync(tmp, cacheFile); break } catch (e) {
+            if (i >= 4) throw e
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20)
+          }
+        }
+      } catch { try { rmSync(tmp, { force: true }) } catch {} }
     }
   } catch {}
   if (!files.length) problems.push({ sev: 'CRITICAL', what: 'в scripts/ нет ни одного .mjs — проверка разбора смотрит в пустоту' })
@@ -4587,7 +5070,7 @@ function gateDomain(off) {
   for (const f of iniFiles) {
     const rel = relative(ROOT, f)
     let n = 0
-    for (const line of readFileSync(f, 'utf8').split(/\r?\n/)) {
+    for (const line of readFileSyncFs(f, 'utf8').split(/\r?\n/)) {
       n++; lines++
       const bytes = Buffer.byteLength(line, 'utf8')
       if (bytes > LIMIT) over.push(`${rel}:${n} — ${bytes} байт при пределе ${LIMIT}`)
@@ -4877,7 +5360,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // показывает доприменённое значение до конца сеанса, а человек читает подпись как факт.
 //
 // Стережём три вещи разом: что блок применения вообще есть, что за каждой его подписью
-// (`Done…`, у сброса `restored`) идёт пересев, и что пересев берёт ТОТ ЖЕ словарь и ТО ЖЕ смещение, что
+// (галочка, у импорта с пометкой) идёт пересев, и что пересев берёт ТОТ ЖЕ словарь и ТО ЖЕ смещение, что
 // и `[boot]`. Третье важнее первых двух: разойдись они, подпись меняла бы смысл
 // в зависимости от того, кто её написал последним.
 {
@@ -4897,7 +5380,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
     if (!existsSync(p)) { bad.push(`${name}: файла нет — блоку применения негде быть`); continue }
     const ls = readFileSync(p, 'utf8').split(/\r?\n/)
     // An apply block is a try-block that writes the kip and then sets a footer - by what it does,
-    // not by the footer's word ("restored" became "Done" on 11.10.2026 and nothing must go unseen).
+    // not by the footer's text (it changed on 11.10 and 30.10.2026 and nothing must go unseen).
     let wrote = false, own = 0
     for (let i = 0; i < ls.length; i++) {
       if (ls[i] === 'try:' || ls[i][0] === '[') { wrote = false; continue }
@@ -5498,8 +5981,9 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // table itself holds twelve timings and nothing else: the two Magician voltages belong to the
 // Optimized Mode block on page 2, not here (operator, 20.09.2026; guarded by check 66).
 // Button hint: each view carries a row with the A and Y glyphs (U+E0E0, U+E0E3); `A MC` is gone.
-// Backup binding: every current-view table that reads anything binds config.ini, then the
-// chosen backup (Fields/Meta read only there), then emc_timings.ini (timings only after it).
+// Backup binding: every current-view table that reads anything binds config.ini (the generation is
+// read there), then the chosen backup (Fields/Meta read only there), then emc_timings.ini (timings
+// only after it).
 {
   const FEAT62 = ';visibility_condition=engine_feature pages'
   const CUR62 = ';visibility_condition=!page_flag view'
@@ -5614,7 +6098,10 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
         const iBind = ls.indexOf(BIND62), iTim = srcs.length === 3 ? ls.indexOf(TIM62) : ls.length
         // one line per table per fault, so one broken table does not hide the others
         const iFm = ls.findIndex((l, i) => !/^(ini_file|hex_file) /.test(l) && /\{ini_file\((Fields|Meta),/.test(l) && !(i > iBind && i < iTim))
-        const iTr = ls.findIndex((l, i) => !/^(ini_file|hex_file) /.test(l) && /\{ini_file\((?!Fields,|Meta,)/.test(l) && i < iTim)
+        // The generation is read once, from config.ini, before the backup is bound.
+        const iGen = ls.findIndex((l, i) => /\{ini_file\(Firmware,gen\)\}/.test(l) && (i < ls.indexOf(CFG62) || i > iBind))
+        if (iGen >= 0) bad.push(`${name}, строка ${iGen + 1}: поколение читается не из config.ini — нужно между привязками config.ini и копии`)
+        const iTr = ls.findIndex((l, i) => !/^(ini_file|hex_file) /.test(l) && /\{ini_file\((?!Fields,|Meta,|Firmware,gen\))/.test(l) && i < iTim)
         if (iFm >= 0) bad.push(`${name}, строка ${iFm + 1}: Fields/Meta читаются не из выбранной копии`)
         if (iTr >= 0) bad.push(`${name}, строка ${iTr + 1}: тайминги читаются до перепривязки к emc_timings.ini — из копии или config.ini`)
         const offs = [...new Set(ls.flatMap(l => [...l.matchAll(/\{ini_file\(Fields,(\d+)\)\}/g)].map(m => Number(m[1]))))].sort((a, b) => a - b).join(',')
@@ -5642,8 +6129,8 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 
 // ---------------- 63. one-shot footers and the backup choice do not outlive a new entry
 //
-// Operator, 13.09.2026: "saved …", "Done", "restored", "up to date" and the chosen backup are
-// cleared when the wizard is entered. set-footer writes <own dir>/config.ini under the raw
+// Operator, 13.09.2026: the result footers (marks since 30.10.2026), "up to date" and the chosen
+// backup are cleared when the wizard is entered. set-footer writes <own dir>/config.ini under the raw
 // section name (`?rev` and trailing space included), so [boot] must name exactly that.
 // A footer read from the kip is not one-shot: [boot] re-seeds it anyway.
 {
@@ -5652,9 +6139,21 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
   const from = bl.indexOf('[boot]')
   let to = bl.findIndex((l, i) => i > from && /^\[/.test(l))
   if (to < 0) to = bl.length
-  const inBoot = new Set(from < 0 ? [] : bl.slice(from + 1, to))
+  // [boot] clears through [Entry clear]: the first block asks every key, and a success skips the rest.
+  const ec = bl.indexOf('[Entry clear]')
+  const ecEnd = bl.findIndex((l, i) => i > ec && /^\[/.test(l))
+  const ecLines = ec < 0 ? [] : bl.slice(ec + 1, ecEnd < 0 ? bl.length : ecEnd).filter(Boolean)
+  const inBoot = new Set(from < 0 ? [] : [...bl.slice(from + 1, to), ...ecLines])
   const bad = []
   let footers = 0, choices = 0, backupPaths = 0
+  const ecCut = ecLines.indexOf('try:', 1)
+  const ecGates = ecLines.slice(1, ecCut), ecDoes = ecLines.slice(ecCut + 1)
+  const ecBad = []
+  if (from >= 0 && !bl.slice(from + 1, to).includes("exec 'Entry clear'")) ecBad.push("[boot] не зовёт [Entry clear] — разовые подписи переживут вход")
+  ecDoes.forEach(l => {
+    const m = l.match(/^(?:remove-ini-key|set-ini-val) ('[^']*') ('[^']*'|\S+) (\S+)/)
+    if (!m || !ecGates.includes(`matching_ini_val ${m[1]} ${m[2]} ${m[3]} ''`)) ecBad.push(`[Entry clear]: у «${l.slice(0, 70)}» нет своей проверки — при остальных пустых он не очистится`)
+  })
 
   for (const file of iniFiles) {
     if (file === bootPath) continue
@@ -5680,7 +6179,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
       const c = l.match(/^set-ini-val '\.\/config\.ini' Restore (\w+) ''$/)
       if (c) cleared.add(c[1])
     })
-    // A stale create path must not reach the "not saved" delete (NOTES 311): cleared on entry too.
+    // A stale create path must not reach the failure delete (NOTES 311): cleared on entry too.
     if (creates) {
       backupPaths++
       const want = `set-ini-val ${cfg} Backup Path ''`
@@ -5696,6 +6195,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
     }
   }
 
+  bad.push(...ecBad)
   if (!footers || !choices || !backupPaths) problems.push({ sev: 'CRITICAL', what: `проверка разовых подписей не нашла предмета (подписей ${footers}, страниц выбора копии ${choices}, страниц создания копии ${backupPaths}) — она смотрит в пустоту, ничего не проверив` })
   else if (bad.length) problems.push({ sev: 'CRITICAL', what: `разовое состояние не очищается при входе (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
   else ok.push(`one-shot footers, the backup choice and the create path are cleared on entry (${footers} footers, ${choices} choice pages, ${backupPaths} create pages)`)
@@ -5703,21 +6203,26 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 
 // ---------------- 64. a result footer is seen at once: the page is rebuilt after it
 //
-// Operator, 13.09.2026: "saved", "Done" (was "restored"), "not applied" show right after the action, and what
-// depends on the chosen backup shows right after the choice. A plain item's footer is re-read only
+// Operator, 13.09.2026: the result of an action shows right after it, and what depends on the
+// chosen backup shows right after the choice. A plain item's footer is re-read only
 // when the page is built (handleInterpreterCompletion, fork source/main.cpp:594-664), so every
 // try-block that sets a literal footer or clears the choice must end in a rebuild: `refresh`, or
 // `refresh-to` naming its own item (cursor stays). The backup chooser returns with `refresh-return`;
 // in Choose backup it is called once, targets Apply this backup (operator, 11.10.2026; engine patch
 // 0009), then `back`.
-// Create backup (operator, 13.09.2026): writes report nothing, so "saved" follows a read-back of
-// the passport and every field, and a second try-block says "not saved" and rebuilds too.
+// Create backup (operator, 13.09.2026): writes report nothing, so the check mark follows a read-back
+// of the passport and every field, and a second try-block sets the cross and rebuilds too.
 // Since the same day that failure block first deletes the half-written file, guarded to a path
-// under .bak/<revision> that is not the chosen backup; a third block says "not saved" otherwise.
+// under .bak/<revision> that is not the chosen backup; a third block sets the cross otherwise.
+// Operator, 30.10.2026: results are the engine's marks U+E14B and U+E14C (fork global_vars.cpp:175-176).
+// The old words must not come back in any quoting; "up to date" and "available" stay words.
 {
   const bad = []
-  let blocks = 0, choosers = 0, applyReturns = 0
+  let blocks = 0, choosers = 0, applyReturns = 0, plainFooters = 0
   const RESULT = l => (/^set-footer '/.test(l) && !/\{(json_file|hex_file)/.test(l)) || /^set-ini-val '\.\/config\.ini' Restore \w+ ''$/.test(l)
+  const OLD_WORDS = /^(done|saved|restored|not applied|not saved|check failed)\b/i
+  // the engine's getUnquoted takes either quote; a placeholder footer is a value, not a result
+  const footerArg = l => l.match(/^set-footer\s+(.*?)\s*$/)?.[1].replace(/^(['"])(.*)\1$/, '$2')
   for (const file of iniFiles) {
     if (file === join(DIST, 'boot_package.ini')) continue
     const rel = relative(DIST, file).split(String.fromCharCode(92)).join('/')
@@ -5772,6 +6277,11 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
       if (h) { closeSection(); head = h[1]; if (head.startsWith('@')) pg++; return }
       if (l === 'try:') { closeBlock(); return }
       block.push({ l, n: i + 1 })
+      const said = footerArg(l)
+      if (said !== undefined && !said.includes('{')) {
+        plainFooters++
+        if (OLD_WORDS.test(said)) bad.push(`${rel}:${i + 1} «[${head}]» — в подпись вернулось слово «${said}»: итог действия показывается галочкой или крестиком`)
+      }
       if (/^set-ini-val '\.\/config\.ini' Restore Path '\{file_source\}'$/.test(l)) picks = i + 1
       if (/^refresh-return(\s|$)/.test(l)) {
         returnsAll.push({ l, n: i + 1 })
@@ -5795,12 +6305,14 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
     for (const l of ls.slice(from + 1, to)) l === 'try:' ? parts.push([]) : parts[parts.length - 1].push(l)
     const [writes, good = [], drop = [], fail = []] = parts
     const head = `${rel} «[Create backup?${rev}]»`
-    if (parts.length !== 4 || !fail.includes(`set-footer 'not saved'`)) {
-      bad.push(`${head} — копия без исхода «not saved»: нужны три блока try:, сверка с «saved», удаление недописанной и запасной с «not saved»`)
+    const CROSS = `set-footer '${MARK_FAIL}'`
+    const CHECK = `set-footer '${MARK_OK}'`
+    if (parts.length !== 4 || !fail.includes(CROSS)) {
+      bad.push(`${head} — копия без исхода с крестиком: нужны три блока try:, сверка с галочкой, удаление недописанной и запасной с крестиком`)
       continue
     }
     // Half-written backup (operator, 13.09.2026): deleted only in the drop block, only after the
-    // path is proven to sit under this revision's .bak, and "not saved" follows the delete.
+    // path is proven to sit under this revision's .bak, and the cross follows the delete.
     const dir = `/atmosphere/kips/.bak/${rev}`
     const P = '{ini_file(Backup,Path)}'
     const del = `delete ${P}`
@@ -5812,31 +6324,50 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
         bad.push(`${head} — удаление без доказательства, что путь внутри ${dir}/: нужна строка «${inside}» до «delete»`)
       for (const g of [`!matching_ini_val './config.ini' Restore Path '${P}'`, `!matching_ini_val './config.ini' Restore Path 'sdmc:${P}'`, `path_exists ${P}`])
         if (!drop.slice(0, delAt).includes(g)) bad.push(`${head} — перед удалением нет стража «${g}»`)
-      if (!drop.slice(delAt).includes(`set-footer 'not saved'`)) bad.push(`${head} — после удаления нет «not saved»`)
+      if (!drop.slice(delAt).includes(CROSS)) bad.push(`${head} — после удаления нет крестика`)
     }
     const stray = [...writes, ...good, ...fail].filter(l => /^(del|delete)\s/.test(l))
     if (stray.length) bad.push(`${head} — удаление вне блока недописанной копии: ${stray[0]}`)
     const forget = `set-ini-val './config.ini' Backup Path ''`
-    if (!good.slice(good.indexOf(`set-footer 'saved'`)).includes(forget))
-      bad.push(`${head} — после «saved» путь копии не забыт: старый путь достанется удалению при следующем сбое`)
-    const savedAt = good.indexOf(`set-footer 'saved'`)
-    if (savedAt < 0) { bad.push(`${head} — в блоке сверки нет «saved»`); continue }
-    // what the passport and the fields wrote, against what the block compares before "saved"
+    if (!good.slice(good.indexOf(CHECK)).includes(forget))
+      bad.push(`${head} — после галочки путь копии не забыт: старый путь достанется удалению при следующем сбое`)
+    const savedAt = good.indexOf(CHECK)
+    if (savedAt < 0) { bad.push(`${head} — в блоке сверки нет галочки`); continue }
+    // what the passport and the fields wrote, against what the block compares before the check mark
     const W = /^set-ini-val '\{ini_file\(Backup,Path\)\}' (Meta|Fields) (\S+) '([^']*)'$/
     const C = /^matching_ini_val \{ini_file\(Backup,Path\)\} (Meta|Fields) (\S+) '?([^']*?)'?$/
     const checked = new Set(good.slice(0, savedAt).map(l => l.match(C)).filter(Boolean).map(m => `${m[1]} ${m[2]} ${m[3]}`))
     const unchecked = writes.map(l => l.match(W)).filter(Boolean)
       .filter(m => m[1] === 'Fields' || ['revision', 'kipver', 'fields'].includes(m[2]))
       .map(m => `${m[1]} ${m[2]} ${m[3]}`).filter(k => !checked.has(k))
-    if (unchecked.length) bad.push(`${head} — «saved» не сверяет ${unchecked.length} записей: ${unchecked.slice(0, 3).join('; ')}`)
+    if (unchecked.length) bad.push(`${head} — галочка не сверяет ${unchecked.length} записей: ${unchecked.slice(0, 3).join('; ')}`)
     if (!good.slice(0, savedAt).some(l => /^!matching_ini_val \{ini_file\(Backup,Path\)\} Fields \d+ null$/.test(l)))
-      bad.push(`${head} — kip не читался: значения «null» совпадут сами с собой, а подпись скажет «saved»`)
+      bad.push(`${head} — kip не читался: значения «null» совпадут сами с собой, а подпись покажет галочку`)
   }
-  if (creates !== 2) bad.push(`секций Create backup найдено ${creates}, а их две (mariko и erista) — исход «not saved» проверять не на чем`)
+  if (creates !== 2) bad.push(`секций Create backup найдено ${creates}, а их две (mariko и erista) — исход с крестиком проверять не на чем`)
+  // The outcomes of every result item, in file order: a listed word is not the only way to lose a mark.
+  const OUTCOMES = [
+    ['package.ini', /^\[Check for updates\]/, ['available', 'up to date', MARK_FAIL]],
+    ['service/reset.ini', /^\[Apply factory defaults [^\]]*\?mariko\]/, [MARK_OK]],
+    ['service/reset.ini', /^\[Apply factory defaults [^\]]*\?erista\]/, [MARK_OK]],
+    ...['mariko', 'erista'].flatMap(rev => [
+      [`service/restore-${rev}.ini`, new RegExp(`^\\[Create backup\\?${rev}\\]`), [MARK_OK, MARK_FAIL, MARK_FAIL]],
+      [`service/restore-${rev}.ini`, /^\[Apply this backup /, [MARK_OK, MARK_IMPORT, MARK_FAIL]],
+    ]),
+  ]
+  let outcomes = 0
+  for (const [rel, headRe, want] of OUTCOMES) {
+    const abs = join(DIST, rel)
+    const sec = existsSync(abs) ? readFileSync(abs, 'utf8').split(/\r?\n(?=\[)/).find(s => headRe.test(s)) : null
+    if (!sec) { bad.push(`${rel}: нет секции ${headRe} — исходы проверять не на чем`); continue }
+    outcomes++
+    const got = sec.split(/\r?\n/).map(footerArg).filter(x => x !== undefined && !x.includes('{'))
+    if (got.join('|') !== want.join('|')) bad.push(`${rel} «${showMark(sec.split(/\r?\n/)[0])}» — исходы ${showMark(got.join(' | '))}, а ждали ${showMark(want.join(' | '))}`)
+  }
   if (applyReturns !== 2) bad.push(`списков Choose backup с перестройкой найдено ${applyReturns}, а их два (mariko и erista) — курсор на Apply this backup проверять не на чем`)
-  if (!blocks || !choosers) problems.push({ sev: 'CRITICAL', what: `проверка перестройки после подписи не нашла предмета (блоков ${blocks}, выборов копии ${choosers}) — она смотрит в пустоту, ничего не проверив` })
+  if (!blocks || !choosers || !plainFooters) problems.push({ sev: 'CRITICAL', what: `проверка перестройки после подписи не нашла предмета (блоков ${blocks}, выборов копии ${choosers}, буквальных подписей ${plainFooters}) — она смотрит в пустоту, ничего не проверив` })
   else if (bad.length) problems.push({ sev: 'CRITICAL', what: `подпись-результат или выбор копии не видны сразу (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
-  else ok.push(`result footers and the backup choice rebuild the page at once (${blocks} blocks, ${choosers} choosers, ${applyReturns} land on Apply); Create backup reads back before saved (${creates} sections)`)
+  else ok.push(`result footers and the backup choice rebuild the page at once (${blocks} blocks, ${choosers} choosers, ${applyReturns} land on Apply); Create backup reads back before the check mark (${creates} sections); ${plainFooters} plain footers carry none of the old words, ${outcomes} result items show the marks`)
 }
 
 // ---------------- 65. the short RAM model is one rule on every screen that shows it
@@ -6374,6 +6905,7 @@ const EBAMATIC_NOT_FIRST67 = new Map([
 // placeholders innermost first, `mariko:`/`erista:` labels, `;system=` and the conditions the
 // pages use - fork `interpretAndExecuteCommands`, `evaluateMenuCondition`) plays every forwarder,
 // [boot], Create, Apply, the reset and page 2 on made-up consoles of every generation and revision.
+let model68 = null
 {
   const EMC68 = '/config/4IFIR/emc_timings.ini'
   const KIP68 = '/atmosphere/kips/loader.kip'
@@ -6395,7 +6927,7 @@ const EBAMATIC_NOT_FIRST67 = new Map([
   }
   const norm68 = p => (p || '').replace(/^sdmc:/, '')
   const resolve68 = (arg, st) => {
-    const re = /\{([A-Za-z_=!<>]+)(?:\(([^{}]*)\))?\}/
+    const re = /\{([A-Za-z0-9_=!<>]+)(?:\(([^{}]*)\))?\}/
     for (let guard = 0; guard < 200; guard++) {
       const m = arg.match(re)
       if (!m) return arg
@@ -6406,14 +6938,20 @@ const EBAMATIC_NOT_FIRST67 = new Map([
         const [, off, len] = p
         v = st.hex === KIP68 ? (st.kip[off] ?? '00'.repeat(Number(len))).slice(0, Number(len) * 2)
           : st.bins?.[norm68(st.hex)] ? (hexAt68(st, st.hex, p[0], off, Number(len)) || 'UNRESOLVED_HEX_FILE') : 'null'
-      } else if (fn === 'ini_file') v = st.files[norm68(st.ini)]?.[p[0]]?.[p.slice(1).join(',')] || 'null'
-      else if (fn === 'list') v = st.list[Number(p[0])] ?? 'null'
+      } else if (fn === 'ini_file') v = p.length === 1 ? (Object.keys(st.files[norm68(st.ini)] ?? {})[Number(p[0])] ?? 'null') : st.files[norm68(st.ini)]?.[p[0]]?.[p.slice(1).join(',')] || 'null'
+      else if (fn === 'crc32') v = st.files[norm68(p[0])] ? createHash('md5').update(JSON.stringify(st.files[norm68(p[0])])).digest('hex').slice(0, 8) : 'null'
+      else if (fn === 'split') v = p[0].split(p[1])[Number(p[2])] || 'null'
+      else if (fn === 'if_<') v = (/^\d+$/.test(p[0]) ? Number(p[0]) < Number(p[1]) : p[0] < p[1]) ? p[2] : (p.length > 3 ? p.slice(3).join(',') : p[0])
+      else if (fn === 'list') v = st.list[Number(p[0])] || 'null'
       else if (fn === 'if_==') v = p[0] === p[1] ? p[2] : (p.length > 3 ? p.slice(3).join(',') : p[0])
       else if (fn === 'if_null') v = p[0] === 'null' ? p[1] : (p.length > 2 ? p.slice(2).join(',') : p[0])
       else if (fn === 'hex_to_rhex') v = (p[0].match(/../g) || []).reverse().join('')
       else if (fn === 'hex_to_decimal') v = /^[0-9A-Fa-f]+$/.test(p[0]) ? String(parseInt(p[0], 16)) : 'null'
       else if (fn === 'math') v = /^[\d+\-*/(). ]+$/.test(p[0]) ? String(Math.trunc(Function(`return (${p[0]})`)())) : 'null'
-      else v = 'X'                                             // timestamp, ram_*, json_file, slice
+      else if (fn === 'base64_decode') v = Buffer.from(p[0], 'base64').toString('utf8')
+      else if (fn === 'length') v = String(p.join(',').trim().length)
+      else if (fn === 'slice' && /^\d+$/.test(p.at(-1)) && /^\d+$/.test(p.at(-2))) v = p.slice(0, -2).join(',').trim().slice(Number(p.at(-2)), Number(p.at(-1))) || 'null'
+      else v = 'X'                                             // timestamp, ram_*, json_file, slice of an unresolved value
       arg = arg.replace(all, v)
     }
     return arg
@@ -6441,27 +6979,53 @@ const EBAMATIC_NOT_FIRST67 = new Map([
     return Number(off) + len > buf.length ? '' : hexOf68(buf.subarray(Number(off), Number(off) + len))
   }
   const hexOk68 = h => h.length > 0 && h.length % 2 === 0 && /^[0-9A-Fa-f]+$/.test(h)
-  const run68 = (secText, st) => {
-    st.footer = null; st.kipWrites = 0
+  // Sub-lists of boot_package.ini, by name; `exec` runs one with its own try:, label and bindings.
+  const subs68 = new Map()
+  if (existsSync(join(DIST, 'boot_package.ini')))
+    for (const sec of readFileSync(join(DIST, 'boot_package.ini'), 'utf8').split(/\n(?=\[)/)) subs68.set(sec.split('\n')[0].trim().slice(1, -1), sec)
+  const run68 = (secText, st, nested = false) => {
+    if (!nested) { st.footer = null; st.kipWrites = 0 }
     let inTry = false, okFlag = true, plat = null
     for (const raw of secText.split('\n').slice(1)) {
       const line = raw.trim()
       if (!line || line.startsWith(';')) continue
       if (line === 'mariko:' || line === 'erista:') { plat = line.slice(0, -1); continue }
-      if (plat && plat !== st.rev) continue                    // dropped before the loop runs
-      if (line === 'try:') { if (inTry && okFlag) return st; okFlag = true; inTry = true; continue }
+      // `try:` comes before the label test in the engine, and a command under a foreign label leaves
+      // the success as it was: a `try:` after a label ends the list on the other revision.
+      if (line === 'try:') { if (inTry && okFlag) { st.ok = true; return st } okFlag = true; inTry = true; continue }
       if (inTry && !okFlag) continue
+      if (plat && plat !== st.rev) continue
       const [cmd, ...args] = tok68(line).map(t => resolve68(t, st))
       const file = p => (st.files[norm68(p)] ??= {})
       if (cmd === 'ini_file') st.ini = args[0]
       else if (cmd === 'hex_file') st.hex = args[0]
-      else if (cmd === 'set-ini-val') { const f = file(args[0]); (f[args[1]] ??= {})[args[2]] = args[3] }
+      else if (cmd === 'list') st.list = args[0].replace(/^\[|\]$/g, '').split(',').map(x => x.trim())
+      else if (cmd === 'exec') {
+        const sub = subs68.get(args[0])
+        if (sub) {
+          const keep = [st.ini, st.hex, st.list]
+          st.ini = st.hex = null; st.list = []
+          run68(sub, st, true)
+          okFlag = st.ok
+          ;[st.ini, st.hex, st.list] = keep
+        }
+      }
+      else if (cmd === 'set-ini-val') {
+        // The value goes to the file as it is: a line break in it is a line of the file.
+        const f = file(args[0]); const [first, ...more] = String(args[3]).split('\n')
+        const s = (f[args[1]] ??= {}); s[args[2]] = first
+        for (const l of more) { const at = l.indexOf('='); if (at > 0) s[l.slice(0, at)] = l.slice(at + 1) }
+      }
+      else if (cmd === 'copy') { if (st.files[norm68(args[0])]) st.files[norm68(args[1])] = clone(st.files[norm68(args[0])]) }
       else if (cmd === 'matching_ini_val' || cmd === '!matching_ini_val') {
         const act = st.files[norm68(args[0])]?.[args[1]]?.[args[2]] ?? ''
         okFlag = (act === args.slice(3).join(' ')) === (cmd === 'matching_ini_val')
       } else if (cmd === 'matching_hex_val_custom' || cmd === '!matching_hex_val_custom') {
         const [kp, pat, off, hex = ''] = args
-        const act = hexAt68(st, kp, pat, off, hex.length / 2)
+        // An ini held as an object: the only search on one is `=` at a line end, the empty key.
+        const ini = st.files[norm68(kp)]
+        const act = !ini ? hexAt68(st, kp, pat, off, hex.length / 2)
+          : pat === '=\n' && Object.values(ini).some(s => Object.values(s).some(v => v === '')) ? hex : ''
         okFlag = (act !== '' && act.toUpperCase() === hex.toUpperCase()) === (cmd === 'matching_hex_val_custom')
       } else if (cmd === 'matching_hex_val' || cmd === '!matching_hex_val') {
         const [kp, off, hex = ''] = args
@@ -6474,6 +7038,7 @@ const EBAMATIC_NOT_FIRST67 = new Map([
       else if (cmd === 'set-footer') st.footer = args[0]
       else if (cmd === 'hex-by-custom-offset') { if (args[3] !== 'null') { st.kip[args[2]] = args[3]; st.kipWrites++ } }
     }
+    st.ok = okFlag
     return st
   }
   // A section's visibility, as evaluateMenuCondition and `;system=` decide it: every line holds.
@@ -6502,6 +7067,7 @@ const EBAMATIC_NOT_FIRST67 = new Map([
   }
   const clone = o => JSON.parse(JSON.stringify(o))
   const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+  model68 = { run68, rows68, subs68, clone, same, O25: null, O26: null, shown68 }
   // The clock of the made-up console: 2265.6 MHz here, 1866 MHz at the OTHER revision's offset -
   // a profile named from the wrong offset lands in the trap section 1866CL12.
   const CLK = '009222', TRAP = '10791C'
@@ -6518,7 +7084,7 @@ const EBAMATIC_NOT_FIRST67 = new Map([
   // built; here each is RUN on four overlays x two revisions, starting from a right, a wrong and a
   // missing flag. And entering writes nothing into emc_timings.ini (operator, 22.09.2026: values
   // already there are only read and shown): every forwarder and [boot] run on a console with the
-  // file, which must come out unchanged.
+  // file, which must come out unchanged. The one writer is the 1600 move on 2.5, check 74.
   const readsGen68 = t => t.split('\n').some(l => !l.startsWith('set-ini-val ') && !l.endsWith("Firmware gen ''") && /Firmware gen |\{ini_file\(Firmware,gen\)\}/.test(l))
   const forwarders68 = []
   for (const f of iniFiles) {
@@ -6545,6 +7111,7 @@ const EBAMATIC_NOT_FIRST67 = new Map([
   const ZERO68 = '00'.repeat(20)
   const O25 = mkOvl68({ name: '4IFIR Houdini', bid: bid68(0x25), code: 'Houdini' })
   const O26 = mkOvl68({ name: '4IFIR Nextgen', bid: bid68(0x26) })
+  model68.O25 = O25; model68.O26 = O26
   const O27 = mkOvl68({ name: '4IFIR Futurename', bid: bid68(0x27) })
   const OZERO = mkOvl68({ name: '4IFIR Nextgen', bid: bid68(0) })
   const OVLS68 = [
@@ -6570,7 +7137,8 @@ const EBAMATIC_NOT_FIRST67 = new Map([
   for (const fw of forwarders68) {
     const tf = fw.target && join(DIST, fw.target)
     const reads = !!tf && existsSync(tf) && readsGen68(readFileSync(tf, 'utf8'))
-    const cfgs = [...new Set([...fw.sec.matchAll(/^set-ini-val '([^']+)' Firmware gen /gm)].map(m => m[1]))]
+    const detects = fw.sec + (fw.sec.includes("exec 'Generation'") ? subs68.get('Generation') ?? '' : '')
+    const cfgs = [...new Set([...detects.matchAll(/^set-ini-val '([^']+)' Firmware gen /gm)].map(m => m[1]))]
     const where = `${fw.rel} «${fw.title}» → ${fw.target}`
     for (const [name, ovl, want] of OVLS68) for (const rev of ['mariko', 'erista']) for (const [wasName, was] of WAS68) {
       runs68++
@@ -6625,7 +7193,7 @@ const EBAMATIC_NOT_FIRST67 = new Map([
     if (existsSync(bf)) for (const [name, ovl] of OVLS68) {
       runs68++
       const st = { kip: kipOf('mariko', '020000', '01'), hex: null, ini: null, list: [], rev: 'mariko', bins: ovl ? { [OVL68]: ovl.buf } : {}, files: { [EMC68]: clone(EMC_BOTH) } }
-      run68(readFileSync(bf, 'utf8'), st)
+      run68(subs68.get('boot') ?? '', st)
       if (!same(st.files[EMC68], EMC_BOTH)) bad.push(`boot_package.ini (${name}): вход в пакет изменил emc_timings.ini — ${JSON.stringify(st.files[EMC68])}`)
     }
   }
@@ -6668,9 +7236,9 @@ const EBAMATIC_NOT_FIRST67 = new Map([
     for (const c of creates) {
       runs68++
       const st = run68(create, baseSt(c.kip, c.emc, c.gen))
-      // the create path is forgotten after "saved", so the backup is found by its folder
+      // the create path is forgotten after the check mark, so the backup is found by its folder
       const bak = Object.entries(st.files).find(([k]) => k.startsWith(`/atmosphere/kips/.bak/${rev}/`))?.[1]
-      if (st.footer !== 'saved') bad.push(`${rel} «Create backup» (${c.name}): подпись «${st.footer}», а ждали saved`)
+      if (st.footer !== MARK_OK) bad.push(`${rel} «Create backup» (${c.name}): подпись «${showMark(st.footer)}», а ждали галочку`)
       if (bak?.Optimized) bad.push(`${rel} «Create backup» (${c.name}): копия снова несёт [Optimized] ${JSON.stringify(bak.Optimized)}`)
       if (bak?.Meta?.firmware !== undefined) bad.push(`${rel} «Create backup» (${c.name}): копия несёт пометку Meta firmware = «${bak.Meta.firmware}»`)
       if (!same(st.files[EMC68], c.emc)) bad.push(`${rel} «Create backup» (${c.name}): создание копии изменило emc_timings.ini`)
@@ -6685,13 +7253,13 @@ const EBAMATIC_NOT_FIRST67 = new Map([
       ...(volts ? { Optimized: { eVDQ: volts[0], eVD2: volts[1] } } : {}),
     })
     const kinds = [
-      { name: 'новая копия', bak: made['2.6, eBAL 2'], footer: 'Done' },
-      { name: 'копия 21–22.09 с [Optimized] 650/1100 и пометкой 2.5', bak: nb('020000', '01', ['650', '1100'], '2.5'), footer: 'Done' },
-      { name: 'копия 21–22.09 с [Optimized] 0/0 и пометкой 2.6', bak: nb('020000', '01', ['0', '0'], '2.6'), footer: 'Done' },
-      { name: 'копия 21.09 с [Optimized] 1150/0 без пометки, Target 00', bak: nb('060000', '00', ['1150', '0']), footer: 'Done' },
-      { name: 'старая копия без [Optimized]', bak: nb('020000', '01', null), footer: 'Done' },
-      { name: 'импортированная копия', bak: { ...nb('020000', '01', null), Meta: { revision: rev, kipver: 'imported' } }, footer: 'Done (import)' },
-      { name: `копия с ${other}`, bak: { ...nb('020000', '01', ['1200', '1200'], '2.6'), Meta: { revision: other, kipver } }, footer: 'not applied' },
+      { name: 'новая копия', bak: made['2.6, eBAL 2'], footer: MARK_OK },
+      { name: 'копия 21–22.09 с [Optimized] 650/1100 и пометкой 2.5', bak: nb('020000', '01', ['650', '1100'], '2.5'), footer: MARK_OK },
+      { name: 'копия 21–22.09 с [Optimized] 0/0 и пометкой 2.6', bak: nb('020000', '01', ['0', '0'], '2.6'), footer: MARK_OK },
+      { name: 'копия 21.09 с [Optimized] 1150/0 без пометки, Target 00', bak: nb('060000', '00', ['1150', '0']), footer: MARK_OK },
+      { name: 'старая копия без [Optimized]', bak: nb('020000', '01', null), footer: MARK_OK },
+      { name: 'импортированная копия', bak: { ...nb('020000', '01', null), Meta: { revision: rev, kipver: 'imported' } }, footer: MARK_IMPORT },
+      { name: `копия с ${other}`, bak: { ...nb('020000', '01', ['1200', '1200'], '2.6'), Meta: { revision: other, kipver } }, footer: MARK_FAIL },
     ]
     for (const gen of ['2.6', '2.5', 'none', null]) for (const k of kinds) for (const emc0 of [EMC_BOTH, null]) {
       if (!k.bak) { bad.push(`${rel} «Apply» (${k.name}): копию создать не удалось — сценарий не проверен`); continue }
@@ -6701,9 +7269,9 @@ const EBAMATIC_NOT_FIRST67 = new Map([
       st.files[P] = clone(k.bak)
       run68(apply, st)
       const nm = `${gen ?? 'без флага'}: ${k.name}${emc0 ? '' : ', файла нет'}`
-      if (st.footer !== k.footer) bad.push(`${rel} «Apply» (${nm}): подпись «${st.footer}», а ждали «${k.footer}»`)
-      if (k.footer !== 'not applied' && !st.kipWrites) bad.push(`${rel} «Apply» (${nm}): kip не восстановлен`)
-      if (k.footer === 'not applied' && st.kipWrites) bad.push(`${rel} «Apply» (${nm}): kip записан при отказе`)
+      if (st.footer !== k.footer) bad.push(`${rel} «Apply» (${nm}): подпись «${showMark(st.footer)}», а ждали «${showMark(k.footer)}»`)
+      if (k.footer !== MARK_FAIL && !st.kipWrites) bad.push(`${rel} «Apply» (${nm}): kip не восстановлен`)
+      if (k.footer === MARK_FAIL && st.kipWrites) bad.push(`${rel} «Apply» (${nm}): kip записан при отказе`)
       if (!same(st.files[EMC68], emc0))
         bad.push(`${rel} «Apply» (${nm}): применение копии изменило emc_timings.ini — стал ${JSON.stringify(st.files[EMC68])}${emc0 ? '' : ' (файла не было)'}`)
     }
@@ -6737,7 +7305,7 @@ const EBAMATIC_NOT_FIRST67 = new Map([
           st.files['./Default.ini'] = { Fields: anyField }
           run68(rsec, st)
           const nm = `${r.gen}: ${r.name}`
-          if (st.footer !== 'restored' || !st.kipWrites) bad.push(`service/reset.ini ${rev} (${nm}): подпись «${st.footer}», записей kip ${st.kipWrites} — сброс kip не выполнен`)
+          if (st.footer !== MARK_OK || !st.kipWrites) bad.push(`service/reset.ini ${rev} (${nm}): подпись «${showMark(st.footer)}», записей kip ${st.kipWrites} — сброс kip не выполнен`)
           if (!same(st.files[EMC68], r.emc))
             bad.push(`service/reset.ini ${rev} (${nm}): emc_timings.ini стал ${JSON.stringify(st.files[EMC68])}, а ждали ${JSON.stringify(r.emc)}${r.emc0 ? '' : ' — сброс создал файл'}`)
         }
@@ -6925,15 +7493,15 @@ const EBAMATIC_NOT_FIRST67 = new Map([
     const P = `/atmosphere/kips/.bak/${rev}/x.ini`
     const KIP0 = { [WL]: '01', [DBI]: '02' }
     const cases = [
-      { name: 'импорт, полей нет', meta: 'imported', fields: {}, footer: 'Done (import)', kip: KIP0, view: ['—', '—'], note: true },
-      { name: 'импорт до 21.09, 12432 = 00', meta: 'imported', fields: { [WL]: '00' }, footer: 'Done (import)', kip: KIP0, view: ['—', '—'], note: true },
-      { name: 'импорт до 21.09, 12432 = 01', meta: 'imported', fields: { [WL]: '01' }, footer: 'Done (import)', kip: { [WL]: '00', [DBI]: '00' }, view: ['—', '—'], note: true },
-      { name: 'импорт до 21.09, 12432 = 03', meta: 'imported', fields: { [WL]: '03' }, footer: 'Done (import)', kip: KIP0, view: ['—', '—'], note: true },
-      { name: 'импорт с битым 12432 и 12528', meta: 'imported', fields: { [WL]: 'nu', [DBI]: '07' }, footer: 'Done (import)', kip: KIP0, view: ['—', '—'], note: true },
+      { name: 'импорт, полей нет', meta: 'imported', fields: {}, footer: MARK_IMPORT, kip: KIP0, view: ['—', '—'], note: true },
+      { name: 'импорт до 21.09, 12432 = 00', meta: 'imported', fields: { [WL]: '00' }, footer: MARK_IMPORT, kip: KIP0, view: ['—', '—'], note: true },
+      { name: 'импорт до 21.09, 12432 = 01', meta: 'imported', fields: { [WL]: '01' }, footer: MARK_IMPORT, kip: { [WL]: '00', [DBI]: '00' }, view: ['—', '—'], note: true },
+      { name: 'импорт до 21.09, 12432 = 03', meta: 'imported', fields: { [WL]: '03' }, footer: MARK_IMPORT, kip: KIP0, view: ['—', '—'], note: true },
+      { name: 'импорт с битым 12432 и 12528', meta: 'imported', fields: { [WL]: 'nu', [DBI]: '07' }, footer: MARK_IMPORT, kip: KIP0, view: ['—', '—'], note: true },
       // A valid DBI under an imported copy: without the kipver condition the row would print it.
-      { name: 'импорт с валидным 12528 = 02', meta: 'imported', fields: { [DBI]: '02' }, footer: 'Done (import)', kip: KIP0, view: ['—', '—'], note: true },
-      { name: 'своя копия', meta: kipver, fields: { [WL]: '01', [DBI]: '03' }, footer: 'Done', kip: { [WL]: '00', [DBI]: '00' }, want: { [WL]: '01', [DBI]: '03' }, view: ['1', '3'], note: false },
-      { name: 'своя копия, нули', meta: kipver, fields: { [WL]: '00', [DBI]: '00' }, footer: 'Done', kip: KIP0, want: { [WL]: '00', [DBI]: '00' }, view: ['0', '0'], note: false },
+      { name: 'импорт с валидным 12528 = 02', meta: 'imported', fields: { [DBI]: '02' }, footer: MARK_IMPORT, kip: KIP0, view: ['—', '—'], note: true },
+      { name: 'своя копия', meta: kipver, fields: { [WL]: '01', [DBI]: '03' }, footer: MARK_OK, kip: { [WL]: '00', [DBI]: '00' }, want: { [WL]: '01', [DBI]: '03' }, view: ['1', '3'], note: false },
+      { name: 'своя копия, нули', meta: kipver, fields: { [WL]: '00', [DBI]: '00' }, footer: MARK_OK, kip: KIP0, want: { [WL]: '00', [DBI]: '00' }, view: ['0', '0'], note: false },
     ]
     const dict = n => { try { return JSON.parse(readFileSync(join(DIST, 'service', n), 'utf8'))[0] } catch { return null } }
     // the note: a skip_null table whose row resolves to NOTE69 for the backup, null otherwise
@@ -6955,7 +7523,7 @@ const EBAMATIC_NOT_FIRST67 = new Map([
       }
       run69(apply, st)
       const want = c.want ?? c.kip
-      if (st.footer !== c.footer) bad.push(`${rel} «Apply» (${c.name}): подпись «${st.footer}», а ждали «${c.footer}»`)
+      if (st.footer !== c.footer) bad.push(`${rel} «Apply» (${c.name}): подпись «${showMark(st.footer)}», а ждали «${showMark(c.footer)}»`)
       for (const [o, nm] of [[WL, 'WL-Set'], [DBI, 'DBI']])
         if (st.kip[o] !== want[o]) bad.push(`${rel} «Apply» (${c.name}): ${nm} (${o}) стал ${st.kip[o]}, а ждали ${want[o]}${c.meta === 'imported' ? ' — импортированная копия не должна его трогать' : ''}`)
       // page 2: resolve each row's key against the backup and look it up in the row's dictionary
@@ -7068,7 +7636,7 @@ const EBAMATIC_NOT_FIRST67 = new Map([
 // forwarder into each page that reads [Firmware] gen ends with the detection, writing the
 // config.ini next to that page. The overlay is ~2 MB and a failed search is not cached (libultra
 // `findHexDataOffsets`), so nothing else opens it. Four things, each a quiet way to break it:
-//   1. the overlay is opened only by those detection tails - not a condition, not [boot];
+//   1. the overlay is opened only by those detection tails - not a condition, not a line of [boot];
 //   2. every file that asks the flag is entered only through forwarders, and each of them carries
 //      the detection into the config.ini next to that file;
 //   3. the detection is the section's tail: `none`, then 2.5 on `Houdini`, then 2.6 on the bare
@@ -7094,6 +7662,9 @@ const EBAMATIC_NOT_FIRST67 = new Map([
     'try:', `remove-ini-key '${cfg}' Firmware ovl_id`,
   ]
   const tries71 = detect71('.').filter(l => l === 'try:').length
+  // Current detects through a sub-list, so its move sees a fresh flag: the same tail, in [Generation].
+  const ENTRY71 = ["exec 'Generation'", 'mariko:', "exec 'Move E mariko'", 'erista:', "exec 'Move E erista'"]
+  const bootLines71 = existsSync(join(DIST, 'boot_package.ini')) ? readFileSync(join(DIST, 'boot_package.ini'), 'utf8').split('\n') : []
   const into = new Map()      // target file -> [{rel, title, ok}]
   const tails = new Set()     // "rel:line" of lines that are part of a proper detection tail
   let readers = 0
@@ -7117,10 +7688,19 @@ const EBAMATIC_NOT_FIRST67 = new Map([
       const want = detect71(cfg)
       let end = ls.length
       while (end > 0 && !ls[end - 1].trim()) end--
-      const tail = ls.slice(end - want.length, end).map(l => l.trim())
-      const ok = tail.join('\n') === want.join('\n') && ls.filter(l => l.trim() === 'try:').length === tries71
-      if (ok) for (let i = end - want.length; i < end; i++) tails.add(`${rel}:${start + i + 1}`)
-      else bad.push(`${rel} «${title}» ведёт в ${target}, спрашивающий поколение, а не пересчитывает его в ${cfg} последними строками (нет файла → none; отпечаток build-id совпал → ничего; иначе имя NACP → 2.5/2.6 и новый отпечаток) — при быстром запуске флаг останется прежним или пустым`)
+      let ok
+      if (target === 'current.ini') {
+        const at = bootLines71.indexOf('[Generation]')
+        const body = at < 0 ? [] : bootLines71.slice(at + 1, at + 1 + want.length)
+        ok = ls.slice(end - ENTRY71.length, end).map(l => l.trim()).join('\n') === ENTRY71.join('\n') && body.join('\n') === want.join('\n')
+          && !ls.some(l => l.trim() === 'try:') && !bootLines71[at + 1 + want.length]?.trim()
+        if (ok) for (let i = 0; i < want.length; i++) tails.add(`boot_package.ini:${at + 2 + i}`)
+      } else {
+        const tail = ls.slice(end - want.length, end).map(l => l.trim())
+        ok = tail.join('\n') === want.join('\n') && ls.filter(l => l.trim() === 'try:').length === tries71
+        if (ok) for (let i = end - want.length; i < end; i++) tails.add(`${rel}:${start + i + 1}`)
+      }
+      if (!ok) bad.push(`${rel} «${title}» ведёт в ${target}, спрашивающий поколение, а не пересчитывает его в ${cfg} последними строками (нет файла → none; отпечаток build-id совпал → ничего; иначе имя NACP → 2.5/2.6 и новый отпечаток) — при быстром запуске флаг останется прежним или пустым`)
       into.set(target, [...(into.get(target) ?? []), { rel, title, ok }])
     }
   }
@@ -7136,7 +7716,8 @@ const EBAMATIC_NOT_FIRST67 = new Map([
   for (const f of iniFiles) {
     const rel = relOf(f)
     const txt = readFileSync(f, 'utf8')
-    if (!readsGen71(txt)) continue
+    // Sub-lists run after [Generation] on the way into Current; only [boot] itself counts as a reader.
+    if (rel === 'boot_package.ini' ? !readsGen71(txt.split(/\n(?=\[)/)[0]) : !readsGen71(txt)) continue
     readers++
     const ins = into.get(rel) ?? []
     if (!ins.length) bad.push(`${rel} спрашивает поколение, а форвардера, пересчитывающего его при входе, нет — флаг держится только на [boot], который быстрый запуск пропускает`)
@@ -7406,6 +7987,454 @@ const EBAMATIC_NOT_FIRST67 = new Map([
     ok.push(`the archive's root text files are deleted on entry (${rootDel.size} literal paths = make-build.ps1 root files: ${[...want].join(', ')}; ${outRefs} uses of $out read, no other delete in [boot])`)
 }
 
+// ---------------- 74. 1600 timings reach the sections 4IFIR 2.5 reads, and page 3 names what is in use
+//
+// Operator, 30.10.2026: 2.6+ saves the 1600 timings in `[<base>CL<n>]`, 2.5 reads e/ae keys from the
+// S section only, once per boot. So entering Current on 2.5 with sMeh 8 = 2 copies the 24 keys from
+// the E section of a CL into every S section with that CL that holds none of them, and into the
+// section of the pinned clock and eBAL, created if need be. The E section is not touched (a later
+// 2.6+ reads it), eVDQ/eVD2 do not move, 2.6+ and other pages write nothing. The file's order decides
+// which sections fit the slots: past them nothing is written, except the pinned one.
+// Text first: where each list lives and what it may name. Then the lists RUN on the model of check
+// 68 with a prediction written here, independent of the generator. Page 3 of Current and of the
+// backups runs the same way: what is shown is what the firmware of this generation reads.
+{
+  const EMC74 = '/config/4IFIR/emc_timings.ini'
+  const KIP74 = '/atmosphere/kips/loader.kip'
+  const SLOTS74 = 32     // first sections of the file the pass looks at, EMC_MOVE_SLOTS in the generator
+  const TIM74 = ['RP', 'RCD', 'RC', 'RAS', 'R2P', 'W2P', 'W2R', 'R2W', 'RFC', 'FAW', 'RRD', 'RCDW']
+  const MOVE74 = TIM74.flatMap(t => [`e${t}`, `ae${t}`])
+  const OFF74 = { mariko: 32, erista: 24 }
+  const bad = []
+  const bootTxt = existsSync(join(DIST, 'boot_package.ini')) ? readFileSync(join(DIST, 'boot_package.ini'), 'utf8') : ''
+  const subs = new Map(bootTxt.split(/\n(?=\[)/).map(s => [s.split('\n')[0].trim().slice(1, -1), s]))
+  const lines = n => (subs.get(n) ?? '').split('\n').slice(1).map(l => l.trim()).filter(Boolean)
+  const BAK74 = `${EMC74}.bak`
+  const NL74 = '{base64_decode(Cg==)}'
+  const SAVE74 = `copy '{if_==({ini_file(Firmware,emc_keep)},null,${EMC74},/emc-none)}' '${BAK74}'`
+  const need = ['Generation', 'Move E entry', 'Move E mariko', 'Move E erista', 'Move E here mariko', 'Move E here erista', 'Move E scan', 'Move E one', 'Move E keys']
+  for (const n of need) if (!subs.has(n)) bad.push(`в boot_package.ini нет секции [${n}]`)
+
+  // One entry point, and a label is never followed by `try:` in any file of the package.
+  for (const f of iniFiles) {
+    const rel = relative(DIST, f).split(sep).join('/')
+    for (const sec of readFileSync(f, 'utf8').split(/\n(?=\[)/)) {
+      const ls = sec.split('\n').map(l => l.trim())
+      const title = ls[0]
+      const label = ls.findIndex(l => l === 'mariko:' || l === 'erista:')
+      if (label >= 0 && ls.slice(label).includes('try:')) bad.push(`${rel} ${title}: try: после метки ${ls[label]} — движок проверяет try: раньше метки и на другой ревизии оборвёт список`)
+      const home = rel === 'boot_package.ini' && (title.startsWith('[Move E') || title === '[boot]')
+      if (!home && !(rel === 'package.ini' && title === '[*Current Settings]'))
+        for (const l of ls) if (/^exec '(Generation|Move E)/.test(l)) bad.push(`${rel} ${title}: «${l}» — перенос запускается только при входе в визард и из Current`)
+      if (rel !== 'boot_package.ini' && ls.some(l => /\bemc_(seen|keep|mv)\b/.test(l))) bad.push(`${rel} ${title}: служебные ключи переноса вне boot_package.ini`)
+    }
+  }
+  for (const [name, sec] of subs) for (const m of sec.matchAll(/^exec '([^']+)'$/gm)) if (!subs.has(m[1])) bad.push(`[${name}] зовёт несуществующую секцию ${m[1]}`)
+
+  // A sub-list called from inside a branch ends with a bare `try:`: otherwise a failed gate in it
+  // skips the rest of the caller's branch and emc_seen is never written.
+  for (const n of ['Move E here mariko', 'Move E here erista', 'Move E scan', 'Move E one', 'Move E keys'])
+    if (lines(n).at(-1) !== 'try:') bad.push(`[${n}] не кончается голым try: — провал затвора внутри оборвёт ветвь вызывающего`)
+
+  // [boot]: the entry is its last line and it holds no label: a label stays set for what follows, and
+  // a `try:` under it ends the list on the other revision. The labels live in [Move E entry].
+  const boot74 = lines('boot')
+  if (boot74.at(-1) !== "exec 'Move E entry'") bad.push("[boot] не кончается «exec 'Move E entry'» — без быстрого запуска перенос ждал бы Current")
+  if (boot74.some(l => l === 'mariko:' || l === 'erista:' || l === 'try:')) bad.push('в [boot] метка или try: — метка не сбрасывается, а try: под ней обрывает список на другой ревизии; ревизия выбирается в [Move E entry]')
+  if (lines('Move E entry').join('\n') !== ["exec 'Generation'", 'mariko:', "exec 'Move E mariko'", 'erista:', "exec 'Move E erista'"].join('\n'))
+    bad.push('[Move E entry]: не «Generation, затем перенос своей ревизии, метки последними» — перенос спросит устаревший флаг')
+  for (const n of need) for (const l of lines(n)) if (/\bemc_mv\b|^remove-ini-key/.test(l) && n.startsWith('Move E')) bad.push(`[${n}] «${l.slice(0, 70)}»: аргументы живут в emc_seen, лишняя запись config.ini`)
+
+  for (const rev of ['mariko', 'erista']) {
+    const off = OFF74[rev]
+    const a = lines(`Move E ${rev}`)
+    const iKip = a.indexOf(`matching_hex_val_custom ${KIP74} CUST 12492 02`)
+    if (!a.some(l => l.startsWith(`matching_ini_val './config.ini' Firmware gen 2.5`))) bad.push(`[Move E ${rev}]: нет затвора по поколению 2.5`)
+    if (a.findIndex(l => l.includes('Firmware gen 2.5')) !== 1) bad.push(`[Move E ${rev}]: поколение проверяется не первым — на 2.6+ вход платит за лишние чтения`)
+    if (iKip < 0) bad.push(`[Move E ${rev}]: нет затвора sMeh 8 = 2`)
+    if (!a.includes(`path_exists ${EMC74}`)) bad.push(`[Move E ${rev}]: нет затвора на файл таймингов`)
+    // The stamp names what the pass depended on: without the CRC a save, without {list(0)} a new clock,
+    // without {list(1)} a new base would never run it again.
+    const gate74 = a.find(l => l.startsWith('!matching_ini_val') && l.includes('Firmware emc_seen'))
+    const stamp74 = a.find(l => l.startsWith('set-ini-val') && l.includes('Firmware emc_seen'))
+    if (!gate74) bad.push(`[Move E ${rev}]: нет затвора emc_seen — проход пойдёт на каждом входе`)
+    if (!stamp74) bad.push(`[Move E ${rev}]: emc_seen не записывается`)
+    for (const [what, l] of [['затвор', gate74], ['запись', stamp74]]) if (l) for (const [part, why] of [[`{crc32(${EMC74})}`, 'CRC файла'], ['{list(0)}', 'S-секции'], ['{list(1)}', 'базы']])
+      if (!l.includes(part)) bad.push(`[Move E ${rev}]: ${what} emc_seen без ${why} (${part}) — смена не запустит проход`)
+    if (gate74 && stamp74 && gate74.split(' ').at(-1) !== stamp74.split(' ').at(-1)) bad.push(`[Move E ${rev}]: затвор и запись emc_seen считают разные значения — проход пойдёт на каждом входе`)
+    if (!a.includes(`exec 'Move E here ${rev}'`) || !a.includes("exec 'Move E scan'")) bad.push(`[Move E ${rev}]: нет вызова here или scan`)
+    if (a.some(l => l.includes('CUST 12352') || l.includes(`CUST ${off} `))) bad.push(`[Move E ${rev}]: общий затвор на eBAL или частоту — секции файла названы сами, eBAMATIC им не помеха`)
+    const h = lines(`Move E here ${rev}`)
+    // A pass that left its arguments in emc_seen never finished: the file may be torn.
+    if (h.indexOf(`set-ini-val './config.ini' Firmware emc_keep '1'`) < 0 || h[h.indexOf(`set-ini-val './config.ini' Firmware emc_keep '1'`) - 1] !== `path_exists '{if_==({list(1)},null,/emc-none,${EMC74})}'` || !h.includes("list '[{ini_file(Firmware,emc_seen)}]'"))
+      bad.push(`[Move E here ${rev}]: оборванный проход не ставит emc_keep — порванный файл затрёт целую копию`)
+    if (!h.includes(`!matching_hex_val_custom ${KIP74} CUST 12352 000000`) || !h.includes(`!matching_hex_val_custom ${KIP74} CUST ${off} 000000`))
+      bad.push(`[Move E here ${rev}]: секция текущей связки собирается без закреплённых eBAL и частоты CUST ${off}`)
+    if (!h.some(l => l.startsWith('list ') && l.includes(`{hex_file(CUST,${off},3)}`))) bad.push(`[Move E here ${rev}]: имя секции не из частоты своей ревизии`)
+    const other = OFF74[rev === 'mariko' ? 'erista' : 'mariko']
+    if ([...a, ...h].some(l => l.includes(`{hex_file(CUST,${other},3)}`) || l.includes(`CUST ${other} `))) bad.push(`[Move E ${rev}]: читает частоту другой ревизии`)
+  }
+  const scan = lines('Move E scan')
+  const slots = [...subs.get('Move E scan')?.matchAll(/^list '\[\{ini_file\((\d+)\)\}\]'$/gm) ?? []].map(m => Number(m[1]))
+  if (slots.length !== SLOTS74 || slots.some((k, i) => k !== i)) bad.push(`слоты прохода по файлу: ${slots.length} (${slots.slice(0, 4).join(',')}…), а заявлено 0…${SLOTS74 - 1} подряд — пропущенный слот молча оставит секцию без таймингов`)
+  if (scan.filter(l => l === 'try:').length !== 2 * SLOTS74 + 1) bad.push('в [Move E scan] число try: не равно двум на слот + 1')
+  if (scan.filter(l => l === `path_exists '{if_==({list(0)},null,${EMC74},/emc-none)}'`).length !== SLOTS74) bad.push('не каждый слот выходит на конце файла — проход читает пустые слоты')
+  if (scan.filter(l => l.startsWith('path_exists ') && l.includes('{if_<({split({list(0)},CL,0)},1612,')).length !== SLOTS74) bad.push('не каждый слот отсеивает секции ниже 1612 МГц — ступень E сама себе источник')
+  if (scan.filter(l => l === 'force_failure').length !== SLOTS74) bad.push('не каждый слот кончается force_failure — удавшийся слот оборвёт проход')
+  // [Move E one]: the source in one list, the gate in one line, one block in one write.
+  const one74 = lines('Move E one')
+  const keysIn = (l, re) => [...(l ?? '').matchAll(re)].map(m => m[1])
+  const gate74 = one74.find(l => l.startsWith('path_exists') && l.includes('{ini_file({list(0)},'))
+  const gates = keysIn(gate74, /\{ini_file\(\{list\(0\)\},(\w+)\)\}/g)
+  if (gates.join() !== MOVE74.join()) bad.push(`затвор «секция пуста» держит ${gates.length} ключей вместо ${MOVE74.length} — ${MOVE74.filter(k => !gates.includes(k)).join(', ') || 'порядок другой'}`)
+  const read74 = one74.find(l => l.startsWith('list ') && l.includes('{ini_file({list(1)},'))
+  const keys = keysIn(read74, /\{ini_file\(\{list\(1\)\},(\w+)\)\}/g)
+  if (keys.join() !== MOVE74.join()) bad.push(`копируются ключи ${keys.join(' ')} — ждали ровно ${MOVE74.length} тайминговых, без eVDQ/eVD2 и s-ключей`)
+  const lines74 = one74.filter(l => l.startsWith('list ') && l.includes(NL74)).flatMap(l => [...l.matchAll(/\{if_null\(\{list\((\d+)\)\},,(\w+)=\{list\((\d+)\)\}\{base64_decode\(Cg==\)\}\)\}/g)])
+  if (lines74.map(m => m[2]).join() !== MOVE74.join()) bad.push(`в блоке записи ключи ${lines74.map(m => m[2]).join(' ')} — ждали ${MOVE74.length} по порядку, каждый со своей проверкой на null`)
+  if (lines74.some((m, i) => m[1] !== m[3] || Number(m[1]) !== (i < 12 ? i + 1 : i - 10))) bad.push('в блоке записи ключ взял не своё значение: номера в {list()} разъехались с порядком чтения')
+  const write74 = one74.filter(l => l.startsWith(`set-ini-val '${EMC74}'`))
+  if (write74.length !== 1) bad.push(`запись в emc_timings.ini: ${write74.length} строк, а секция пишется одной — иначе обрыв оставит её неполной`)
+  for (const l of write74) if (!l.startsWith(`set-ini-val '${EMC74}' '{list(0)}' `)) bad.push(`запись не в секцию-приёмник: ${l.slice(0, 80)}`)
+  const at74 = one74.indexOf(SAVE74)
+  if (at74 < 0 || at74 !== one74.indexOf(write74[0]) - 1) bad.push(`нет «copy» файла в ${BAK74} сразу перед записью — обнулённый файл нечем поднять, а без записи копия не нужна`)
+  if (one74.some(l => l.startsWith('copy ') && l !== SAVE74)) bad.push(`копия файла без emc_keep: порванный файл затрёт целую — ${one74.find(l => l.startsWith('copy ') && l !== SAVE74).slice(0, 70)}`)
+  // Key by key where a block cannot go: the gates hold in both branches, the keys are the same 24.
+  const odd74 = [`path_exists '{if_==({list(25)},null,${EMC74},/emc-none)}'`, `!matching_hex_val_custom ${EMC74} '{base64_decode(PQo=)}' 0 3D0A`, `!matching_hex_val_custom ${EMC74} '{base64_decode(PQ0=)}' 0 3D0D`]
+  for (const l of odd74) if (!one74.includes(l) || one74.indexOf(l) > one74.indexOf(write74[0])) bad.push(`нет затвора блока «${l.slice(0, 60)}» — запятая или пустой ключ пойдут в блок`)
+  const gates74 = one74.filter(l => l === gate74)
+  if (gates74.length !== 2) bad.push('вторая ветвь [Move E one] без своего затвора «секция пуста»')
+  const keys74 = lines('Move E keys')
+  const slow = keysIn(keys74.join('\n'), /^set-ini-val '[^']+' '\{list\(0\)\}' (\w+) '\{ini_file\(\{list\(1\)\},\1\)\}'$/gm)
+  if (slow.join() !== MOVE74.join()) bad.push(`[Move E keys]: ключи ${slow.join(' ')} — ждали ${MOVE74.length} по порядку`)
+  if (keys74.filter(l => l === 'force_failure').length !== MOVE74.length) bad.push('[Move E keys]: не каждый ключ кончается force_failure — первая удача оборвёт список')
+  if (!keys74.includes(SAVE74)) bad.push('[Move E keys]: нет копии файла перед записью')
+  if (keys74[0] !== 'clear hex_sum_cache') bad.push('[Move E keys]: найденный пустой ключ остаётся в кэше смещений, следующий затвор смотрит мимо')
+  if (subs.get('Move E one')?.includes('{ini_file(Firmware,emc_mv)}')) bad.push('[Move E one] читает аргументы не из emc_seen')
+  for (const n of need) for (const l of lines(n)) {
+    if (n !== 'Move E one' && n !== 'Move E keys' && l.startsWith(`set-ini-val '${EMC74}'`)) bad.push(`[${n}] пишет в emc_timings.ini сама: ${l.slice(0, 70)}`)
+    if (/\b(remove-ini-section|remove-ini-key)\b/.test(l) && l.includes(EMC74)) bad.push(`[${n}] удаляет из emc_timings.ini: ${l.slice(0, 70)}`)
+  }
+
+  // ---- what entering must do, written here independently of the generator
+  const { run68, rows68, clone, same, O25, O26 } = model68
+  const vals = (sec, ks) => Object.fromEntries(ks.map((k, i) => [k, `${sec}${i}`]))
+  const S24 = TIM74.flatMap(t => [`s${t}`, `as${t}`])
+  const E_ = vals('E', MOVE74), S_ = vals('S', S24)
+  const hasE = d => MOVE74.some(k => k in (d ?? {}))
+  const FILES74 = {
+    'новый тип': { '2707CL12': S_, '1600CL12': E_ },
+    'старый тип': { '2707CL12': { ...vals('X', MOVE74), ...S_ }, '1600CL12': E_ },
+    'старый без 1600': { '2707CL12': { ...vals('X', MOVE74), ...S_ } },
+    'смешанный': { '2707CL12': { eRP: '7', ...S_ }, '1600CL12': E_ },
+    'частичный источник': { '2707CL12': S_, '1600CL12': { eRC: '9' } },
+    'нет 1600': { '2707CL12': S_ },
+    'напряжения': { '2707CL12': { eVDQ: '650', ...S_ }, '1600CL12': { eVD2: '1100', ...E_ } },
+    'частоты и CL': { '2707CL12': S_, '2400CL12': S_, '2133CL10': S_, '3200CL14': S_, '1600CL12': E_, '1600CL10': { eRP: '5' }, '1331CL12': E_ },
+    'пустой': {},
+  }
+  // What a block cannot carry: run through the move only, a comma breaks the page by itself.
+  const ODD74 = {
+    'пустой ключ в приёмнике': { '2707CL12': { ...S_, aeRP: '' }, '1600CL12': E_ },
+    'пустой ключ в источнике': { '2707CL12': S_, '1600CL12': { ...E_, aeRP: '' } },
+    'запятая в источнике': { '2707CL12': S_, '1600CL12': { ...E_, eRCD: '5,02' } },
+  }
+  const predict = (file, gen, sMeh, tgt, pinned) => {
+    const f = clone(file)
+    if (gen !== '2.5' || sMeh !== '02') return f
+    const base = tgt === '01' ? '1600' : '1331'
+    const fill = name => {
+      if (Number(name.split('CL')[0]) < 1612 || MOVE74.some(k => f[name]?.[k])) return
+      const src = f[`${base}CL${name.split('CL')[1]}`] ?? {}
+      const take = Object.fromEntries(MOVE74.filter(k => src[k]).map(k => [k, src[k]]))
+      if (Object.keys(take).length) f[name] = { ...(f[name] ?? {}), ...take }
+    }
+    if (pinned) fill(pinned)
+    Object.keys(f).slice(0, SLOTS74).forEach(fill)
+    return f
+  }
+  const fwd = readFileSync(join(DIST, 'package.ini'), 'utf8').split(/\n(?=\[)/).find(s => s.startsWith('[*Current Settings]')) ?? ''
+  const le3 = n => [n & 255, (n >> 8) & 255, (n >> 16) & 255].map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase()
+  const console74 = (rev, gen, bal, khz, sMeh, tgt, file) => ({
+    kip: { 12352: le3(bal), 12492: sMeh, 12524: tgt, [OFF74[rev]]: le3(khz), [OFF74[rev === 'mariko' ? 'erista' : 'mariko']]: le3(1866000) },
+    hex: null, ini: null, list: [], rev, hcache: {}, scans: 0, reads: 0,
+    bins: gen === 'none' ? {} : { '/switch/.overlays/4IFIR.ovl': (gen === '2.5' ? O25 : O26).buf },
+    files: { ...(file ? { [EMC74]: clone(file) } : {}), './config.ini': {} },
+  })
+  let runs = 0
+  for (const [name, file] of [...Object.entries(FILES74), ...Object.entries(ODD74), ['нет файла', null]])
+    for (const rev of ['mariko', 'erista']) for (const gen of ['2.5', '2.6', 'none'])
+      for (const bal of [2, 1, 0]) for (const khz of [2707000, 2265000, 0]) for (const sMeh of ['02', '01', '00']) for (const tgt of ['01', '00']) {
+        runs++
+        const st = console74(rev, gen, bal, khz, sMeh, tgt, file)
+        run68(fwd, st)
+        const ctx = `${name}, ${gen}, ${rev}, eBAL ${bal}, частота ${khz}, sMeh 8 ${sMeh}, цель ${tgt}`
+        const pinned = bal && khz ? `${Math.trunc(khz / 1000)}CL${bal * 2 + 8}` : null
+        const want = file ? predict(file, gen, sMeh, tgt, pinned) : undefined
+        if (!same(st.files[EMC74], want)) { bad.push(`${ctx}: файл стал ${JSON.stringify(Object.fromEntries(Object.entries(st.files[EMC74] ?? {}).map(([k, v]) => [k, Object.keys(v).length])))}, а ждали ${JSON.stringify(Object.fromEntries(Object.entries(want ?? {}).map(([k, v]) => [k, Object.keys(v).length])))}`); continue }
+        if (String(st.files['./config.ini']?.Firmware?.emc_seen ?? '').includes(',')) bad.push(`${ctx}: в emc_seen остались аргументы подсписка — проход пойдёт снова`)
+        if ((st.files[EMC74 + '.bak'] !== undefined) !== (!!file && !same(file, want))) bad.push(`${ctx}: копия файла ${st.files[EMC74 + '.bak'] ? 'без записи' : 'не снята перед записью'}`)
+        const before = JSON.stringify(st.files)
+        const scans = st.scans
+        run68(fwd, st)
+        if (JSON.stringify(st.files) !== before) bad.push(`${ctx}: второй вход что-то записал`)
+        if (st.scans !== scans) bad.push(`${ctx}: второй вход искал по оверлею`)
+      }
+  // Opening the wizard moves on its own, and Current after it writes nothing; quick launch only has Current.
+  {
+    const boot = subs.get('boot') ?? ''
+    for (const [name, file] of Object.entries(FILES74)) for (const rev of ['mariko', 'erista']) for (const gen of ['2.5', '2.6']) for (const sMeh of ['02', '01']) {
+      runs++
+      const st = console74(rev, gen, 2, 2707000, sMeh, '01', file)
+      run68(boot, st)
+      const ctx = `вход в визард, ${name}, ${gen}, ${rev}, sMeh 8 ${sMeh}`
+      const want = predict(file, gen, sMeh, '01', '2707CL12')
+      if (!same(st.files[EMC74], want)) { bad.push(`${ctx}: файл не тот, что после Current`); continue }
+      const after = JSON.stringify({ emc: st.files[EMC74], fw: st.files['./config.ini']?.Firmware })
+      run68(fwd, st)
+      if (JSON.stringify({ emc: st.files[EMC74], fw: st.files['./config.ini']?.Firmware }) !== after) bad.push(`${ctx}: Current после входа что-то записал`)
+    }
+  }
+  // A new overlay at the opening: the flag turns first, whichever way.
+  {
+    const boot = subs.get('boot') ?? ''
+    const file = FILES74['новый тип']
+    const st = console74('mariko', '2.5', 2, 2707000, '01', '01', file)
+    run68(boot, st)
+    st.kip[12492] = '02'; st.bins = console74('mariko', '2.6', 2, 2707000, '02', '01', file).bins
+    run68(boot, st)
+    if (st.files['./config.ini']?.Firmware?.gen !== '2.6' || !same(st.files[EMC74], file)) bad.push('2.5 → 2.6 на том же входе: перенос спросил старый флаг')
+    const up = console74('mariko', '2.6', 2, 2707000, '02', '01', file)
+    run68(boot, up)
+    up.bins = console74('mariko', '2.5', 2, 2707000, '02', '01', file).bins
+    run68(boot, up)
+    if (up.files['./config.ini']?.Firmware?.gen !== '2.5' || !hasE(up.files[EMC74]['2707CL12'])) bad.push('2.6 → 2.5 на том же входе: перенос не прошёл')
+  }
+  // A pass cut short: the copy keeps the good file, now and on every later pass.
+  {
+    const st = console74('mariko', '2.5', 2, 2707000, '02', '01', { '2707CL12': S_, '1600CL12': E_ })
+    st.files['./config.ini'] = { Firmware: { gen: '2.5', emc_seen: '2707CL12,1600CL12' } }
+    st.files[BAK74] = { good: { a: '1' } }
+    run68(fwd, st)
+    if (st.files[BAK74]?.good?.a !== '1') bad.push('оборванный проход: копия затёрта файлом, который мог порваться')
+    if (st.files['./config.ini'].Firmware.emc_keep !== '1') bad.push('оборванный проход: emc_keep не поставлен')
+    st.files[EMC74]['2800CL12'] = clone(S_)
+    run68(fwd, st)
+    if (st.files[BAK74]?.good?.a !== '1') bad.push('оборванный проход: следующий проход затёр копию')
+  }
+  // Each part of the stamp at work: a save, a new clock, a new base run the pass again.
+  {
+    const noE = { '2707CL12': S_ }
+    const st = console74('mariko', '2.5', 2, 2707000, '02', '01', noE)
+    run68(fwd, st)
+    st.files[EMC74]['1600CL12'] = E_
+    run68(fwd, st)
+    if (!hasE(st.files[EMC74]['2707CL12'])) bad.push('файл изменился, а прохода не было — CRC не в emc_seen')
+    const st2 = console74('mariko', '2.5', 2, 2707000, '02', '01', { '1600CL12': E_ })
+    run68(fwd, st2)
+    st2.kip[32] = le3(2400000)
+    run68(fwd, st2)
+    if (!hasE(st2.files[EMC74]['2400CL12'])) bad.push('частота сменилась, а прохода не было — S-секции нет в emc_seen')
+    const st3 = console74('mariko', '2.5', 2, 2707000, '02', '01', { '2707CL12': S_, '1331CL12': E_ })
+    run68(fwd, st3)
+    st3.kip[12524] = '00'
+    run68(fwd, st3)
+    if (!hasE(st3.files[EMC74]['2707CL12'])) bad.push('база сменилась, а прохода не было — базы нет в emc_seen')
+  }
+  // A later entry with another clock fills that clock's section; an edited section stays as it is.
+  {
+    const st = console74('mariko', '2.5', 2, 2707000, '02', '01', FILES74['новый тип'])
+    run68(fwd, st)
+    st.files[EMC74]['2707CL12'].eRP = '4242'
+    st.kip[32] = le3(2400000)
+    run68(fwd, st)
+    if (st.files[EMC74]['2707CL12'].eRP !== '4242') bad.push('правка на Гудини затёрта следующим входом')
+    if (!hasE(st.files[EMC74]['2400CL12'])) bad.push('новая связка не получила тайминги при следующем входе')
+  }
+  // More sections than slots: the tail stays, the pinned one is served, nothing is torn.
+  {
+    const many = { '1600CL12': E_ }
+    for (let i = 0; i < SLOTS74 + 6; i++) many[`${2000 + i}CL12`] = S_
+    const st = console74('mariko', '2.5', 2, (2000 + SLOTS74 + 3) * 1000, '02', '01', many)
+    run68(fwd, st)
+    const filled = Object.keys(many).filter(k => k !== '1600CL12' && hasE(st.files[EMC74][k])).length
+    if (filled !== SLOTS74) bad.push(`секций больше слотов: заполнено ${filled}, ждали ${SLOTS74} (${SLOTS74 - 1} слотов и текущая связка)`)
+    if (!hasE(st.files[EMC74][`${2000 + SLOTS74 + 3}CL12`])) bad.push('секция текущей связки за пределами слотов не заполнена')
+  }
+  // Other forwarders never move, sMeh 8 = 2 included.
+  for (const f of iniFiles) {
+    const rel = relative(DIST, f).split(sep).join('/')
+    for (const sec of readFileSync(f, 'utf8').split(/\n(?=\[)/)) {
+      if (!/^;mode=forwarder$/m.test(sec) || sec.startsWith('[*Current Settings]')) continue
+      const st = console74('mariko', '2.5', 2, 2707000, '02', '01', FILES74['новый тип'])
+      for (const c of [...sec.matchAll(/^set-ini-val '([^']+)' Firmware gen /gm)]) st.files[c[1]] = {}
+      run68(sec, st)
+      if (!same(st.files[EMC74], FILES74['новый тип'])) bad.push(`${rel} ${sec.split('\n')[0]}: вход изменил emc_timings.ini — переносит только Current`)
+    }
+  }
+
+  // ---- page 3: the header and the twelve cells of the E block, Current and backups
+  const table = (txt, head, must) => txt.slice(txt.indexOf('[@Magician]')).split(/\n(?=\[)/).find(s => s.startsWith(head) && must(s))
+  const MARKS = [' · old format', ' · new format', ' · new format · not used', ' · not saved']
+  for (const rel of ['current.ini', 'service/restore-mariko.ini', 'service/restore-erista.ini']) {
+    const t = existsSync(join(DIST, rel)) ? readFileSync(join(DIST, rel), 'utf8') : ''
+    for (const m of MARKS.slice(0, rel === 'current.ini' ? 4 : 3)) if (!t.includes(m)) bad.push(`${rel}: нет пометки «${m}»`)
+  }
+  const cur = readFileSync(join(DIST, 'current.ini'), 'utf8')
+  for (const rev of ['mariko', 'erista']) {
+    const sys = `;system=${rev}`
+    const isE = s => s.includes(sys) && s.includes('CUST 12492 02')
+    const hd = table(cur, '[Header]', isE), inf = table(cur, '[Info]', isE)
+    if (!hd || !inf) { bad.push(`current.ini: нет блока E для ${rev}`); continue }
+    const copyTxt = readFileSync(join(DIST, `service/restore-${rev}.ini`), 'utf8')
+    const hdC = table(copyTxt, '[Header]', s => /'\{list\(5\)\} MHz'/.test(s)), infC = table(copyTxt, '[Info]', s => s.includes("'RP' = ") && s.includes('{if_null({list(8)}'))
+    if (!hdC || !infC) { bad.push(`restore-${rev}.ini: нет блока E`); continue }
+    for (const [name, file] of Object.entries(FILES74)) for (const gen of ['2.5', '2.6', 'none']) for (const khz of [2707000, 2265000, 0]) for (const tgt of ['01', '00']) {
+      runs++
+      const bal = 2, cl = 12, base = tgt === '01' ? '1600' : '1331'
+      const eSec = `${base}CL${cl}`, sSec = `${Math.trunc(khz / 1000)}CL${cl}`
+      const st = console74(rev, gen, bal, khz, '02', tgt, file)
+      st.files['./config.ini'] = { Firmware: { gen } }
+      const first = gen === '2.5' ? sSec : eSec, second = gen === '2.5' ? eSec : null
+      const anyE = s => TIM74.some(t => `e${t}` in (file[s] ?? {}))
+      const mark = anyE(first) ? (gen === '2.5' ? ' · old format' : ' · new format') : second && anyE(second) ? ' · new format · not used' : ' · not saved'
+      const shown = file[anyE(first) ? first : second] ?? {}
+      const label = `${base} MHz`
+      const ctx = `Current ${rev}, ${name}, ${gen}, частота ${khz}, цель ${tgt}`
+      if (Object.keys(file).length) {
+        const h = rows68(hd, st)
+        if (h[label] !== `eBAL ${bal}${mark}`) bad.push(`${ctx}: шапка «${h[label]}», а ждали «eBAL ${bal}${mark}»`)
+        const r = rows68(inf, st)
+        for (const t of TIM74) if (r[t] !== (shown[`e${t}`] ?? 'Auto')) { bad.push(`${ctx}: ${t} = ${r[t]}, а ждали ${shown[`e${t}`] ?? 'Auto'}`); break }
+      }
+      // The backup page: this console's generation and file, the backup's clock, eBAL and target.
+      if (!Object.keys(file).length) continue
+      const path = '/backups/x.ini'
+      const stC = { ...console74(rev, gen, bal, 0, '00', '00', file), bins: {}, files: {
+        [EMC74]: clone(file), './config.ini': { Firmware: { gen }, Restore: { Path: path } },
+        [path]: { Meta: { revision: rev }, Fields: { [OFF74[rev]]: le3(khz), 12352: le3(bal), 12492: '02', 12524: tgt } } } }
+      const markC = anyE(first) ? mark : (second && anyE(second)) ? (khz ? ' · new format' : mark) : null
+      const hC = rows68(hdC, stC), rC = rows68(infC, stC)
+      const ctxC = `копия ${rev}, ${name}, ${gen}, частота ${khz}, цель ${tgt}`
+      if (markC === null) { if (hC[label] !== 'null' && !String(hC[label]).includes('null')) bad.push(`${ctxC}: шапка «${hC[label]}» при пустом профиле`); continue }
+      if (hC[label] !== `eBAL ${bal}${markC}`) bad.push(`${ctxC}: шапка «${hC[label]}», а ждали «eBAL ${bal}${markC}»`)
+      for (const t of TIM74) if (rC[t] !== (shown[`e${t}`] ?? 'Auto')) { bad.push(`${ctxC}: ${t} = ${rC[t]}, а ждали ${shown[`e${t}`] ?? 'Auto'}`); break }
+    }
+  }
+  if (bad.length) problems.push({ sev: 'CRITICAL', what: `перенос таймингов 1600 на 4IFIR 2.5 или пометки страницы 3 (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else ok.push(`1600 timings reach the S sections only on 4IFIR 2.5 with sMeh 8 = 2, ${MOVE74.length} keys, sections of the file through ${SLOTS74} slots plus the pinned one, E sections and voltages untouched, a second entry writes nothing, page 3 and the backup pages name what this generation reads (${runs} runs of the model)`)
+}
+
+// ---------------- 75. a block of keys goes only where the keys cannot be there yet
+//
+// One set-ini-val with line breaks in its value writes many keys in one rewrite (generate.mjs
+// iniBlock). The engine replaces only the key it is called with: any other key of the block that the
+// section already holds stays, and the file gets it twice. So a block writes into a file made by
+// this very press, or one the same branch has just deleted. A deleted file holds footers and nothing
+// else: every item of the page behind it gets one from this forwarder, nothing else names the file,
+// and the page holds no forwarder, which would seed its own key on every draw. Every part is
+// `key=value` or a section line, no key twice. Checks that read keys see separate lines.
+{
+  const bad = []
+  let blocks = 0
+  const rebuilt = new Set()
+  const FRESH75 = ["'{ini_file(Backup,Path)}'", "'{ini_file(Import,Path)}'"]
+  for (const f of iniFiles) {
+    const rel = relative(DIST, f).split(sep).join('/')
+    for (const sec of readFileSyncFs(f, 'utf8').split(/\n(?=\[)/)) {
+      const ls = sec.split('\n')
+      const seen = new Map()
+      ls.forEach((l, i) => {
+        if (!l.startsWith('set-ini-val') || !l.includes(INI_NL)) return
+        blocks++
+        const at = `${rel} ${ls[0]}:${i + 1}`
+        const m = l.match(/^set-ini-val ('[^']*'|\S+) ('[^']*'|\S+) (\S+) '(.*)'$/)
+        if (!m) return bad.push(`${at}: блок не разобран — «${l.slice(0, 80)}»`)
+        // back to the start of the branch: the delete must be in it, before any write to the file
+        let start = i
+        while (start > 0 && ls[start] !== 'try:') start--
+        const del = ls.indexOf(`delete ${m[1]}`, start)
+        if (del >= 0 && del < i) {
+          if (ls.slice(start, del).some(x => x.startsWith(`set-ini-val ${m[1]} `))) bad.push(`${at}: запись в ${m[1]} раньше delete — она пропадёт`)
+          rebuilt.add(`${rel}|${m[1].slice(1, -1)}`)
+        } else if (!FRESH75.includes(m[1])) bad.push(`${at}: блок ключей в ${m[1]} — там ключ мог уже стоять, и он окажется в файле дважды`)
+        else {
+          // The name is new only if the line that makes it carries the second.
+          const owner = m[1].match(/\{ini_file\((\w+),Path\)\}/)[1]
+          const made = ls.filter(x => x.startsWith(`set-ini-val './config.ini' ${owner} Path '`) && !x.endsWith(`Path ''`))
+          if (!made.length || made.some(x => !/\{timestamp\([^)]*%S[^)]*\)\}/.test(x))) bad.push(`${at}: путь ${owner} Path без секунд в {timestamp} — имя повторится, и ключи лягут в файл дважды`)
+        }
+        let section = m[2].replace(/^'|'$/g, '')
+        const add = k => {
+          const key = `${m[1]}|${section}|${k}|${start}`
+          if (seen.has(key)) bad.push(`${at}: ключ ${k} в блоке дважды`)
+          seen.set(key, true)
+        }
+        add(m[3])
+        m[4].split(INI_NL).slice(1).forEach(part => {
+          if (!part) return
+          if (part.startsWith('[') && part.endsWith(']')) { section = part.slice(1, -1); return }
+          const k = part.match(/^([\w ]+)=/)
+          if (!k) return bad.push(`${at}: часть блока «${part.slice(0, 50)}» не «ключ=значение» — в файл ляжет мусор`)
+          add(k[1])
+        })
+      })
+    }
+  }
+  // What a rebuilt file may hold: the footers of its own page, written by this forwarder alone.
+  for (const r of rebuilt) {
+    const [rel, path] = r.split('|')
+    const page = posix.join(posix.dirname(rel), posix.dirname(path), 'package.ini')
+    const seeded = new Set([...readFileSync(join(DIST, rel), 'utf8').matchAll(new RegExp(`^set-ini-val '${path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}' '([^']+)' footer `, 'gm'))].map(x => x[1]))
+    for (const sec of readFileSyncFs(join(DIST, page), 'utf8').split(/\n(?=\[)/)) {
+      const name = sec.startsWith('[') ? sec.split('\n')[0].slice(1, -1) : ''
+      const mode = sec.match(/^;mode=(\S+)/m)?.[1] ?? 'default'
+      if (!name || name.startsWith('@') || mode === 'table') continue
+      if (mode === 'forwarder') bad.push(`${page} [${name}]: форвардер на странице с пересобранным ${path} — он дописывал бы свой ключ на каждом входе`)
+      else if (mode !== 'option' || !seeded.has(name)) bad.push(`${page} [${name}]: пункт (${mode}) не получает подпись от форвардера, а ${path} удаляется на каждом входе`)
+    }
+    // A footer gathered in `list`: a comma in a label would shift every footer after it.
+    const fw = readFileSyncFs(join(DIST, rel), 'utf8')
+    for (const [, src] of fw.matchAll(/^json_file '(\.[^']*\.map\.json)'$/gm)) {
+      const map = join(DIST, posix.dirname(rel), src)
+      if (!existsSync(map) || !fw.includes(`delete '${path}'`) || !fw.includes(`list '[{list(0)},{json_file(`)) continue
+      for (const o of [JSON.parse(readFileSync(map, 'utf8'))].flat()) for (const [k, v] of Object.entries(o)) if (String(v).includes(',')) bad.push(`${src}: в подписи «${k}» запятая — list сдвинет все подписи после неё`)
+    }
+    const name = posix.normalize(posix.join(posix.dirname(rel), path))
+    for (const f of iniFiles) {
+      const other = relative(DIST, f).split(sep).join('/')
+      const dir = posix.dirname(other)
+      for (const l of readFileSyncFs(f, 'utf8').split('\n')) {
+        const named = l.includes(`4IFIR Wizard/${name}`) || [...l.matchAll(/(?:^|[\s'"])(\.\/[^\s'"]*config\.ini)/g)].some(x => posix.normalize(posix.join(dir, x[1])) === name)
+        if (named && !(other === rel && ((l.startsWith(`set-ini-val '${path}' `) && l.includes(' footer ')) || l === `delete '${path}'`))) bad.push(`${other}: «${l.slice(0, 70)}» — ${name} пересобирается на входе, состояния в нём быть не должно`)
+      }
+    }
+  }
+  // The passport of a copy, key by key: readers and Apply lean on each of these.
+  const passport = (rel, head, file, want) => {
+    const sec = readFileSync(join(DIST, rel), 'utf8').split(/\n(?=\[)/).find(s => s.startsWith(head)) ?? ''
+    const got = sec.split('\n').map(l => l.match(new RegExp(`^set-ini-val '\\{ini_file\\(${file},Path\\)\\}' Meta (\\S+) '(.*)'$`))).filter(Boolean).map(x => [x[1], x[2]])
+    const names = want.map(w => w[0])
+    if (got.map(x => x[0]).join() !== names.join()) bad.push(`${rel} «${head}»: паспорт ${got.map(x => x[0]).join(' ')} — ждали ${names.join(' ')}`)
+    for (const [k, v] of got) { const w = want.find(x => x[0] === k); if (w && !w[1].test(v)) bad.push(`${rel} «${head}»: Meta ${k} = «${v}»`) }
+  }
+  const lit = s => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`)
+  const when = ['created', lit('{timestamp("%Y-%m-%d %H:%M")}')], ram = ['ram', lit('{ram_vendor} {ram_model}')], count = ['fields', /^\d+$/]
+  for (const rev of ['mariko', 'erista']) {
+    const page = `service/restore-${rev}.ini`
+    const ver = readFileSyncFs(join(DIST, page), 'utf8').match(/^matching_ini_val \{ini_file\(Restore,Path\)\} Meta kipver (\d+)$/m)?.[1]
+    if (!ver) bad.push(`${page}: применение не сверяет Meta kipver`)
+    passport(page, `[Create backup?${rev}]`, 'Backup', [['revision', lit(rev)], ['kipver', lit(ver ?? '')], when, ram, count])
+    const pkg = readFileSyncFs(join(DIST, 'service/package.ini'), 'utf8')
+    const curve = pkg.split(/\n(?=\[)/).find(s => s.startsWith(`[*Import old 4IFIR backup?${rev}]`))?.includes('curve=') ?? false
+    passport('service/package.ini', `[*Import old 4IFIR backup?${rev}]`, 'Import', [['revision', lit(rev)], ['kipver', lit('imported')], when, ram, ['source', lit('{file_name}')],
+      ...(curve ? [['curve', /^\{if_==\(\{json_file\(\d+,GPU Eco Mode\)\},01,from-profile,assumed-stock\)\}$/]] : []), count])
+  }
+  if (!blocks) problems.push({ sev: 'CRITICAL', what: 'ни одного блока ключей в пакете — проверка 75 смотрит в пустоту' })
+  else if (bad.length) problems.push({ sev: 'CRITICAL', what: `блок ключей (${bad.length}):\n     ${bad.join('\n     ')}` })
+  else ok.push(`blocks of keys go only into files made by the same press (${blocks} blocks, no key twice), ${rebuilt.size} footer files rebuilt, each holding its page's footers alone`)
+}
+
 // ---------------- 61. guard numbers are unique, gapless-or-retired, and every doc reference lands
 //
 // A block number is the only address DECISIONS.md, NOTES.md and ANCHORS.md use to name a
@@ -7533,7 +8562,9 @@ const RETIRED61 = new Map([
   // 22.09.2026: 72 -> 73 for check 71 (the 4IFIR generation is read once, in [boot]).
   // 22.09.2026: 73 -> 74 for check 72 (write width equals the CUST cell, sign kept).
   // 11.10.2026: 74 -> 75 for check 73 (archive root text files deleted on entry).
-  const EXPECTED = 75
+  // 30.10.2026: 75 -> 76 for check 74 (1600 timings move to the S sections on 4IFIR 2.5).
+  // 31.10.2026: 76 -> 77 for check 75 (a block of keys goes only where they cannot be yet).
+  const EXPECTED = 77
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,

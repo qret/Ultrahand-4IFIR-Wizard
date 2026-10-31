@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/11-update.md sha=225cb88fdfa6 self=1d4c10482f98 -->
+<!-- i18n: source=Guides/ru/11-update.md sha=11a34feda959 self=f9a758edc6a0 -->
 # Updating
 
 <!-- nav:begin -->
@@ -17,7 +17,7 @@ The configurator can update itself without taking the card out.
    `Reboot the console` is there for that.
 
 The answer is shown to the right of the entry: `available`, `up to date`, or
-`check failed` if the check could not be made. The next time you open the wizard that
+✗ if the check could not be made. The next time you open the wizard that
 label is gone — just check again.
 
 Updating **the configurator** leaves your overclock settings alone: they live in the firmware
@@ -96,10 +96,12 @@ Do not swap the first two: the 4IFIR guide warns that the other way round leaves
 console unable to start. 4IFIR Wizard goes last so that it sees the already updated
 firmware.
 
+On 4IFIR 2.7 the [built-in update](#from-4ifir-27-on) takes care of the first two steps,
+which leaves `Check for updates` in the configurator.
+
 ## If you are updating 4IFIR itself
 
-That is not done with the configurator but with a separate program — **All-in-One Switch
-Updater**, which ships with the build and runs from the Homebrew Menu.
+The current version is **4IFIR 2.7**, and it supports **HOS 23.0.1**.
 
 > [!IMPORTANT]
 > **Make a backup before updating 4IFIR** —
@@ -108,6 +110,26 @@ Updater**, which ships with the build and runs from the Homebrew Menu.
 >
 > The backup itself survives: it sits elsewhere and the update knows nothing about it.
 > Restore it from the configurator afterwards.
+>
+> Do not carry the `loader.kip` file itself over from an earlier version: 4IFIR 2.7 does
+> not support kips from older versions. Settings come back through a backup only.
+
+### From 4IFIR 2.7 on
+
+The build and the system firmware update from the console itself, through
+`System Settings → System`. Once on the network, the console finds a new 4IFIR version and a
+compatible HOS version by itself and offers to install them; after you confirm, it reboots
+into the updated system. No separate programs are needed for this — so says the 4IFIR guide;
+it has not been tested on a console.
+
+With no network, unpack a fresh `4IFIR.zip` onto the card, replacing the files, and install
+the system firmware with `Daybreak`. If you are moving from a build with Uberhand, first
+delete what is listed [in step 1 of the installation](01-install.md#step-1-delete-the-old-package).
+
+### On builds older than 2.7
+
+The build is updated not with the configurator but with a separate program — **All-in-One
+Switch Updater**, which ships with the build and runs from the Homebrew Menu.
 
 Inside the program it takes two passes, and the first one is the one people skip:
 
@@ -127,6 +149,9 @@ firmware download refuses to work.
 | overclock settings (the configurator) | **reset**, restore them from a backup |
 | your backups | kept |
 | `EMC Magician` timings | kept, they are stored outside the firmware |
+
+This table applies to an update through that program. It has not been checked for the
+built-in 2.7 update, so make the backup there as well.
 
 ## Before updating
 

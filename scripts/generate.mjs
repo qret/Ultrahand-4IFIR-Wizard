@@ -73,6 +73,7 @@ const fwIs = (v, cfg = './config.ini') => `matching_ini_val ${cfg} Firmware gen 
 const EMC_S_FREQ = { mariko: 32, erista: 24 }
 const EMC_S_SECTION = rev => `{math(${EMC_KIP_DEC(EMC_S_FREQ[rev])}/1000,true)}CL${EMC_CL}`
 const EMC_KEYS = ['eVDQ', 'eVD2']
+const EMC_TIMINGS = ['RP', 'RCD', 'RC', 'RAS', 'R2P', 'W2P', 'W2R', 'R2W', 'RFC', 'FAW', 'RRD', 'RCDW']
 /**
  * `0` IS NOT "unset", IT IS eBAMATIC — one word for the list, the footer and both pages.
  * The system module reads a zero key as "work it out yourself", which is the same automatic
@@ -201,6 +202,15 @@ const EMC_RESET_WRITES = (kip, rev) => [
  * показал бы «ГЛИФ?rev».
  */
 const HOLD_A = ''
+
+/**
+ * Result marks of an action footer (operator, 30.10.2026): the engine's own symbols, fork
+ * global_vars.cpp:175-176. The escapes stop here, the .ini gets plain UTF-8 like HOLD_A.
+ * A footer that is exactly MARK_FAIL is painted red by the engine (tesla.hpp:9896).
+ */
+const MARK_OK = '\uE14B'
+const MARK_FAIL = '\uE14C'
+const MARK_IMPORT = `${MARK_OK} (import)`
 
 /**
  * Rebuild the current page after an action, cursor kept on the item that ran it.
@@ -810,6 +820,64 @@ function wrap(s, width = 40) {
   if (cur) rows.push(cur)
   return rows
 }
+/**
+ * One `set-ini-val` for many keys of a section: a line break in a value is a line of the file, on
+ * every engine (setIniFile writes the value as it is). The first key takes the usual slot, the
+ * others follow it, in order, so a new file comes out the same byte for byte as with one line per
+ * key. ONLY for keys the section does not hold yet: a key it holds would stay and come twice.
+ * Cut well under the engine's 1023-byte line. A value may name other placeholders as before.
+ */
+const INI_NL = '{base64_decode(Cg==)}'
+const INI_BLOCK_MAX = 880
+function iniBlock (file, section, pairs) {
+  const out = []
+  let line = ''
+  for (const [key, value] of pairs) {
+    const more = `${INI_NL}${key}=${value}`
+    if (line && line.length + more.length + 1 <= INI_BLOCK_MAX) { line += more; continue }
+    if (line) out.push(`${line}'`)
+    line = `set-ini-val '${file}' ${section} ${key} '${value}`
+  }
+  if (line) out.push(`${line}'`)
+  return out
+}
+
+/**
+ * Footers of a page that keeps nothing else in its config.ini: the forwarder makes the file anew
+ * instead of rewriting it once per item. A section line inside a value starts the next section, so
+ * the file comes out as one `set-ini-val` per item would leave it in a new file. Nothing here holds
+ * a choice: the kip does. A footer read through `json_file` needs its binding when it resolves, so
+ * those are gathered in `list` first (the dictionaries hold no comma, check 75).
+ */
+const REBUILT_FOOTERS = new Set(['gpu_curve_mariko', 'gpu_curve_erista', 'cpu', 'core_timings', 'pmeh', 'smeh'])
+function rebuildFooters (lines) {
+  const hit = l => l.match(/^set-ini-val '([^']+)' (?:'([^']*)'|(\S+)) footer (?:'(.*)'|(.*))$/)
+  const files = new Set(lines.map(hit).filter(Boolean).map(m => m[1]))
+  if (files.size !== 1) throw new Error(`rebuilt footers: ${files.size} files in one forwarder`)
+  const [file] = files
+  const out = []
+  const items = []
+  const bound = lines.some(l => !hit(l))
+  for (const l of lines) {
+    const m = hit(l)
+    if (!m) { out.push(l); continue }
+    const value = m[4] ?? m[5]
+    const at = items.length
+    if (bound) out.push(`list '[${[...items.map((x, i) => `{list(${i})}`), value].join(',')}]'`)
+    items.push([m[2] ?? m[3], bound ? `{list(${at})}` : value])
+  }
+  out.push(`delete '${file}'`)
+  let line = ''
+  for (const [sec, value] of items) {
+    const more = `${INI_NL}${INI_NL}[${sec}]${INI_NL}footer=${value}`
+    if (line && line.length + more.length + 1 <= INI_BLOCK_MAX) { line += more; continue }
+    if (line) out.push(`${line}'`)
+    line = `set-ini-val '${file}' '${sec}' footer '${value}`
+  }
+  out.push(`${line}'`)
+  return out
+}
+
 /** Section names already taken — [boot] addresses footers by name, so duplicates overwrite. */
 const usedTitles = new Set()
 
@@ -1074,7 +1142,7 @@ let lastBootMap = null
  */
 const allBoot = []
 /**
- * One-shot footers ("saved …", "Done", "restored", "up to date") and the backup choice must not
+ * One-shot footers (result marks, "up to date", "available") and the backup choice must not
  * outlive a reboot or a new visit: [boot] clears them on every entry (operator, 13.09.2026).
  * Keys are `dir|section`; `dir` is the package-relative folder whose config.ini the item writes.
  */
@@ -1084,7 +1152,7 @@ const oneShotChoice = new Map()
 // Keys the delete button clears; boot clears the same set, so "nothing chosen" looks alike.
 const RESTORE_CHOICE_KEYS = ['Path', 'Name', 'Old']
 // Path of the backup being created: Create backup forgets it after each press, and [boot]
-// clears it on entry too, so a stale one never points the "not saved" delete at an old backup.
+// clears it on entry too, so a stale one never points the failure delete at an old backup.
 const oneShotBackupPath = new Set()
 const forgetBackupPath = cfg => `set-ini-val ${cfg} Backup Path ''`
 // A literal footer; one read from the kip is re-seeded by [boot] and is not one-shot.
@@ -1685,26 +1753,26 @@ function emitBackup(item, lines) {
     // name first, values second — otherwise a second boundary splits the file in two
     mk.push(`set-ini-val './config.ini' Backup Path '${dir}/{ini_file(Backup,Freq)}-{ini_file(Backup,Bals)}-{timestamp(%d%m%y-%H%M%S)}.ini'`)
     // the backup's passport: where it came from and whether it fits this console
-    mk.push(`set-ini-val '${path}' Meta revision '${rev}'`)
-    // Версия раскладки блока CUST. Без неё копия, снятая на одной прошивке, молча
-    // применилась бы на другой: смещения — это позиции в структуре, и если автор её
-    // изменит, те же числа станут указывать не туда, а запись пойдёт прямо в загрузчик.
-    // Восстановление сверяет это поле и отказывается работать при несовпадении.
-    mk.push(`set-ini-val '${path}' Meta kipver '${KIPVER}'`)
-    mk.push(`set-ini-val '${path}' Meta created '{timestamp("%Y-%m-%d %H:%M")}'`)
-    mk.push(`set-ini-val '${path}' Meta ram '{ram_vendor} {ram_model}'`)
-    // Паспорт копии обязан считать ВСЁ, что в неё легло, включая попутные ячейки таблицы:
-    // иначе число в файле разойдётся с числом строк, и первый же, кто станет по нему сверять
-    // полноту копии, получит ложную тревогу.
-    mk.push(`set-ini-val '${path}' Meta fields '${backupFieldCount(rev)}'`)
-    for (const f of mine) {
-      mk.push(`set-ini-val '${path}' Fields ${f.offset} '{hex_file(CUST,${f.offset},${f.length ?? 3})}'`)
-    }
+    mk.push(...iniBlock(path, 'Meta', [
+      ['revision', rev],
+      // Версия раскладки блока CUST. Без неё копия, снятая на одной прошивке, молча
+      // применилась бы на другой: смещения — это позиции в структуре, и если автор её
+      // изменит, те же числа станут указывать не туда, а запись пойдёт прямо в загрузчик.
+      // Восстановление сверяет это поле и отказывается работать при несовпадении.
+      ['kipver', KIPVER],
+      ['created', '{timestamp("%Y-%m-%d %H:%M")}'],
+      ['ram', '{ram_vendor} {ram_model}'],
+      // Паспорт копии обязан считать ВСЁ, что в неё легло, включая попутные ячейки таблицы:
+      // иначе число в файле разойдётся с числом строк, и первый же, кто станет по нему сверять
+      // полноту копии, получит ложную тревогу.
+      ['fields', backupFieldCount(rev)],
+    ]))
     // Попутные ячейки — после полей и тем же ключом-смещением: восстановление читает файл
     // одним списком и не отличает их от прочего, а копия остаётся полной.
-    for (const f of sideSet(rev)) {
-      mk.push(`set-ini-val '${path}' Fields ${f.offset} '{hex_file(CUST,${f.offset},${f.length})}'`)
-    }
+    mk.push(...iniBlock(path, 'Fields', [
+      ...mine.map(f => [f.offset, `{hex_file(CUST,${f.offset},${f.length ?? 3})}`]),
+      ...sideSet(rev).map(f => [f.offset, `{hex_file(CUST,${f.offset},${f.length})}`]),
+    ]))
     // ПОДПИСЬ ОБ УСПЕХЕ ОСТАЁТСЯ ПОДПИСЬЮ, а не превращается в `notify`.
     //
     // `set-footer` у обычного пункта садится на сам пункт, а не на родительский:
@@ -1714,7 +1782,7 @@ function emitBackup(item, lines) {
     // No date (operator, 13.09.2026): "saved 13.09 20:03" cut the name to "Create backu".
     // The rebuild shows the footer at once instead of after leaving the page.
     //
-    // "saved" is earned by a read-back (operator, 13.09.2026: "not saved" on failure). The writes
+    // The check mark is earned by a read-back (operator, 13.09.2026; a cross on failure). The writes
     // report nothing: set-ini-val is void and a failed fopen is silent (libultra setIniFile), and
     // a missing kip only turns values into `null`. So the passport and every field are compared
     // with the kip; the first fully successful try-block ends the section, any miss falls through.
@@ -1729,7 +1797,7 @@ function emitBackup(item, lines) {
     // The path lives only for one press: a stale one left by an unwritable config.ini
     // must never point the delete below at an older, good backup.
     const forget = forgetBackupPath(`'./config.ini'`)
-    mk.push(`set-footer 'saved'`)
+    mk.push(`set-footer '${MARK_OK}'`)
     mk.push(forget)
     mk.push(rebuildOn(backupCreateHead[rev]))
     // A half-written backup is deleted (operator, 13.09.2026), else Choose backup offers it.
@@ -1743,10 +1811,10 @@ function emitBackup(item, lines) {
     mk.push(`path_exists ${path}`)
     mk.push(`delete ${path}`)
     mk.push(forget)
-    mk.push(`set-footer 'not saved'`)
+    mk.push(`set-footer '${MARK_FAIL}'`)
     mk.push(rebuildOn(backupCreateHead[rev]))
     mk.push('try:')
-    mk.push(`set-footer 'not saved'`)
+    mk.push(`set-footer '${MARK_FAIL}'`)
     mk.push(rebuildOn(backupCreateHead[rev]))
     mk.push('')
     backupCreate[rev] = mk
@@ -2024,26 +2092,28 @@ function emitImport(lines, rev, dir) {
     lines.push(`set-ini-val './config.ini' Import Path '${dir}/imp-{timestamp(%d%m%y-%H%M%S)}.ini'`)
   }
   const path = `{ini_file(Import,Path)}`
-  lines.push(`set-ini-val '${path}' Meta revision '${rev}'`)
-  lines.push(`set-ini-val '${path}' Meta kipver 'imported'`)
-  lines.push(`set-ini-val '${path}' Meta created '{timestamp("%Y-%m-%d %H:%M")}'`)
-  lines.push(`set-ini-val '${path}' Meta ram '{ram_vendor} {ram_model}'`)
-  lines.push(`set-ini-val '${path}' Meta source '{file_name}'`)
+  const meta = [
+    ['revision', rev],
+    ['kipver', 'imported'],
+    ['created', '{timestamp("%Y-%m-%d %H:%M")}'],
+    ['ram', '{ram_vendor} {ram_model}'],
+    ['source', '{file_name}'],
+  ]
   /**
    * Откуда кривая — это факт о копии, а не украшение: при режиме `01` она перенесена
    * из профиля дословно, при остальных подставлено заводское содержимое рабочей
    * таблицы. Человек, открывший копию через полгода, обязан это видеть.
    */
   if (capRule && eco) {
-    lines.push(`set-ini-val '${path}' Meta curve '{if_==({json_file(${eco.index},${eco.key})},01,from-profile,assumed-stock)}'`)
+    meta.push(['curve', `{if_==({json_file(${eco.index},${eco.key})},01,from-profile,assumed-stock)}`])
   }
   // Число полей — паспорт полноты копии. Читает его менеджер копий, поэтому запоминаем.
   // A dropped field still counts: copies imported before 21.09.2026 carry 12432, and a smaller
   // number would flag every one of them as an older backup.
   IMPORT_FIELD_COUNT[rev] = rows.length + dropped
   IMPORT_CARRIED[rev] = new Set(rows.map(r => r.off))
-  lines.push(`set-ini-val '${path}' Meta fields '${rows.length + dropped}'`)
-  for (const r of rows) lines.push(`set-ini-val '${path}' Fields ${r.off} '${r.expr}'`)
+  meta.push(['fields', rows.length + dropped])
+  lines.push(...iniBlock(path, 'Meta', meta), ...iniBlock(path, 'Fields', rows.map(r => [r.off, r.expr])))
   // ОТВЕТ ЧЕЛОВЕКУ — ЭКРАННЫМ СООБЩЕНИЕМ, А НЕ ПОДПИСЬЮ ПУНКТА.
   //
   // Подпись через `set-footer` садится НЕ туда, где человек её ждёт: движок пишет её
@@ -2378,8 +2448,10 @@ function emitPackage(node, dirPath, depth = 0) {
        * cells of loader.kip on every visit just to put the same values back. `package_source`
        * is a declaration read while the item is built, not a command, so `try:` cannot lose it.
        */
+      const prefixed = kidBoot.map(l => l.split(here ? `./${here}/` : './').join('./'))
+      const seedLines = REBUILT_FOOTERS.has(k.id) ? rebuildFooters(prefixed) : prefixed
       if (k.seed_when?.length && k.seed_write?.length) {
-        const foot = kidBoot.length ? [`hex_file '${KIP}'`, ...kidBoot.map(l => l.split(here ? `./${here}/` : './').join('./'))] : []
+        const foot = kidBoot.length ? [`hex_file '${KIP}'`, ...seedLines] : []
         links.push('try:', ...k.seed_when, ...k.seed_write, ...foot, 'try:')
       }
 
@@ -2397,10 +2469,7 @@ function emitPackage(node, dirPath, depth = 0) {
        *
        * So we strip the current directory prefix from every path of the nested section.
        */
-      if (kidBoot.length) {
-        const prefix = here ? `./${here}/` : './'
-        links.push(`hex_file '${KIP}'`, ...kidBoot.map(l => l.split(prefix).join('./')))
-      }
+      if (kidBoot.length) links.push(`hex_file '${KIP}'`, ...seedLines)
 
 
       links.push(`package_source './${kn}/package.ini'`, '')
@@ -2973,7 +3042,7 @@ if (kipRows.length) {
    */
   function emitMagicianPage(kl, copyRev = null) {
     const EMC = '/config/4IFIR/emc_timings.ini'
-    const TIMINGS = ['RP', 'RCD', 'RC', 'RAS', 'R2P', 'W2P', 'W2R', 'R2W', 'RFC', 'FAW', 'RRD', 'RCDW']
+    const TIMINGS = EMC_TIMINGS
     // Profile slots on one page of the "all saved" view, and the page size the marker hands the
     // engine. Y pages through the file; a slot past the end draws nothing, gap included.
     const SLOTS = 8
@@ -2986,6 +3055,7 @@ if (kipRows.length) {
     const MHZ = off => `{math(${num(off)}/1000,true)}`
     const L = i => `{list(${i})}`
     const ini = (sec, key) => `{ini_file(${sec},${key})}`
+    const keep = n => Array.from({ length: n }, (_, i) => L(i)).join(',')
     // First value found among the timing keys, or `null` — "does this section hold any of them".
     const anyKey = (sec, prefix) => TIMINGS.reduceRight((acc, t) => `{if_null(${ini(sec, prefix + t)},${acc})}`, 'null')
     // The value, or "value · MC" while A is on and the MC key exists.
@@ -3040,19 +3110,20 @@ if (kipRows.length) {
       // at 01 and 1331 at 00, and the profile is named after that number -- a literal 1600 read
       // a profile the firmware never writes on a console left at 00. EMC_E_SECTION is the same
       // recipe the menu items use to write eVDQ/eVD2.
-      // list: 0 = base MHz, 1 = its section, 2 = the S section (old format keeps e keys there),
-      // 3 = eBAL.
+      // WHAT IS SHOWN IS WHAT THIS 4IFIR READS (operator, 30.10.2026): 2.5 takes e keys from the
+      // S section, 2.6+ from the E section and never from S. list: 0 = base MHz, 1 = the section
+      // the firmware reads, 2 = the E section on 2.5 or null, 3 = eBAL, 4 = generation,
+      // 5 = any e key in 1, 6 = the section shown, 7 = any e key in 2 (header only).
       const eConds = [...cur, sys, kipIs(12492, '02'), kipIs(12352, '000000', true)]
-      const eSrc = [`hex_file '${KIP}'`, INI, `list '[${EMC_E_BASE},${EMC_E_SECTION},${MHZ(off)}CL${CL},${EBAL}]'`]
+      const eSrc = [`ini_file './config.ini'`, `list '[{ini_file(Firmware,gen)}]'`, `hex_file '${KIP}'`, INI,
+        `list '[${EMC_E_BASE},{if_==(${L(0)},${FW_25},${MHZ(off)}CL${CL},${EMC_E_SECTION})},{if_==(${L(0)},${FW_25},${EMC_E_SECTION},null)},${EBAL},${L(0)}]'`,
+        `list '[${keep(5)},${anyKey(L(1), 'e')}]'`,
+        `list '[${keep(6)},{if_null(${L(5)},${L(2)},${L(1)})}]'`]
       gap(eConds, '{ini_file(0)}')
-      // A second list line reads the first one: 4 = any e key in the E section or null.
-      header(eConds, [...eSrc, `list '[${L(0)},${L(1)},${L(2)},${L(3)},${anyKey(L(1), 'e')}]'`], `${L(0)} MHz`,
-             hasFile(`eBAL ${L(3)}{if_==(${L(4)},null,{if_null(${anyKey(L(2), 'e')}, · not saved, · old format)},)}`))
-      info(eConds, eSrc, TIMINGS.map(t => {
-        const v = `{if_null(${ini(L(1), 'e' + t)},{if_null(${ini(L(2), 'e' + t)},Auto)})}`
-        const mc = `{if_null(${ini(L(1), 'ae' + t)},${ini(L(2), 'ae' + t)})}`
-        return `'${t}' = '${hasFile(cell(v, mc))}'`
-      }))
+      header(eConds, [...eSrc, `list '[${keep(7)},${anyKey(L(2), 'e')}]'`], `${L(0)} MHz`,
+             hasFile(`eBAL ${L(3)}{if_null(${L(5)},{if_null(${L(7)}, · not saved, · new format · not used)},{if_==(${L(4)},${FW_25}, · old format, · new format)})}`))
+      info(eConds, eSrc, TIMINGS.map(t =>
+        `'${t}' = '${hasFile(cell(`{if_null(${ini(L(6), 'e' + t)},Auto)}`, ini(L(6), 'ae' + t)))}'`))
 
       // State S: the RAM clock from the kip, kHz little-endian.
       const sConds = [...cur, sys, kipIs(off, '000000', true), kipIs(12352, '000000', true)]
@@ -3073,30 +3144,33 @@ if (kipRows.length) {
     function emitCopyCurrent(cur, off) {
       const hex = i => `{if_null(${L(i)},000000,${L(i)})}`
       const dec = i => `{hex_to_decimal({hex_to_rhex(${hex(i)})})}`
-      const keep = n => Array.from({ length: n }, (_, i) => L(i)).join(',')
       // State E applies with E-Boost 02, a pinned eBAL, a readable state (Current: eConds) and a
       // known Optimized Target: without Fields 12524 the base clock cannot be named, and a profile
       // cannot be addressed by a number nobody recorded, so the whole block stays away.
       const eOn = `{if_null(${L(7)},null,{if_==(${L(5)},02,{if_==(${L(2)},0,null,{if_==(${L(0)},ok,y,{if_==(${L(0)},eb,y,null)})})},null)})}`
       const src = [
-        `ini_file './config.ini'`, `ini_file '{ini_file(Restore,Path)}'`,
-        `list '[{ini_file(Meta,revision)},{ini_file(Fields,${off})},{ini_file(Fields,12352)},{ini_file(Fields,12492)},{ini_file(Fields,12524)}]'`,
-        // 0 nc (no backup) | nr (no clock or eBAL) | ok, 1 kHz, 2 eBAL, 3 E-Boost, 4 Optimized Target
-        `list '[{if_null(${L(0)},nc,{if_null(${L(1)},nr,{if_null(${L(2)},nr,ok)})})},${dec(1)},${dec(2)},${L(3)},${L(4)}]'`,
+        // The generation is this console's: read while config.ini is bound, carried by the lists.
+        `ini_file './config.ini'`, `list '[{ini_file(Firmware,gen)}]'`, `ini_file '{ini_file(Restore,Path)}'`,
+        `list '[{ini_file(Meta,revision)},{ini_file(Fields,${off})},{ini_file(Fields,12352)},{ini_file(Fields,12492)},{ini_file(Fields,12524)},${L(0)}]'`,
+        // 0 nc (no backup) | nr (no clock or eBAL) | ok, 1 kHz, 2 eBAL, 3 E-Boost, 4 Optimized Target, 5 generation
+        `list '[{if_null(${L(0)},nc,{if_null(${L(1)},nr,{if_null(${L(2)},nr,ok)})})},${dec(1)},${dec(2)},${L(3)},${L(4)},${L(5)}]'`,
         INI,
         // 0 state, adds nf (no Magician file) and eb (eBAMATIC clock or eBAL), 1 MHz, 2 eBAL, 3 CL,
-        // 4 E-Boost, 5 E base clock: Optimized Target 01 -> 1600, 00 -> 1331, absent -> null
+        // 4 E-Boost, 5 E base clock: Optimized Target 01 -> 1600, 00 -> 1331, absent -> null, 6 generation
         `list '[{if_==(${L(0)},ok,{if_null({ini_file(0)},nf,{if_==(${L(1)},0,eb,{if_==(${L(2)},0,eb,ok)})})},${L(0)})},`
-          + `{math(${L(1)}/1000,true)},${L(2)},{math(${L(2)}*2+8,true)},${L(3)},{if_null(${L(4)},null,{if_==(${L(4)},01,1600,1331)})}]'`,
-        // 3 S section, 4 E section, 5 E-Boost, 6 any s key, 7 E base; one key scan per line (check 48)
-        `list '[${keep(3)},${L(1)}CL${L(3)},${L(5)}CL${L(3)},${L(4)},${anyKey(`${L(1)}CL${L(3)}`, 's')},${L(5)}]'`,
-        `list '[${keep(8)},${anyKey(L(4), 'e')}]'`,
-        `list '[${keep(9)},${anyKey(L(3), 'e')}]'`,
-        // 0 state, 1 MHz, 2 eBAL, 3 S section, 4 E section, 5 E base, 6 S shown, 7 S missing,
-        // 8 E shown, 9 E missing, 10 any e key in the E section
-        `list '[${keep(5)},${L(7)},{if_==(${L(0)},ok,{if_null(${L(6)},null,y)},null)},{if_==(${L(0)},ok,{if_null(${L(6)},y,null)},null)},`
-          + `{if_==(${eOn},y,{if_null(${L(8)},{if_null(${L(9)},null,y)},y)},null)},`
-          + `{if_==(${eOn},y,{if_null(${L(8)},{if_null(${L(9)},y,null)},null)},null)},${L(8)}]'`,
+          + `{math(${L(1)}/1000,true)},${L(2)},{math(${L(2)}*2+8,true)},${L(3)},{if_null(${L(4)},null,{if_==(${L(4)},01,1600,1331)})},${L(5)}]'`,
+        // 3 S section, 4 E section, 5 E-Boost, 6 any s key, 7 E base, 8 generation; one key scan per line (check 48)
+        `list '[${keep(3)},${L(1)}CL${L(3)},${L(5)}CL${L(3)},${L(4)},${anyKey(`${L(1)}CL${L(3)}`, 's')},${L(5)},${L(6)}]'`,
+        // 9 the section the firmware reads, 10 the E section on 2.5 or null, 11 and 12 any e key in them
+        `list '[${keep(9)},{if_==(${L(8)},${FW_25},${L(3)},${L(4)})},{if_==(${L(8)},${FW_25},${L(4)},null)}]'`,
+        `list '[${keep(11)},${anyKey(L(9), 'e')}]'`,
+        `list '[${keep(12)},${anyKey(L(10), 'e')}]'`,
+        // 0 state, 1 MHz, 2 eBAL, 3 S section, 4 section shown for E, 5 E base, 6 S shown, 7 S missing,
+        // 8 E shown, 9 E missing, 10 mark: o old format, n new format, u new format, not used
+        `list '[${keep(4)},{if_null(${L(11)},${L(10)},${L(9)})},${L(7)},{if_==(${L(0)},ok,{if_null(${L(6)},null,y)},null)},{if_==(${L(0)},ok,{if_null(${L(6)},y,null)},null)},`
+          + `{if_==(${eOn},y,{if_null(${L(11)},{if_null(${L(12)},null,y)},y)},null)},`
+          + `{if_==(${eOn},y,{if_null(${L(11)},{if_null(${L(12)},y,null)},null)},null)},`
+          + `{if_null(${L(11)},{if_==(${L(0)},eb,u,n)},{if_==(${L(8)},${FW_25},o,n)})}]'`,
       ]
       const when = (i, rows) => rows.map(bare).map(r => `{if_null(${L(i)},null,${r})}`)
       const state = (s, rows) => rows.map(bare).map(r => `{if_==(${L(0)},${s},${r},null)}`)
@@ -3109,15 +3183,12 @@ if (kipRows.length) {
         ...state('eb', EBAMATIC),
       ])
 
-      // State E: its own section first, old-format e keys from the S section second. The heading
-      // prints the base clock the backup's Optimized Target names, not a hard-coded 1600.
+      // State E: what this console's 4IFIR will read under the backup's clock and eBAL, marked as
+      // in Current. The heading prints the base clock the backup's Optimized Target names.
       gap(cur, `{if_null(${L(8)},${L(9)},y)}`, src)
-      header(cur, src, `${L(5)} MHz`, `{if_null(${L(8)},null,eBAL ${L(2)}{if_null(${L(10)}, · old format,)})}`)
-      info(cur, src, TIMINGS.map(t => {
-        const v = `{if_null(${ini(L(4), 'e' + t)},{if_null(${ini(L(3), 'e' + t)},Auto)})}`
-        const mc = `{if_null(${ini(L(4), 'ae' + t)},${ini(L(3), 'ae' + t)})}`
-        return `'${t}' = '{if_null(${L(8)},null,${cell(v, mc)})}'`
-      }))
+      header(cur, src, `${L(5)} MHz`, `{if_null(${L(8)},null,eBAL ${L(2)}{if_==(${L(10)},o, · old format,{if_==(${L(10)},u, · new format · not used, · new format)})})}`)
+      info(cur, src, TIMINGS.map(t =>
+        `'${t}' = '{if_null(${L(8)},null,${cell(`{if_null(${ini(L(4), 'e' + t)},Auto)}`, ini(L(4), 'ae' + t))})}'`))
       // Two fixed rows: wrap() would count the placeholder, not the number, and split "MHz".
       note(cur, src, when(9, ['No Magician timings saved for', `${L(5)} MHz eBAL ${L(2)}.`]))
 
@@ -3960,7 +4031,7 @@ if (kipRows.length) {
         ...sideSet(rev).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} ${fromBackup(f.offset)}`),
         // NO re-seed of the root footer written by hand here or in the import branch below:
         // `reseedRootFooters` adds it to every try-block that writes a root-footer offset.
-        `set-footer 'Done'`,
+        `set-footer '${MARK_OK}'`,
         rebuildOn(applyHead),
         // ВТОРОЙ БЛОК — ДЛЯ ИМПОРТИРОВАННЫХ КОПИЙ, НО КНОПКА ОДНА.
         //
@@ -3981,10 +4052,10 @@ if (kipRows.length) {
         // Only what the converter carries (IMPORT_CARRIED): WL-Set, DBI and every field the old
         // format never held stay as they are on the console.
         ...[...backupSet(rev), ...sideSet(rev)].filter(f => importCarries(rev, f.offset)).map(f => `hex-by-custom-offset ${KIP} CUST ${f.offset} ${fromBackup(f.offset)}`),
-        `set-footer 'Done (import)'`,
+        `set-footer '${MARK_IMPORT}'`,
         rebuildOn(applyHead),
         'try:',
-        `set-footer 'not applied'`,
+        `set-footer '${MARK_FAIL}'`,
         rebuildOn(applyHead),
       ],
       // УДАЛЕНИЕ ЧИСТИТ ОБА КЛЮЧА, а не одно имя: `config.ini` переживает выход из
@@ -4067,7 +4138,7 @@ if (kipRows.length) {
        */
       ...factoryOffsets.filter(o => platOf(o) === 'both' || platOf(o) === rev || bothOnReset.has(o))
         .map(o => `hex-by-custom-offset ${KIP} CUST ${o} ${fromBackup(o)}`),
-      `set-footer 'restored'`,
+      `set-footer '${MARK_OK}'`,
       rebuildOn(resetHead(rev)),
     ]
 
@@ -4288,7 +4359,7 @@ emitDefaultIni()
  * комплект — тем же способом, что и `;version=` в шапке пакета, и тем же значением.
  *
  * Зачем заглушка нужна. Без файла подстановка вернёт `null`, проверка обновлений уйдёт
- * в ветку «ошибка» и скажет «check failed» — на сборке из репозитория, где релиза ещё
+ * в ветку «ошибка» и поставит крестик — на сборке из репозитория, где релиза ещё
  * не было, это выглядело бы поломкой. С заглушкой поведение честное: `0.0.0` заведомо
  * старше любого выпуска, значит такая сборка сообщит, что обновление есть.
  *
@@ -4309,6 +4380,20 @@ const oneShotClear = [
   ...[...oneShotFooters.values()].map(({ dir, section }) => `remove-ini-key ${cfgAt(dir)} '${section}' footer`),
   ...[...oneShotChoice].flatMap(([dir, keys]) => keys.map(k => `set-ini-val ${cfgAt(dir)} Restore ${k} ''`)),
   ...[...oneShotBackupPath].map(dir => forgetBackupPath(cfgAt(dir))),
+]
+// Every opening of the wizard: most of the time all of it is empty, and each line above rewrites a
+// file, a remove through .tmp at that. The first block succeeds when there is nothing to clear, and a
+// success ends the list. An empty value and a missing key read the same to everyone.
+const ENTRY_CLEAR = [
+  '[Entry clear]',
+  'try:',
+  ...oneShotClear.map(l => {
+    const m = l.match(/^(?:remove-ini-key|set-ini-val) ('[^']*') ('[^']*'|\S+) (\S+)/)
+    return `matching_ini_val ${m[1]} ${m[2]} ${m[3]} ''`
+  }),
+  'try:',
+  ...oneShotClear,
+  '',
 ]
 // Text files of the release archive root: Update unzips it into the SD root. The new version's
 // [boot] removes them (Update itself runs the old version's commands). Literal paths, no `try:`
@@ -4350,10 +4435,146 @@ const FW_DETECT = cfg => [
   'try:',
   `remove-ini-key '${cfg}' Firmware ovl_id`,
 ]
+/**
+ * 1600 TIMINGS ON 4IFIR 2.5 (operator, 30.10.2026). 2.6+ saves them in `[<base>CL<n>]` and 2.5 never
+ * opens that section: it reads e/ae keys from the S section of the boot, once. So on 2.5 with
+ * sMeh 8 = 2, every S section of the file holding none of the keys takes them from the E section of
+ * its CL. The E section stays: a later 2.6+ reads it. eVDQ/eVD2 do not move. The section of the
+ * pinned clock and eBAL is also created if the E section has something for it.
+ * Runs on opening the wizard and again on the way into Current: quick launch skips [boot], and the
+ * clock may change between the two. The second pass finds `emc_seen` in place and writes nothing.
+ * Sub-lists of boot_package.ini, run by `exec`: a list has its own try:, labels and bindings, which
+ * is the only way past the cut in FW_DETECT and past a label that never resets. Each ends with a
+ * bare `try:`, so the caller's branch goes on. `emc_seen` keeps the file's CRC with the names the
+ * pass depended on, and carries the arguments of a sub-list while the pass runs: a pass cut short
+ * leaves it unequal, so the next entry runs again. Such a pass may have torn the file, so `emc_keep`
+ * stops the copy from then on: the last good one stays.
+ * Sections past EMC_MOVE_SLOTS stay as they are, except the pinned one, which is named from the kip.
+ */
+const EMC_MOVE_KEYS = EMC_TIMINGS.flatMap(t => [`e${t}`, `ae${t}`])
+const EMC_MOVE_SLOTS = 32
+const EMC_MOVE_NONE = '/emc-none'
+const EMC_MOVE_CFG = "'./config.ini'"
+const EMC_MOVE_BACKUP = `${EMC_FILE}.bak`
+const EMC_MOVE_ENTRY = "exec 'Move E entry'"
+// `path_exists` on this answers "is it an S section": conditions compare nothing computed. E sections
+// are below 1612 by the page's own rule; `null` is a slot past the end of the file.
+const emcIsS = sec => `{if_==(${sec},null,${EMC_MOVE_NONE},{if_<({split(${sec},CL,0)},1612,${EMC_MOVE_NONE},${EMC_FILE})})}`
+const EMC_SEEN = `{crc32(${EMC_FILE})}{list(0)}{list(1)}`
+const emcPark = (s, e) => `set-ini-val ${EMC_MOVE_CFG} Firmware emc_seen '${s},${e}'`
+const EMC_MOVE_SAVE = `copy '{if_==({ini_file(Firmware,emc_keep)},null,${EMC_FILE},${EMC_MOVE_NONE})}' '${EMC_MOVE_BACKUP}'`
+// set-ini-val writes a value as it is, so a line break in it adds keys: one rewrite per section, the
+// section is whole or untouched. A missing key adds no line, never `k=null`.
+const EMC_NL = '{base64_decode(Cg==)}'
+const emcLine = (at, k) => `{if_null({list(${at})},,${k}={list(${at})}${EMC_NL})}`
+const emcReads = (at, k) => `{ini_file({list(${at})},${k})}`
+const EMC_NO_KEYS = 'null'.repeat(EMC_MOVE_KEYS.length)
+const EMC_HEAD = EMC_MOVE_KEYS.slice(0, 12)
+const EMC_TAIL = EMC_MOVE_KEYS.slice(12)
+const EMC_HAS_SOURCE = `path_exists '{if_==(${EMC_MOVE_KEYS.map((k, i) => `{list(${i + 1})}`).join('')},${EMC_NO_KEYS},${EMC_MOVE_NONE},${EMC_FILE})}'`
+const EMC_NO_TARGET = `path_exists '{if_==(${EMC_MOVE_KEYS.map(k => emcReads(0, k)).join('')},${EMC_NO_KEYS},${EMC_FILE},${EMC_MOVE_NONE})}'`
+const EMC_MOVE_LISTS = () => [
+  ...['mariko', 'erista'].flatMap(rev => [
+    `[Move E ${rev}]`,
+    'try:',
+    fwIs(FW_25, EMC_MOVE_CFG),
+    `path_exists ${EMC_FILE}`,
+    `hex_file '${KIP}'`,
+    `matching_hex_val_custom ${KIP} CUST 12492 02`,
+    `list '[${EMC_S_SECTION(rev)},${EMC_E_BASE}]'`,
+    `!matching_ini_val ${EMC_MOVE_CFG} Firmware emc_seen '${EMC_SEEN}'`,
+    `exec 'Move E here ${rev}'`,
+    "exec 'Move E scan'",
+    `set-ini-val ${EMC_MOVE_CFG} Firmware emc_seen '${EMC_SEEN}'`,
+    '',
+    `[Move E here ${rev}]`,
+    `ini_file ${EMC_MOVE_CFG}`,
+    "list '[{ini_file(Firmware,emc_seen)}]'",
+    'try:',
+    `path_exists '{if_==({list(1)},null,${EMC_MOVE_NONE},${EMC_FILE})}'`,
+    `set-ini-val ${EMC_MOVE_CFG} Firmware emc_keep '1'`,
+    'force_failure',
+    'try:',
+    `hex_file '${KIP}'`,
+    `!matching_hex_val_custom ${KIP} CUST 12352 000000`,
+    `!matching_hex_val_custom ${KIP} CUST ${EMC_S_FREQ[rev]} 000000`,
+    `list '[${EMC_S_SECTION(rev)},${EMC_E_SECTION}]'`,
+    `path_exists '${emcIsS('{list(0)}')}'`,
+    `matching_ini_val '${EMC_FILE}' '{list(0)}' ${EMC_MOVE_KEYS[0]} ''`,
+    emcPark('{list(0)}', '{list(1)}'),
+    "exec 'Move E one'",
+    'try:',
+    '',
+  ]),
+  '[Move E scan]',
+  `hex_file '${KIP}'`,
+  `ini_file '${EMC_FILE}'`,
+  // The first block succeeds past the last section, and a success ends the list at the next `try:`.
+  // `eRP` only spares a section that has it: [Move E one] still asks all 24 of the rest.
+  ...Array.from({ length: EMC_MOVE_SLOTS }, (_, k) => [
+    'try:',
+    `list '[{ini_file(${k})}]'`,
+    `path_exists '{if_==({list(0)},null,${EMC_FILE},${EMC_MOVE_NONE})}'`,
+    'try:',
+    `path_exists '${emcIsS('{list(0)}')}'`,
+    `matching_ini_val '${EMC_FILE}' '{list(0)}' ${EMC_MOVE_KEYS[0]} ''`,
+    emcPark('{list(0)}', `${EMC_E_BASE}CL{split({list(0)},CL,1)}`),
+    "exec 'Move E one'",
+    'force_failure',
+  ]).flat(),
+  'try:',
+  '',
+  // Source first: most sections without keys have none to take. The two `list` steps split the block
+  // for the 1023-byte line limit; the first key present becomes the key of the write. The copy is
+  // the file as it stands before this rewrite truncates it.
+  // A block cannot take a comma in a value (a 26th item) or an empty key in the file (the block
+  // would add it again): such a file goes key by key, in place. `=` then a line end is the empty key.
+  '[Move E one]',
+  `ini_file ${EMC_MOVE_CFG}`,
+  "list '[{ini_file(Firmware,emc_seen)}]'",
+  `ini_file '${EMC_FILE}'`,
+  'try:',
+  `list '[{list(0)},${EMC_MOVE_KEYS.map(k => emcReads(1, k)).join(',')}]'`,
+  EMC_HAS_SOURCE,
+  EMC_NO_TARGET,
+  `path_exists '{if_==({list(25)},null,${EMC_FILE},${EMC_MOVE_NONE})}'`,
+  `!matching_hex_val_custom ${EMC_FILE} '{base64_decode(PQo=)}' 0 3D0A`,
+  `!matching_hex_val_custom ${EMC_FILE} '{base64_decode(PQ0=)}' 0 3D0D`,
+  `list '[{list(0)},${EMC_HEAD.map((k, i) => emcLine(i + 1, k)).join('')},${EMC_TAIL.map((k, i) => `{list(${i + 13})}`).join(',')}]'`,
+  `list '[{list(0)},{if_null({list(1)},,{list(1)}${EMC_NL})}${EMC_TAIL.map((k, i) => emcLine(i + 2, k)).join('')}]'`,
+  `ini_file ${EMC_MOVE_CFG}`,
+  EMC_MOVE_SAVE,
+  `set-ini-val '${EMC_FILE}' '{list(0)}' '{split({list(1)},=,0)}' '{slice({list(1)},{math({length({split({list(1)},=,0)})}+1,true)},9999)}'`,
+  'try:',
+  EMC_HAS_SOURCE,
+  EMC_NO_TARGET,
+  "exec 'Move E keys'",
+  'try:',
+  '',
+  // A hit of the check above stays cached and the writes here move what it found.
+  '[Move E keys]',
+  'clear hex_sum_cache',
+  `ini_file ${EMC_MOVE_CFG}`,
+  "list '[{ini_file(Firmware,emc_seen)}]'",
+  EMC_MOVE_SAVE,
+  `ini_file '${EMC_FILE}'`,
+  ...EMC_MOVE_KEYS.flatMap(k => [
+    'try:',
+    `!matching_ini_val '${EMC_FILE}' '{list(1)}' ${k} ''`,
+    `set-ini-val '${EMC_FILE}' '{list(0)}' ${k} '${emcReads(1, k)}'`,
+    'force_failure',
+  ]),
+  'try:',
+  '',
+]
+// Current runs the detection first and the move after it, so the move sees a fresh flag. Labels go
+// last: the engine never leaves one, and a `try:` under a label ends the list on the other revision.
+const CURRENT_ENTRY = ["exec 'Generation'", 'mariko:', "exec 'Move E mariko'", 'erista:', "exec 'Move E erista'"]
 // A reader asks the flag; the detection's own writes and its "flag present" gate are not a read.
 const readsGen = text => text.split('\n').some(l => !l.startsWith('set-ini-val ') && !l.endsWith("Firmware gen ''") && /Firmware gen |\{ini_file\(Firmware,gen\)\}/.test(l))
 function detectGenerationOnEntry () {
   let n = 0
+  let sublists = null
   for (const [rel, text] of FILES) {
     if (!rel.endsWith('.ini')) continue
     const dir = posix.dirname(rel)
@@ -4366,13 +4587,17 @@ function detectGenerationOnEntry () {
       if (sec.split('\n').includes('try:')) throw new Error(`${rel}: forwarder into ${target} already has try: - the detection must end the section alone`)
       const cfg = './' + posix.relative(dir, posix.join(posix.dirname(target), 'config.ini'))
       const ls = sec.split('\n')
-      ls.splice(ls.indexOf(src[0]) + 1, 0, ...FW_DETECT(cfg))
+      const entry = target === 'current.ini'
+      if (entry) sublists = ['[Generation]', ...FW_DETECT(cfg), '', '[Move E entry]', ...CURRENT_ENTRY, '', ...EMC_MOVE_LISTS()]
+      ls.splice(ls.indexOf(src[0]) + 1, 0, ...(entry ? CURRENT_ENTRY : FW_DETECT(cfg)))
       changed = true; n++
       return ls.join('\n')
     })
     if (changed) FILES.set(rel, secs.join('\n'))
   }
   if (!n) throw new Error('no forwarder leads into a page that reads [Firmware] gen - the flag would never be set')
+  if (!sublists || !FILES.has('boot_package.ini')) throw new Error('no forwarder into current.ini or no boot_package.ini - the move of the 1600 timings has no home')
+  FILES.set('boot_package.ini', FILES.get('boot_package.ini') + '\n' + sublists.join('\n'))
   return n
 }
 if (boot.some(l => l.startsWith('set-ini-val'))) {
@@ -4383,10 +4608,14 @@ if (boot.some(l => l.startsWith('set-ini-val'))) {
     '',
     ...boot,
     '',
-    ...oneShotClear,
+    "exec 'Entry clear'",
     '',
     ...ARCHIVE_ROOT_FILES.map(f => `delete '/${f}'`),
     '',
+    // Last, and through a sub-list: a label here would stay set for anything added below it.
+    EMC_MOVE_ENTRY,
+    '',
+    ...ENTRY_CLEAR,
   ].join('\n'))
   stats.bootFiles = 1
 }

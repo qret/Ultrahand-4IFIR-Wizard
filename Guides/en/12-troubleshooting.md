@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=7029b82e9d82 self=8d46a4128f13 -->
+<!-- i18n: source=Guides/ru/12-troubleshooting.md sha=8cd04ef7db55 self=9a36c8746562 -->
 # If something goes wrong
 
 <!-- nav:begin -->
@@ -47,7 +47,7 @@ way — nothing to launch from the bootloader, no bytes to edit by hand.
 
 > [!IMPORTANT]
 > The console **goes straight** to the main entry without showing the bootloader menu. To
-> get the list, interrupt the autoboot — hold `VOL+` as it starts.
+> get the list, interrupt the autoboot — hold `VOL-` as it starts.
 
 This fails in exactly one case: when the setting kills the boot before the system comes up
 at all. Then move on to the next step.
@@ -91,8 +91,16 @@ an outdated name there, and `sMeh 17` is missing altogether —
 If you saved a copy of `loader.kip` before you made any changes, put it back in place.
 The overclock returns to that state.
 
-Copies made by the configurator itself are on the card, in `/atmosphere/kips/.bak/`. Those are
-applied from the menu, not by replacing the file.
+If you have no file of your own, take the factory `loader.kip` from the 4IFIR archive of
+**the same version**: the overclock returns to factory. A file from another version will not
+do: 4IFIR 2.7 does not support kips from older versions.
+
+The card can stay in the console. Enter hekate (`VOL-` at power-on) and pick
+`Tools → USB Tools → SD Card`: the card opens on the computer over a cable. When you are done,
+eject it safely on the computer and press `Close` on the console screen.
+
+Copies made by the configurator itself are on the card, in `/atmosphere/kips/.bak/mariko/`
+and `/atmosphere/kips/.bak/erista/`. Those are applied from the menu, not by replacing the file.
 
 ## Common cases
 
@@ -128,13 +136,16 @@ advice applies if you had changed it — put it back. If you never touched it, t
 elsewhere.
 
 **It hangs after switching the memory to `Optimized S`.** This console will not hold that
-profile's stock clock. Lower `Advanced → RAM → Frequency` to `2400` and reboot.
+profile's stock clock. Lower `Advanced → RAM → Frequency` to `2400` and reboot. If that
+does not help, go one more step down.
 
 The profile itself is not set here but in the 4IFIR overlay — the fix, however, is in the configurator.
 
 **A black screen after the Nintendo logo.** With KipTool, set `Speed Shift` to `100`. That
 is the same thing as `Eco ST1` in the configurator: KipTool shows the number, the configurator shows
-the name.
+the name. If that does not help, try `25`, the far end of the scale towards more margin
+([details](06-cpu.md#speed-shift)). After that, what is left is a
+[clean install](01-install.md#getting-back-to-a-clean-state).
 
 **The console shuts down under load, and the charge drops suddenly.** The power
 controller is designed for a peak draw of around fifteen watts. Exceed it, and protection

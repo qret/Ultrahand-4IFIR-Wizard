@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/03-overclock-basics.md sha=995228cb947c self=4fffa981ecb7 -->
+<!-- i18n: source=Guides/ru/03-overclock-basics.md sha=5bad93dc4111 self=c9081f0fa5dd -->
 # Overclocking: where to start
 
 <!-- nav:begin -->
@@ -80,6 +80,9 @@ hold `R` while starting any game.
 A quick test does not replace a game: it cannot reproduce the way a game loads everything
 at once. The order is — sift out what plainly does not work with a test, then confirm with
 a game.
+
+The heaviest check is a game in docked mode, and the console does not have to sit in the
+dock for that: the `ReverseNX-RT` overlay switches that mode on in handheld too.
 
 ## How to check
 

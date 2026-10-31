@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/10-profiles.md sha=247b1ce90c6c self=81603de75d2c -->
+<!-- i18n: source=Guides/ru/10-profiles.md sha=4cfbb302a204 self=08913ab8afd7 -->
 # Profiles, backups and reset
 
 <!-- nav:begin -->
@@ -41,13 +41,13 @@ see what is inside, apply or delete.
 The first item is **`Choose backup`**, for picking a copy you already made. The second,
 **`Create backup`**, stores your current overclock settings in a file.
 
-The result shows to the right of the entry at once, without leaving the page. `saved`
+The result shows to the right of the entry at once, without leaving the page. ✓
 means the copy was written and the configurator checked what it wrote against your current
-settings. `not saved` means the write failed; the configurator deletes the half-written file
+settings. ✗ means the write failed; the configurator deletes the half-written file
 straight away, so it never turns up in `Choose backup`.
 
-Result labels (`saved` for a backup, `Done` once it is applied, `restored` after a
-factory reset, and the rest) and the chosen copy last until you leave: every time you open the wizard again they are cleared, and a copy is picked anew.
+Result marks (✓ after creating a backup, applying it or a factory reset, `✓ (import)` after
+applying an imported copy, ✗ on a refusal) and the chosen copy last until you leave: every time you open the wizard again they are cleared, and a copy is picked anew.
 
 A backup is not a firmware image, it is a list of values. That means it:
 
@@ -56,8 +56,9 @@ A backup is not a firmware image, it is a list of values. That means it:
   instead of it;
 - does not drag someone else's bootloader along with it.
 
-Backups are kept separately per console revision, so a Mariko copy will never land on
-an Erista, nor the other way round.
+Backups are kept separately per console revision — `/atmosphere/kips/.bak/mariko/` and
+`/atmosphere/kips/.bak/erista/` — so a Mariko copy will never land on an Erista, nor the
+other way round.
 
 **What a backup is for:** keeping a setup that works. A reset gives you the factory
 state and throws your work away; a backup gives you back exactly what you had.

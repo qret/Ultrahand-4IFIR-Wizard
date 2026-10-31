@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/02-first-run.md sha=545504802451 self=902b021bffef -->
+<!-- i18n: source=Guides/ru/02-first-run.md sha=3caae6980433 self=a29c7a4536ef -->
 # First run
 
 <!-- nav:begin -->
@@ -45,11 +45,11 @@ the third one the EMC Magician timings.
 ### Third page: EMC Magician timings
 
 The `Magician` page shows the memory timings you saved in
-[`EMC Magician`](09-timings.md#emc-magician--tuning-while-the-console-runs). The configurator does
-not write them: the firmware keeps them in `/config/4IFIR/emc_timings.ini`, and the page
-only reads that file. The only things the configurator writes into that file are two voltages,
-`VDDQ` and `VDD2` —
-[see the memory chapter](08-ram.md#vddq-and-vdd2--the-optimized-profile-voltages).
+[`EMC Magician`](09-timings.md#emc-magician--tuning-while-the-console-runs). The firmware keeps
+them in `/config/4IFIR/emc_timings.ini`, and the page only shows them. The configurator writes
+two voltages into that file, `VDDQ` and `VDD2` —
+[see the memory chapter](08-ram.md#vddq-and-vdd2--the-optimized-profile-voltages) — and on
+4IFIR 2.5 it also moves the Optimized profile timings (see below).
 
 - **What you see.** The set for the memory clock and the `eBAL` currently written in the
   firmware. Magician names a profile by `CL`, the page shows `eBAL` instead — they are the
@@ -70,8 +70,19 @@ only reads that file. The only things the configurator writes into that file are
   `eBAMATIC` the firmware picks the clock, so the current profile cannot be worked out —
   press `Y` to see every profile.
 
-It works on both Mariko and Erista and reads old-format files too — such values are
-marked `old format`.
+It works on both Mariko and Erista. In the heading of the Optimized profile timings, next to
+`eBAL`, a mark says where the values come from:
+
+- `old format` — 4IFIR 2.5: the timings sit in the set of the memory clock, which is where the
+  firmware reads them.
+- `new format` — 4IFIR 2.6 and newer: the timings sit in a separate 1600 set.
+- `new format · not used` — 4IFIR 2.5 with the memory clock on `eBAMATIC`: the values exist, but
+  the firmware does not read them.
+- `not saved` — nothing is saved in the set the firmware reads.
+
+4IFIR 2.5 reads these timings only from the set of the memory clock. With `sMeh 8 E-Boost` at `2`,
+the configurator moves what was saved in the new format there by itself when it is opened. The
+moved timings take effect from the next boot.
 
 > [!NOTE]
 > The third page exists only on the engine from the first-install kit

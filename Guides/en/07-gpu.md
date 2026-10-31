@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/07-gpu.md sha=0d078e11340e self=d5daae7885d7 -->
+<!-- i18n: source=Guides/ru/07-gpu.md sha=7f3609f7a34e self=de0624b986ef -->
 # GPU and stages
 
 <!-- nav:begin -->
@@ -137,6 +137,13 @@ clock. It holds the bottom, the stage shapes everything above.
 
 The choices are the same three Eco stages. That is deliberate: a fixed number would hit
 both memory clock modes at once, while a stage works out the floor for each separately.
+
+**Test the floor where it applies** — at the lower clocks: above them the voltage comes from
+the stage's curve. Start a GPU-heavy game, put the memory on `Optimized S` and switch
+`GPU Freq Governor` off: each memory mode has its own floor. Pin the GPU clock in `Temp`,
+start at `460 MHz` and go up one step at a time, watching the voltage in the top line of the
+4IFIR overlay. While it does not change, the floor is in charge; the last such clock is the
+working point for the test. Stages are tested higher up, from `768 MHz`.
 
 ### vMin offsets
 

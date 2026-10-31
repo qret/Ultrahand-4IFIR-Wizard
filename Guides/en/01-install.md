@@ -1,10 +1,16 @@
-<!-- i18n: source=Guides/ru/01-install.md sha=b3ef69dcbacf self=0477926d448a -->
+<!-- i18n: source=Guides/ru/01-install.md sha=c55cc0a99957 self=29f70874bfd3 -->
 # Installation
 
 <!-- nav:begin -->
 [Contents](README.md) · [First run →](02-first-run.md)  
 **English** · [Русский](../ru/01-install.md)
 <!-- nav:end -->
+
+> [!NOTE]
+> **The current 4IFIR is 2.7, and it supports HOS 23.0.1.** It already includes Ultrahand
+> and 4IFIR Wizard, so on 2.7 there is no need to install the configurator separately:
+> it updates [from its own menu](11-update.md#how-to-update). This page is for 4IFIR
+> 2.6 and 2.5, which the configurator also runs on, and for installing a build by hand.
 
 The configurator installs **on top of an existing 4IFIR**. It does not touch the firmware
 itself: the bootloader, `loader.kip`, the 4IFIR overlay and the system modules all

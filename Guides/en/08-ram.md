@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/08-ram.md sha=8136671af701 self=d80f4b95c71d -->
+<!-- i18n: source=Guides/ru/08-ram.md sha=fdf288369bf9 self=5078d60de335 -->
 # RAM
 
 <!-- nav:begin -->
@@ -194,12 +194,13 @@ computer.
 The voltage is applied at boot, so you cannot take it back from the menu: the console
 never gets there. It is fixed from a computer, in about two minutes.
 
-1. Switch the console off and take the memory card out.
+1. Switch the console off and take the memory card out. You can also leave it in: the card
+   opens on the computer over a cable [from hekate](12-troubleshooting.md#4-put-the-settings-file-back).
 2. On the computer open `/config/4IFIR/emc_timings.ini` from the card — any plain text
    editor will do.
 3. Find the lines `eVDQ=` and `eVD2=` in it — those are the voltages that were set. On
    4IFIR 2.5 they sit in the section of the memory clock (for example `[2265CL12]`), on 2.6
-   in `[1600CL…]` or `[1331CL…]`.
+   and newer in `[1600CL…]` or `[1331CL…]`.
 4. Replace the number with a zero: `eVDQ=0` and `eVD2=0`. A zero means "work it out
    yourself" — the same thing `eBAMATIC` does in the menu. If you find more than one of
    each, zero them all.

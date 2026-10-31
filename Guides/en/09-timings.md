@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/09-timings.md sha=5bce81ced995 self=2cfbd1f2358d -->
+<!-- i18n: source=Guides/ru/09-timings.md sha=60a941c32d29 self=aa1ef638d3e8 -->
 # Timings and fine tuning
 
 <!-- nav:begin -->
@@ -116,7 +116,8 @@ profile from `/config/4IFIR/emc_timings.ini` and reboot. Along with the timings,
 
 > [!IMPORTANT]
 > **If Magician timings stop the console from booting, `KipTool` will not help** — it
-> edits the firmware, and these values are not there. Take the SD card out, open
+> edits the firmware, and these values are not there. Take the SD card out or connect it
+> over a cable [from hekate](12-troubleshooting.md#4-put-the-settings-file-back), open
 > `/config/4IFIR/emc_timings.ini` on a computer and delete the section for the current
 > profile.
 
@@ -184,8 +185,9 @@ several hundred is real.
 
 `Advanced → Micro-Enhance Logic` holds the fine controls of the memory controller under
 the firmware's own code names, `pMeh` and `sMeh`. They have
-[a page of their own](09a-micro-enhance.md): what each field does, which ones are worth
-trying, where the risk is and how to roll back.
+[a page of their own](09a-micro-enhance.md): what each field does,
+[how it enters the timing calculation](09a-micro-enhance.md#how-the-corrections-enter-the-timing-calculation),
+which ones are worth trying, where the risk is and how to roll back.
 
 > [!WARNING]
 > **Stripes on the screen in the dock come from `sMeh 8 E-Boost`.** Put it back to `0`.

@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/09a-micro-enhance.md sha=ed1fae8db66f self=488b0ac0dffc -->
+<!-- i18n: source=Guides/ru/09a-micro-enhance.md sha=69b465285e58 self=bb35a0f8effc -->
 # Micro-Enhance Logic: pMeh and sMeh
 
 <!-- nav:begin -->
@@ -29,7 +29,7 @@ reboot**.
 > [!NOTE]
 > The firmware gives each field only a name, an allowed range and a factory value; it
 > carries no explanations. The descriptions below come from the 4IFIR Wizard help and
-> from the community description; some fields have no description anywhere, and that is
+> from the community description; some fields have only one general phrase, and that is
 > said plainly.
 
 ## Where to find it in the configurator
@@ -76,14 +76,14 @@ E — leftovers of earlier plans, not separate steps.
 ## pMeh — the primary row
 
 "Touch": **worth it** — a clear benefit and a clear way back; **careful** — it works, but
-a mistake costs more or the meaning is thinly described; **leave alone** — no description,
-or it is a debug tool.
+a mistake costs more or the meaning is thinly described; **leave alone** — no detailed
+description, or it is a debug tool.
 
 | No. | Item | What it does | Factory | Touch |
 |---|---|---|---|---|
 | 0 | `eBAS Sub-Zero` | The only way to lower the eBAS correction, and only by one. Affects the eighth timing | `0` | careful |
-| 1 | `divMB Supressor` | Stability of the memory clock step. Helps when a clock will not hold for no visible reason. On Erista the firmware understands only `3` and treats anything else as zero; on Mariko the control is ignored at memory clocks above 3.0 GHz | `2` | worth it, for an unstable clock |
-| 2 | `1333-1065-800` | Lowers the effective clock of the `Optimized E` step on Mariko; timings are still calculated from 1331. Works only when `Optimized Target` (`sMeh 16`) is `0` — so says the help of a donor package; the firmware does not confirm it | `0` | careful |
+| 1 | `divMB Supressor` | Stability of the memory clock step. Helps when a clock will not hold for no visible reason, or the console will not boot at it and stays on a black screen. `3` is the most stable value. On Erista the firmware understands only `3` and treats anything else as zero; on Mariko the control is ignored at memory clocks above 3.0 GHz | `2` | worth it, for an unstable clock |
+| 2 | `1333-1065-800` | Lowers the effective clock of the `Optimized E` step on Mariko; timings are still calculated from 1331. Can help lower the working vMin of this step. Works only when `Optimized Target` (`sMeh 16`) is `0` — so says the help of a donor package; the firmware does not confirm it | `0` | careful |
 | 3 | `eBAW Shift` | Shifts the eBAW correction; part of the sixth timing's calculation | `2` | careful |
 | 4 | `eBAR Shift` | Shifts the eBAR correction; part of the seventh timing's calculation | `2` | careful |
 | 5 | `eBAW Crement` | Added to the seventh timing | `0` | careful |
@@ -93,24 +93,24 @@ or it is a debug tool.
 | 9 | `RP Decret` | The same for the second timing | `0` | careful |
 | 10 | `RAS Decret` | The same for the third timing | `0` | careful |
 | 11 | `SRPD` | Memory power-saving mechanisms. On Mariko they are off by default for `Optimized S` and on for `Optimized E`. With them on it is a little slower but more economical | `0` | careful |
-| 12 | `E-Enhance` | No description | `1` | leave alone |
+| 12 | `E-Enhance` | Only a general phrase in the community description: an internal optimisation flag. Not confirmed by the firmware | `1` | leave alone |
 | 13 | `DR Debug` | Debugging: switches 4IFIR optimisations off step by step to find the culprit of a failure and report it to the firmware author | `0` | leave alone |
 | 14 | `GameChanger` | Lowers the effective memory clock relative to the set one | `0` | careful |
 | 15 | `eFOS MK` | Support for high-frequency memory modes, in a test state. Switching between steps takes two or three seconds longer, but is more reliable when the steps' voltages differ a lot | `0` | careful |
 | 16 | `lovec` | Lowers the performance of the system timings | `0` | leave alone |
-| 17 | `WL-Set` | No description beyond the name. **This is not DBI** — [see below](#names-in-kiptool-and-older-descriptions) | `0` | leave alone |
+| 17 | `WL-Set` | Only a general phrase in the community description: internal write latency calibration. Not confirmed by the firmware. **This is not DBI** — [see below](#names-in-kiptool-and-older-descriptions) | `0` | leave alone |
 | 18 | `eBAMATIC ST` | The eBAMATIC auto-selection stage, the same as `eBAMATIC Stage` | `0` | worth it, via [`eBAMATIC Stage`](05-ebamatic.md) |
 | 19 | `vMINetune ST` | Offset of the automatic GPU voltage floor (vMin) for step E, from +75 to −75 mV in 5 mV steps: plus raises the floor, minus lowers it. The same as `vMin Offset` | `0 - Default`; KipTool shows the raw `1`, and `0` there is +5 mV | worth it |
 | 20 | `rVDDick` | Level of the `VDDQ`/`VDD2` memory voltages of step E, `0` to `6`: a higher value means a higher voltage. The same as `VDDQ-VDD2 Voltage`; not to be confused with the `VDDQ` and `VDD2` items, which set millivolts in the EMC Magician file | `4` | careful |
 | 21 | `gVMINDick` | Offset of the same floor for step S (maximum memory clock), same scale; `pMeh 19` is for step E. The same as `vMin Offset (max RAM)` | `0 - Default`; KipTool shows the raw `2`, and `0` there is +10 mV | worth it |
-| 22 | `isKefir` | No description | `0` | leave alone |
+| 22 | `isKefir` | Only a general phrase in the community description: a flag for the environment the build runs in. Not confirmed by the firmware | `0` | leave alone |
 
 ## sMeh — the secondary row
 
 | No. | Item | What it does | Factory | Touch |
 |---|---|---|---|---|
 | 0 | `ARB-Boost` | Refresh period of the controller's cyclic timings. There is no zero, the range is `1` to `9`. Overdoing it lowers game performance instead of raising it | `4` | careful |
-| 1–5 | `ARB-BCD`, `ARB-BRP`, `ARB-RTR`, `ARB-RTW`, `ARB-WTR` | Manual correction of the arbitration timings where the firmware's calculation missed. Described as not affecting stability; they can win back some speed or remove a dip at a particular clock | `2` | worth it, for a speed dip |
+| 1–5 | `ARB-BCD`, `ARB-BRP`, `ARB-RTR`, `ARB-RTW`, `ARB-WTR` | Manual correction of the arbitration timings where the firmware's calculation missed. Described as not affecting stability; they can win back some speed, sometimes a hundred MB/s or two, or remove a dip at a particular clock | `2` | worth it, for a speed dip |
 | 6 | `eZQ Override` | Controlled by the firmware by default. Affects memory speed; no noticeable effect on the clock ceiling | `1` | careful |
 | 7 | `trDVFS` | Tied to the arbiter voltages; at high clocks it sometimes affects stability | `0` | careful |
 | 8 | `E-Boost` | Memory efficiency levels on step E: a higher value means faster. At `2`, with `Core Timings` set, step E takes its timings from the high-frequency profile — per the configurator author, 21.09.2026; the firmware documentation does not describe the mechanism. Can cause stripes on the screen in the dock | `0` | worth it |
@@ -119,10 +119,37 @@ or it is a debug tool.
 | 11 | `REF-NEH` | Memory refresh mode: less bandwidth, sometimes more stability at high clocks | `2` | careful |
 | 12 | `Clatok` | A second algorithm for calculating parameters and timings; `1` usually gives a couple of frames per second. At low clocks it is not compatible with every memory chip | `0` | worth it, with the caveat below |
 | 13 | `CPriora` | Priority for the CPU at the GPU's expense. For emulators | `0` | worth it, for emulators |
-| 14 | `GetLow` | How quickly memory switches to the lower step. Faster means a higher risk the switch fails | `0` | careful |
+| 14 | `GetLow` | How quickly memory switches to the lower step: how aggressive the `4VOLTSHIFT` switching algorithm is. Faster means a higher risk the switch fails | `0` | careful |
 | 15 | `GetHigh` | The same for switching to the higher step | `0` | careful |
 | 16 | `SYK-LOH` | Base of step E: `1` — 1600 MHz, `0` — 1331 MHz. At `0`, `pMeh 2` starts to apply | `1` | worth it, via `Optimized Target` |
-| 17 | `DBI` | Data Bus Inversion. Per the community description (still under its old place `pMeh 17`), error correction on the memory bus for high frequencies, in debugging | `0` | leave alone |
+| 17 | `DBI` | Data Bus Inversion. Per the community description, signal and error correction on the memory bus for high frequencies, in debugging | `0` | leave alone |
+
+## How the corrections enter the timing calculation
+
+Some `pMeh` fields enter the formulas the firmware uses to work out a timing in clock
+cycles. **A larger result means a looser timing:** slower, but more stable. The formulas come
+from the community description; the numbers have not been checked in the firmware.
+
+| Timing | What one unit of the field does | One `EMC Balance` step up |
+|---|---|---|
+| 1, `tRCD` | `pMeh 8`: −1 | +1 |
+| 2, `tRP` | `pMeh 9`: −1 | +1 |
+| 3, `tRAS` | `pMeh 10`: −1 | +2 |
+| 6, `tWTR` | `pMeh 6`: +1; `pMeh 3`: +4 | +4 |
+| 7, `tRTW` | `pMeh 5`: +1; `pMeh 4`: +2 | +2 |
+| 8, `tWTP` | `pMeh 7`: +1; `pMeh 0`: +4 | +4 |
+
+The right column applies to the numeric `EMC Balance` levels: `eBAMATIC` picks the level
+itself. A `Core Timings 6`–`8` step takes two cycles off the timing, and one unit of
+`EBA-Shift` takes four off the eighth. Two things follow:
+
+- `pMeh 8`–`10` tighten the timing on top of the firmware's calculation: faster, but less
+  stable.
+- `pMeh 5`–`7`, and raising `pMeh 3` or `4`, loosen it. That is how a top `Core Timings`
+  step that almost holds gets stabilised.
+
+The fourth timing is `tRFC`, its formula is not known; the fifth has no name either
+([open questions](#open-questions)).
 
 ## What to try, and in what order
 
@@ -147,6 +174,9 @@ a game**. Worse or unstable — back.
    1600 MHz.
 6. **`pMeh 1 divMB Supressor` = `3`** — if the memory clock will not hold for no visible
    reason. The [RAM chapter](08-ram.md#emc-balance) points to this control too.
+7. **`pMeh 6`, `5`, `7`** — if the top step of `Core Timings 6`, `7` or `8` almost
+   holds. One unit loosens the timing by a cycle, which is half a step, so only `1` makes
+   sense: `2` cancels the step altogether. Check the speed in `MicroMemBench`.
 
 > [!WARNING]
 > **Where the risk is higher.**
@@ -154,15 +184,15 @@ a game**. Worse or unstable — back.
 > - **`pMeh 20` below factory.** The old wizard's help warns that too low a voltage may
 >   damage emuNAND. The flip side: if the console hangs almost right after power-on, put
 >   `pMeh 20` back to `4` first.
-> - **`pMeh 8`–`10`** and the other timing corrections (`pMeh 3`–`7`) are a direct road to
->   hangs: they tighten the timings on top of the firmware's calculation.
+> - **`pMeh 8`–`10`**, and `pMeh 3` and `4` below factory, are a direct road to hangs: they
+>   tighten the timings on top of the firmware's calculation.
 > - **`pMeh 13 DR Debug`** is only for tracking down a failure. It switches optimisations
 >   off; there is no point playing with it.
 > - **`sMeh 14`/`15`** — the more aggressive the switch, the higher the risk memory does
 >   not make it to the new step.
 > - **`sMeh 0`** should not be overdone: speed falls from it rather than rises.
-> - Keep the fields without a description (`pMeh 12`, `17`, `22`) and those described in one
->   sentence (`pMeh 16`, `sMeh 17`) at factory.
+> - Keep the fields described by one general phrase (`pMeh 12`, `16`, `17`, `22`, `sMeh 17`)
+>   at factory.
 
 ## How to roll back
 
@@ -186,8 +216,8 @@ In order, from simple to last resort:
 >
 > In the current firmware `pMeh 17` is `WL-Set`, two values `0`–`1`. The `DBI` field
 > with four values `0`–`3` has moved to `sMeh 17`. KipTool and older descriptions (the old
-> wizard's help, the community description) do not reflect this: there `pMeh 17` is still
-> called `DBI`.
+> wizard's help, the community description before 4IFIR 2.7) do not reflect this: there
+> `pMeh 17` is still called `DBI`. The 2.7 edition of the description names them correctly.
 >
 > What this means in practice:
 >
@@ -214,8 +244,8 @@ Plainly, what has not been established.
   divider, that is, in divider steps rather than megahertz. The old help of another
   package says "from the frequency", with no units. How many megahertz one step is has not
   been established.
-- **What `pMeh 12`, `17` and `22` do** beyond their names — not described anywhere.
-  `pMeh 16` and `sMeh 17` have one sentence of description each, nothing more.
+- **What `pMeh 12`, `17` and `22` do.** The community description gives each a general
+  phrase; the firmware does not confirm them. `pMeh 16` and `sMeh 17` have one sentence each too.
 - **The formula of the fifth timing** — its line is empty in the known sources.
 - **Which `pMeh` corrections affect the fourth timing** — the formula is not given in the
   known sources.

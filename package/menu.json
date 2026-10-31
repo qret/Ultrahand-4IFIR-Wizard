@@ -50,7 +50,7 @@
         "title": "Current Settings",
         "lines": [
           "What is in the kip right now.",
-          "Read-only - nothing here changes anything.",
+          "Nothing here changes the kip.",
           "Press right for the second page with timings and fine tuning.",
           "Handy after restoring a backup or editing the kip from hekate."
         ]
@@ -2018,7 +2018,7 @@
         "set-footer 'up to date'",
         "refresh",
         "try:",
-        "set-footer 'check failed'",
+        "set-footer '\uE14C'",
         "refresh"
       ],
       "note": "Скачивает RELEASE.ini ИЗ САМОГО РЕЛИЗА, а не из исходников: номер версии и архив тогда лежат в одном месте и не могут разойтись и сравнивает с тем, что лежит в пакете. Не GitHub API: там лимит 60 запросов в час без токена, который движку не подставить, плюс известная ошибка памяти в связке json_file+download. Три ветки try: не украшение - refresh обязан выполниться в любом исходе, иначе страница не перестроится и результат не будет виден. Двойной if_null не украшение тоже: без него любой сбой читается как «всё актуально», потому что null не больше null. Разбор - docs/ONLINE-WIZARD-UPDATE.md §11.2."
