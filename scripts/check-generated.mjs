@@ -96,6 +96,13 @@ const MARK_OK = '\uE14B'
 const MARK_FAIL = '\uE14C'
 const MARK_IMPORT = `${MARK_OK} (import)`
 const showMark = s => String(s).replace(/[\uE000-\uF8FF]/g, c => 'U+' + c.codePointAt(0).toString(16).toUpperCase())
+// The engine takes four spellings of a notice (utils.hpp, case 'n'): notify, notify-now,
+// notification, notification-now. Every search for a notice goes through these two.
+const isNotice = l => /^notif(?:y|ication)(?:-now)?(?:\s|$)/.test(l)
+const noticeText = l => {
+  const m = l.match(/^notif(?:y|ication)(?:-now)?\s+(?:'([^']*)'|"([^"]*)"|(\S+))/)
+  return m ? m[1] ?? m[2] ?? m[3] : undefined
+}
 
 // WHERE CHECK 45 KEEPS ITS PARSE CACHE. Computed here, not down in the block, because the
 // self-test hands this very path to the child runs it starts in throwaway copies of the tree:
@@ -555,6 +562,323 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       file: join(DIST, 'package.ini'),
       hurt: s => s.replace("\nset-footer 'up to date'", `\nset-footer '${MARK_OK}'`),
       expect: /«\[Check for updates\]» — исходы .* а ждали/,
+    },
+    {
+      // Check 64: the delete rebuilds without a footer, the engine's mark flashes and goes.
+      name: 'у успеха Delete this backup пропала подпись',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(`\nset-footer '${MARK_OK}'\nrefresh-to 'Delete this backup'`, "\nrefresh-to 'Delete this backup'"),
+      expect: /«Delete this backup[^»]*» — исход без своей подписи/,
+    },
+    {
+      // Check 64: the empty branch loses its cross and rebuild, the engine shows a false check mark.
+      name: 'у ветки Pick a backup first пропала подпись',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace(/(\nnotify 'Pick a backup first' 22 4000)\nset-footer [^\n]*\nrefresh-to [^\n]*/, '$1'),
+      expect: /«Delete this backup[^»]*» — исход без своей подписи/,
+    },
+    {
+      // Check 64: the rule is about any rebuilding item, not the listed ones.
+      name: 'новый пункт с перестройкой и без подписи',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s + "\n[New action]\nmkdir /x\nrefresh-to 'New action' '' false\n",
+      expect: /«New action» — исход без своей подписи/,
+    },
+    {
+      // Check 64: a force_failure block is a step, but the last block still has to store a mark.
+      name: 'у сброса к заводским пропала подпись последнего блока',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s.split(`\nset-footer '${MARK_OK}'`).join(''),
+      expect: /«Apply factory defaults[^»]*» — исход без своей подписи/,
+    },
+    {
+      // Check 64: an exception outlives its item and would excuse the next one silently.
+      name: 'исключение NO_MARK устарело',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(/(\[\*Choose backup\?mariko\][\s\S]*?)\nrefresh-return [^\n]*\nback/, '$1'),
+      expect: /исключение «service\/restore-mariko\.ini\|\*Choose backup\?mariko» устарело/,
+    },
+    {
+      // Check 64, the marks: nothing was deleted, yet the empty branch reports success.
+      name: 'ветка Pick a backup first показывает галочку',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(/(\nnotify 'Pick a backup first' 22 4000\nset-footer ')[^']*'/, `$1${MARK_OK}'`),
+      expect: /«\[Delete this backup[^»]*» — исходы .* а ждали/,
+    },
+    {
+      // Check 64: the deleted backup's Apply mark stays on a page of dashes.
+      name: 'удаление не снимает значок Apply',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace(/\nremove-ini-key '\.\/config\.ini' 'Apply this backup [^\n]*/, ''),
+      expect: /значок Apply переживёт удалённую копию/,
+    },
+    {
+      // Check 64: the rollback notice comes with the engine's check mark again.
+      name: 'у отката обновления пропал force_failure',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\nnotify-now 'Update failed. Previous version restored.' 26 center word 8000\nforce_failure", "\nnotify-now 'Update failed. Previous version restored.' 26 center word 8000"),
+      expect: /«Update[^»]*» — ветка с уведомлением об отказе/,
+    },
+    {
+      // Check 64: the last failure branch of the update ends in success.
+      name: 'у последней ветки обновления пропал force_failure',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace(/(\nnotify-now 'Update failed\. The previous[^\n]*)\nforce_failure/, '$1'),
+      expect: /«Update[^»]*» — ветка с уведомлением об отказе/,
+    },
+    {
+      // Check 64: after a full rollback the last branch speaks a second time.
+      name: 'после отката обновления говорит и последняя ветка',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\n!path_exists './updater/rolledback.flag'", ''),
+      expect: /последняя ветка даст второе уведомление/,
+    },
+    {
+      // Check 64: a download failure falls through to the false "_old" message again.
+      name: 'ветка сбоя загрузки пропала',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace(/\ntry:\n!path_exists '\/switch\/\.packages\/\.4IFIR Wizard_old\/package\.ini'\n[\s\S]*?\nforce_failure(?=\ntry:)/, ''),
+      expect: /«Update[^»]*» — ветки не те|веток 3, а ждали четыре/,
+    },
+    {
+      // Check 64: the download-failure notice comes with the engine's check mark.
+      name: 'у ветки сбоя загрузки пропал force_failure',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\nnotify-now 'Download failed. Nothing changed' 26 center word 8000\nforce_failure", "\nnotify-now 'Download failed. Nothing changed' 26 center word 8000"),
+      expect: /«Update[^»]*» — ветка с уведомлением об отказе/,
+    },
+    {
+      // Check 64: the copies in .keep go without checking that the originals are there.
+      name: 'ветка сбоя загрузки не проверяет оригиналы',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\npath_exists '/config/ultrahand/overlays.ini'\npath_exists '{if_==(", "\npath_exists '{if_==("),
+      expect: /не проверив оригиналы/,
+    },
+    {
+      // Check 64: without the flag the last branch speaks after "Nothing changed".
+      name: 'ветка сбоя загрузки не ставит флаг',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\ntouch './updater/rolledback.flag'\nnotify-now 'Download failed", "\nnotify-now 'Download failed"),
+      expect: /ветка сбоя загрузки не ставит флаг/,
+    },
+    {
+      // Check 64: the branch fires with the package already in _old and says nothing changed.
+      name: 'ветка сбоя загрузки без сторожа _old',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\ntry:\n!path_exists '/switch/.packages/.4IFIR Wizard_old/package.ini'\n", "\ntry:\n"),
+      expect: /«Update[^»]*» — ветки не те|не убеждается, что пакет не переносился/,
+    },
+    ...[
+      // Check 64: the download-failure branch is an allow-list; aliases and other verbs are refused.
+      ['удаляет живой пакет псевдонимом del', "del '/switch/.packages/4IFIR Wizard/'"],
+      ['переносит живой пакет псевдонимом mv', "mv '/switch/.packages/4IFIR Wizard/' '/switch/.packages/x/'"],
+      ['распаковывает архив', "unzip '/config/ultrahand/downloads/4IFIR-Wizard.zip' '/'"],
+      ['копирует поверх оригинала', "copy '/config/ultrahand/downloads/.keep/config.ini' '/config/ultrahand/config.ini'"],
+    ].map(([what, line]) => ({
+      name: `ветка сбоя загрузки ${what}`,
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\nnotify-now 'Download failed. Nothing changed'", `\n${line}\nnotify-now 'Download failed. Nothing changed'`),
+      expect: /ветка сбоя загрузки несёт строки вне белого списка/,
+    })),
+    {
+      // Check 64: same words through plain notify, not the branch's own notify-now line.
+      name: 'ветка сбоя загрузки говорит через notify вместо notify-now',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\nnotify-now 'Download failed. Nothing changed'", "\nnotify 'Download failed. Nothing changed'"),
+      expect: /ветка сбоя загрузки несёт строки вне белого списка/,
+    },
+    {
+      // Check 64: a flag left by an older rollback would silence the next failure.
+      name: 'флаг отката не снимается в начале обновления',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\ndelete './updater/rolledback.flag'", ''),
+      expect: /флаг отката не снимается/,
+    },
+    {
+      // Check 56: the copy a failed rollback left in .keep is deleted without going back first.
+      name: 'обновление не возвращает config.ini из .keep до очистки',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace(/\nmove '\{if_null\(\{crc32\(\/config\/ultrahand\/config\.ini\)\}[^\n]*/, ''),
+      expect: /не возвращает недостающий «\/config\/ultrahand\/config\.ini»/,
+    },
+    {
+      // Check 56: .keep is cleared first, the putting back comes after it, too late.
+      name: 'очистка .keep раньше возврата недостающего',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\ndelete '/switch/.packages/.4IFIR Wizard_old/'\nmove '", "\ndelete '/switch/.packages/.4IFIR Wizard_old/'\ndel '/config/ultrahand/downloads/.keep/overlays.ini'\nmove '"),
+      expect: /не возвращает недостающий «\/config\/ultrahand\/overlays\.ini»/,
+    },
+    {
+      // Check 56: the condition is turned round, the stale copy overwrites live settings.
+      name: 'возврат из .keep срабатывает при живом файле',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("move '{if_null({crc32(/config/ultrahand/overlays.ini)}", "move '{if_!null({crc32(/config/ultrahand/overlays.ini)}"),
+      expect: /не возвращает недостающий «\/config\/ultrahand\/overlays\.ini»/,
+    },
+    {
+      // Check 56: with the live file present the move takes the live path itself and deletes it.
+      name: 'возврат из .keep при живом файле берёт живой путь',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.split("/config/ultrahand/downloads/.keep/config.ini,/config/ultrahand/downloads/.keep/none)}").join('/config/ultrahand/downloads/.keep/config.ini,/config/ultrahand/config.ini)}'),
+      expect: /возврат «\/config\/ultrahand\/config\.ini» в начале обновления при живом файле берёт/,
+    },
+    {
+      // Check 56: move reports nothing, the putting back goes unproved.
+      name: 'возврат недостающего не доказан',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace(/\n!path_exists '\{if_null\(\{crc32\(\/config\/ultrahand\/overlays\.ini\)\}[^\n]*/, ''),
+      expect: /возврат недостающего «\/config\/ultrahand\/overlays\.ini» в начале обновления ничем не подтверждён/,
+    },
+    {
+      // Check 64: a line outside the allow-list runs before the settings are put back.
+      name: 'начало обновления несёт чужую строку до возврата',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\ndelete '/switch/.packages/.4IFIR Wizard_old/'\nmove '", "\ndelete '/switch/.packages/.4IFIR Wizard_old/'\ncopy '/config/ultrahand/downloads/.keep/config.ini' '/config/ultrahand/config.ini'\nmove '"),
+      expect: /начало обновления до отвода несёт строки вне белого списка/,
+    },
+    {
+      // Check 56: the leftover in .keep is deleted again instead of kept in .keep-prev.
+      name: 'остаток .keep снова удаляется',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace(/\nmove '[^\n]*' '\/config\/ultrahand\/downloads\/\.keep-prev\/'/, "\ndelete '/config/ultrahand/downloads/.keep/'"),
+      expect: /остаток \.keep не переносится в/,
+    },
+    {
+      // Check 56: the leftover is moved onto live paths instead of .keep-prev.
+      name: 'остаток .keep переносится в живой путь',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("' '/config/ultrahand/downloads/.keep-prev/'", "' '/config/ultrahand/'"),
+      expect: /остаток \.keep не переносится в/,
+    },
+    {
+      // Check 56: move reports nothing, the leftover's move goes unproved.
+      name: 'перенос остатка .keep без проверки',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\n!path_exists '/config/ultrahand/downloads/.keep/overlays.ini'", ''),
+      expect: /перенос остатка \.keep в «[^»]*» ничем не подтверждён/,
+    },
+    {
+      // Check 56: .keep-prev is wiped on every press, an empty .keep included.
+      name: '.keep-prev удаляется без условия',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace(/\ndelete '\{if_null[^\n]*keep-prev[^\n]*/, "\ndelete '/config/ultrahand/downloads/.keep-prev/'"),
+      expect: /остаток \.keep не переносится в/,
+    },
+    {
+      // Check 56: the leftover moves whenever .keep holds anything, R-cancel copies push the kept settings out.
+      name: 'перенос остатка без сверки с живыми файлами',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace(/\nmove '[^\n]*' '\/config\/ultrahand\/downloads\/\.keep-prev\/'/,
+        "\nmove '{if_null({crc32(/config/ultrahand/downloads/.keep/config.ini)},{if_null({crc32(/config/ultrahand/downloads/.keep/overlays.ini)},/config/ultrahand/downloads/.keep/none,/config/ultrahand/downloads/.keep/)},/config/ultrahand/downloads/.keep/)}' '/config/ultrahand/downloads/.keep-prev/'"),
+      expect: /остаток \.keep не переносится в «[^»]*» по сверке копий/,
+    },
+    {
+      // Check 56: the comparison is turned round, equal copies rotate and differing ones are swept.
+      name: 'сверка остатка с живыми файлами перевёрнута',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.split('\n').map(l => l.includes('.keep-prev') ? l.split('{if_==(').join('{if_!=(') : l).join('\n'),
+      expect: /остаток \.keep не переносится в «[^»]*» по сверке копий/,
+    },
+    {
+      // Check 56: copies equal to the live files stay in .keep and stop every later update.
+      name: 'остаток отмены не убирается',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace(/\ndelete '\{if_null[^\n]*\.keep\/none\)\}\)\}'/, ''),
+      expect: /не убираются после переноса/,
+    },
+    {
+      // Check 56: the package deletes the kept generation somewhere else.
+      name: '.keep-prev удаляется вне переноса',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\nnotify-now 'Updated.", "\ndelete '/config/ultrahand/downloads/.keep-prev/'\nnotify-now 'Updated."),
+      expect: /трогают вне переноса остатка/,
+    },
+    {
+      // Check 64: the download-failure branch drops .keep without checking it holds this press's copies.
+      name: 'ветка сбоя загрузки убирает .keep без сверки копий',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace(/\npath_exists '\{if_==\(\{crc32\(\/config\/ultrahand\/downloads\/\.keep\/config\.ini\)\}[^\n]*/, ''),
+      expect: /ветка сбоя загрузки не совпадает с белым списком построчно/,
+    },
+    {
+      // Check 64: the same lines in another order (proof before the move proves nothing).
+      name: 'начало обновления в другом порядке',
+      file: join(DIST, 'package.ini'),
+      hurt: s => {
+        const m = s.match(/\n(move '\{if_null\(\{crc32\(\/config\/ultrahand\/config\.ini\)\}[^\n]*)\n(move [^\n]*)\n(!path_exists [^\n]*)/)
+        return s.replace(m[0], `\n${m[3]}\n${m[1]}\n${m[2]}`)
+      },
+      expect: /начало обновления до отвода не совпадает с белым списком построчно/,
+    },
+    {
+      // Check 64: the delete trusts a command that reports nothing.
+      name: 'удаление копии не проверяет, что файл исчез',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace('\n!path_exists {ini_file(Restore,Path)}', ''),
+      expect: /галочка удаления не подтверждена/,
+    },
+    {
+      // Check 64: a failed delete gets a notice the operator did not ask for.
+      name: 'неудачное удаление получило уведомление',
+      file: join(DIST, 'service', 'restore-erista.ini'),
+      hurt: s => s.replace('\ntry:\npath_exists {ini_file(Restore,Path)}\nset-footer', "\ntry:\npath_exists {ini_file(Restore,Path)}\nnotify 'Delete failed' 22 4000\nset-footer"),
+      expect: /уведомления исходов Delete/,
+    },
+    {
+      // Check 64, the marks: a failed delete shows a check mark.
+      name: 'неудачное удаление показывает галочку',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(/(\npath_exists \{ini_file\(Restore,Path\)\}\nset-footer ')[^']*'/, `$1${MARK_OK}'`),
+      expect: /«\[Delete this backup[^»]*» — исходы/,
+    },
+    {
+      // Check 64: the failed-delete branch loses its guard and swallows "Pick a backup first".
+      name: 'вторая ветка Delete без сторожа path_exists',
+      file: join(DIST, 'service', 'restore-mariko.ini'),
+      hurt: s => s.replace(`\ntry:\npath_exists {ini_file(Restore,Path)}\nset-footer '${MARK_FAIL}'`, `\ntry:\nset-footer '${MARK_FAIL}'`),
+      expect: /«Delete this backup[^»]*» — ветки не те/,
+    },
+    {
+      // Check 64: a reworded refusal without "fail" and without force_failure shows a check mark.
+      name: 'уведомление отката переписано без fail и без force_failure',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\nnotify-now 'Update failed. Previous version restored.' 26 center word 8000\nforce_failure", "\nnotify-now 'Previous version restored.' 26 center word 8000"),
+      expect: /«Update[^»]*» — ветки не те/,
+    },
+    {
+      // Check 64: a new item speaks without being named, whatever its words.
+      name: 'новый пункт с уведомлением вне SPEAKS',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s + "\n[Bar test]\ntry:\nmkdir /x\ntry:\nnotify 'Not supported on this console' 22 4000\n",
+      expect: /«Bar test» — пункт с уведомлением не сверяется поимённо/,
+    },
+    {
+      // Check 64: a new item speaks through the long alias, which a notify-only search missed.
+      name: 'новый пункт говорит через notification',
+      file: join(DIST, 'service', 'reset.ini'),
+      hurt: s => s + "\n[Bar test]\ntry:\nmkdir /x\ntry:\nnotification 'Not supported on this console' 22 4000\n",
+      expect: /«Bar test» — пункт с уведомлением не сверяется поимённо/,
+    },
+    {
+      // Check 64: the rollback refusal through notification-now and without force_failure shows a check mark.
+      name: 'отказ отката говорит через notification-now без force_failure',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\nnotify-now 'Update failed. Previous version restored.' 26 center word 8000\nforce_failure", "\nnotification-now 'Update failed. Previous version restored.' 26 center word 8000"),
+      expect: /«Update[^»]*» — ветка с уведомлением об отказе/,
+    },
+    {
+      // Check 64: the rollback claims success without seeing the package back in place.
+      name: 'откат обновления не проверяет возврат пакета',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("Wizard/'\npath_exists '/switch/.packages/4IFIR Wizard/package.ini'", "Wizard/'"),
+      expect: /откат не проверяет, что пакет вернулся/,
+    },
+    {
+      // Check 63: the delete's mark must leave on entry like every other one-shot footer.
+      name: 'подпись Delete this backup переживает вход',
+      file: join(DIST, 'boot_package.ini'),
+      hurt: s => s.replace(/\nremove-ini-key '\.\/service\/config\.ini' 'Delete this backup [^\n]*/, ''),
+      expect: /«\[Delete this backup[^»]*» — разовая подпись переживёт вход/,
     },
     {
       // Check 65: System Info goes back to the full model while the heading stays short.
@@ -1812,6 +2136,41 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       hurt: s => s.split(`\nset-footer '${MARK_OK}`).join(`\n;set-footer '${MARK_OK}`),
       expect: /restore-erista\.ini: ни одного блока применения/,
     },
+    {
+      // Check 17: the offset count drifts from the map in BUILDING.md, where it moved to.
+      name: 'BUILDING.md обещает не то число смещений',
+      file: join(ROOT, 'BUILDING.md'),
+      hurt: s => s.replace(/\d+ offsets of the CUST block/, '7 offsets of the CUST block'),
+      expect: /BUILDING\.md обещает 7 смещений/,
+    },
+    {
+      // Check 17: the only claim is gone - the check must go red, not pass on nothing.
+      name: 'утверждение о числе смещений исчезло — проверка 17 обязана покраснеть',
+      file: join(ROOT, 'BUILDING.md'),
+      hurt: s => s.replace(/\d+ offsets of the CUST block/, 'the offsets of the CUST block'),
+      expect: /не нашлось утверждения о числе смещений/,
+    },
+    {
+      // Check 76: a successful branch loses its step back.
+      name: 'выбор в Advanced → CPU больше не делает шаг назад',
+      file: join(DIST, 'advanced', 'cpu', 'package.ini'),
+      hurt: s => s.replace('\nrefresh-return\nback\n', '\nrefresh-return\n'),
+      expect: /удачная ветвь не кончается шагом назад/,
+    },
+    {
+      // Check 76: the failure branch is gone - a failed write would step back as if it worked.
+      name: 'у списка в Advanced → CPU пропала ветвь сбоя',
+      file: join(DIST, 'advanced', 'cpu', 'package.ini'),
+      hurt: s => s.replace('\ntry:\nforce_failure\n', '\n'),
+      expect: /последняя ветвь не «try: force_failure»/,
+    },
+    {
+      // Check 76: a list outside the four sections starts stepping back.
+      name: 'eBAMATIC Stage в корне делает шаг назад',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("set-footer '{json_file_source(*,short)}'", "set-footer '{json_file_source(*,short)}'\nback"),
+      expect: /шаг назад вне CPU, GPU, RAM и Micro-Enhance/,
+    },
   ]
   const TOTAL = PROBES.length
 
@@ -2674,21 +3033,21 @@ if (!existsSync(join(ROOT, 'scripts', 'publish.ps1'))) {
 // Оно разъехалось с картой на семь (122 против 129) и уехало на GitHub в обоих
 // переводах сразу. Проверяем оба, потому что расходятся они независимо: правят одну
 // половину и забывают вторую.
+// Since 05.11.2026 the claim lives in BUILDING.md, moved out of README; all three files are
+// read. The Russian text has carried no number since 79da933 — a number there is still checked.
 {
-  const readme = join(ROOT, 'README.md')
-  if (!existsSync(readme)) {
-    ok.push('README не найден — проверка чисел пропущена')
-  } else {
-    const text = readFileSync(readme, 'utf8')
-    const claims = [
-      ...text.matchAll(/(\d+)\s+offsets of the CUST block/g),
-      ...text.matchAll(/(\d+)\s+смещени\S*\s+блока CUST/g),
-    ].map(m => Number(m[1]))
-    const wrong = claims.filter(n => n !== fields.length)
-    if (!claims.length) problems.push({ sev: 'CRITICAL', what: 'в README не нашлось утверждения о числе смещений — проверка ослепла' })
-    else if (wrong.length) problems.push({ sev: 'CRITICAL', what: `README обещает ${wrong.join(' и ')} смещений, в карте ${fields.length}` })
-    else ok.push(`README agrees with the map on the offset count (${fields.length}, both languages)`)
+  const DOCS = ['README.md', 'BUILDING.md', 'BUILDING.ru.md'].filter(f => existsSync(join(ROOT, f)))
+  const LANGS = [['EN', /(\d+)\s+offsets of the CUST block/g], ['RU', /(\d+)\s+смещени\S*\s+блока CUST/g]]
+  const claims = []
+  for (const f of DOCS) {
+    const text = readFileSync(join(ROOT, f), 'utf8')
+    for (const [lang, re] of LANGS) for (const m of text.matchAll(re)) claims.push({ f, lang, n: Number(m[1]) })
   }
+  const wrong = claims.filter(c => c.n !== fields.length)
+  const where = [...new Set(claims.map(c => `${c.f} ${c.lang}`))].join(', ')
+  if (!claims.length) problems.push({ sev: 'CRITICAL', what: `в ${DOCS.join(', ') || 'README и BUILDING (их нет)'} не нашлось утверждения о числе смещений — проверка ослепла` })
+  else if (wrong.length) problems.push({ sev: 'CRITICAL', what: `${wrong.map(c => `${c.f} обещает ${c.n}`).join(', ')} смещений, в карте ${fields.length}` })
+  else ok.push(`README/BUILDING agree with the map on the offset count (${fields.length}; ${where})`)
 }
 
 // ------------------- 18. LICENSE и NOTICE обещают состав архива — отказ обязан его держать
@@ -4308,9 +4667,9 @@ function gateDomain(off) {
 
     // (4) попапов ни про ревизию, ни про раскладку kip
     ls.forEach((l, i) => {
-      const m = l.match(/^notify(?:-now)?\s+'([^']*)'/)
-      if (m && /erista|mariko|revision|kip *layout|kipver/i.test(m[1]))
-        bad.push(`${p.rel}:${i + 1} попап о ревизии или раскладке kip — их не делать: «${m[1]}»`)
+      const t = noticeText(l)
+      if (t !== undefined && /erista|mariko|revision|kip *layout|kipver/i.test(t))
+        bad.push(`${p.rel}:${i + 1} попап о ревизии или раскладке kip — их не делать: «${t}»`)
     })
 
     // (5) применение отсекает чужую ревизию и молчит: объяснение уже дал красный текст
@@ -4330,7 +4689,7 @@ function gateDomain(off) {
         if (!part.some(l => gate.test(l)))
           bad.push(`${p.rel}:${apply.bodyAt[from]} ветвь применения пишет kip, не отсекая копию с чужой модели — нужен запрет «Meta revision ${p.other}»`)
       })
-      const say = apply.body.findIndex(l => /^notify/.test(l))
+      const say = apply.body.findIndex(isNotice)
       if (say >= 0) bad.push(`${p.rel}:${apply.bodyAt[say]} применение объясняет отказ попапом — при несовпадении оно молчит`)
     }
 
@@ -5750,7 +6109,8 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
     if (!upd) {
       fail56('в корне нет пункта обновления с распаковкой — предмет надзора исчез, а не исправился')
     } else {
-      // Блоки `try:` — это ветви: первая ставит обновление, вторая откатывает.
+      // Блоки `try:` — это ветви: первая ставит обновление, откат — та, что начинается
+      // с проверки _old (перед ней стоит ветка сбоя загрузки, где возвращать нечего).
       // Возврат обязан быть в ОБЕИХ: откат возвращает пакет уже после того, как
       // распаковка успела затереть настройки.
       const blocks = [[]]
@@ -5760,8 +6120,21 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
         else if (l) blocks[blocks.length - 1].push(l)
       }
       const main = blocks[1] ?? []
-      const rollback = blocks[2] ?? []
+      const rollback = blocks.slice(2).find(b => b[0] === "path_exists '/switch/.packages/.4IFIR Wizard_old/package.ini'") ?? []
       const unzipAt = main.findIndex(l => /^unzip\s/.test(l))
+      // First line of the main branch that acts on .keep or .keep-prev other than a check or the
+      // putting back of a missing live file. A failed rollback may have left the only copy there.
+      const KEEP56 = '/config/ultrahand/downloads/.keep/'
+      const PREV56 = '/config/ultrahand/downloads/.keep-prev/'
+      const isCheck56 = l => /^!?path_exists\s/.test(l)
+      const isRestore56 = l => {
+        const a = argsOf(l)
+        return a[0] === 'move' && USER_SETTINGS.some(([lv]) => a[2] === lv && (a[1] ?? '').startsWith(`{if_null({crc32(${lv})}`))
+      }
+      const touchesKeep56 = l => argsOf(l).slice(1).some(x => x.includes(KEEP56) || x.includes(PREV56))
+      const clearAt = main.findIndex(l => !isCheck56(l) && !isRestore56(l) && touchesKeep56(l))
+      const sides56 = []
+      const esc56 = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       if (unzipAt < 0) {
         fail56('в первой ветви обновления нет распаковки — проверять отведение не от чего')
       } else {
@@ -5784,6 +6157,31 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
           const stashProved = main.some((l, i) => i > stashAt && i < unzipAt && /^path_exists\s/.test(l) && argsOf(l)[1] === side)
           if (!stashProved) {
             fail56(`отвод «${live}» ничем не подтверждён — copy об ошибке не сообщает, нужен path_exists на «${side}» до распаковки`)
+            continue
+          }
+          proofs56++
+          sides56.push(side)
+          // (д) Before .keep is touched, a copy left there by a failed rollback goes back when the live
+          // file is missing: move from .keep only if crc32 of the live path is null, else from a path
+          // that cannot exist; then !path_exists on the same choice proves it (operator, 02.11.2026).
+          const cond = new RegExp(`^\\{if_null\\(\\{crc32\\(${esc56(live)}\\)\\},${esc56(side)},([^,(){}]+)\\)\\}$`)
+          const restoreAt = main.findIndex((l, i) => {
+            const a = argsOf(l)
+            return (clearAt < 0 || i < clearAt) && a[0] === 'move' && cond.test(a[1] ?? '') && a[2] === live
+          })
+          if (restoreAt < 0) {
+            fail56(`обновление не возвращает недостающий «${live}» из «${side}» до переноса остатка .keep — копия, оставленная упавшим откатом, уйдёт мимо живого пути вместе с ${what}`)
+            continue
+          }
+          const cArg = argsOf(main[restoreAt])[1], none = cArg.match(cond)[1]
+          if (USER_SETTINGS.some(([lv]) => none === lv) || !none.startsWith(KEEP56) ||
+              main.some(l => argsOf(l).slice(1).includes(none))) {
+            fail56(`возврат «${live}» в начале обновления при живом файле берёт «${none}» — нужен путь в .keep, которого нет и в который ничего не пишется, иначе move затрёт живые настройки`)
+            continue
+          }
+          const restProved = main.some((l, i) => i > restoreAt && (clearAt < 0 || i < clearAt) && argsOf(l)[0] === '!path_exists' && argsOf(l)[1] === cArg)
+          if (!restProved) {
+            fail56(`возврат недостающего «${live}» в начале обновления ничем не подтверждён — нужен «!path_exists '${cArg}'» до переноса остатка .keep`)
             continue
           }
           proofs56++
@@ -5810,6 +6208,41 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
           }
           if (branchesFor === 2) kept56++
           branches56 = Math.max(branches56, branchesFor)
+        }
+        // (е) What is left in .keep is never destroyed, only kept as one generation: when a copy in .keep
+        // differs from its live file, .keep-prev is dropped and .keep/ moved there; copies equal to the live
+        // files (an R-cancel) are swept and .keep-prev stays. One crc32 choice for all three lines;
+        // !path_exists on every copy proves the result (operator, 02.11.2026).
+        if (sides56.length === USER_SETTINGS.length) {
+          const NONE56 = KEEP56 + 'none'
+          const anyLeft = (yes, no) => sides56.reduceRight((acc, s, i) =>
+            `{if_null({crc32(${s})},${acc},{if_==({crc32(${s})},{crc32(${USER_SETTINGS[i][0]})},${acc},${yes})})}`, no)
+          const stashFirst = main.findIndex(l => {
+            const a = argsOf(l)
+            return ['copy', 'cp', 'move', 'mv'].includes(a[0]) && USER_SETTINGS.some(([lv]) => a[1] === lv) && (a[2] ?? '').startsWith(KEEP56)
+          })
+          const dropAt = main.findIndex(l => ['delete', 'del'].includes(argsOf(l)[0]) && argsOf(l)[1] === anyLeft(PREV56, NONE56))
+          const rotAt = main.findIndex(l => { const a = argsOf(l); return a[0] === 'move' && a[1] === anyLeft(KEEP56, NONE56) && a[2] === PREV56 })
+          const sweepAt = main.findIndex(l => ['delete', 'del'].includes(argsOf(l)[0]) && argsOf(l)[1] === anyLeft(NONE56, KEEP56))
+          if (dropAt < 0 || rotAt < 0 || dropAt > rotAt || stashFirst < rotAt) {
+            fail56(`остаток .keep не переносится в «${PREV56}» по сверке копий с живыми файлами до нового отвода: нужны «delete '${anyLeft(PREV56, NONE56)}'» и затем «move '${anyLeft(KEEP56, NONE56)}' '${PREV56}'» — иначе копия, оставленная упавшим откатом, пропадёт, а копии от отмены вытеснят сохранённое`)
+          } else if (sweepAt < rotAt || sweepAt > stashFirst) {
+            fail56(`копии, равные живым файлам (остаток отмены), не убираются после переноса: нужен «delete '${anyLeft(NONE56, KEEP56)}'» до нового отвода`)
+          } else {
+            const lost = sides56.filter(s => !main.some((l, i) => i > sweepAt && i < stashFirst && l === `!path_exists '${s}'`))
+            if (lost.length) fail56(`перенос остатка .keep в «${PREV56}» ничем не подтверждён — move молчит об ошибке, нужен «!path_exists» на ${lost.map(s => `«${s}»`).join(', ')} до нового отвода`)
+            else proofs56++
+            const wreck = main.filter((l, i) => i < stashFirst && i !== dropAt && i !== rotAt && i !== sweepAt && !isCheck56(l) && !isRestore56(l) && touchesKeep56(l))
+            if (wreck.length) fail56(`до нового отвода остаток .keep трогают не переносом (${wreck.map(l => `«${l.slice(0, 60)}»`).join(', ')}) — копия, оставленная упавшим откатом, может пропасть`)
+          }
+          // .keep-prev is the user's: nothing else in the package reads, writes or deletes it.
+          const strays = []
+          for (const f of iniFiles.filter(f => f.endsWith('.ini'))) {
+            readFileSync(f, 'utf8').split(/\r?\n/).forEach((l, i) => {
+              if (l.includes('.keep-prev') && !(f === rootIni56 && (l === main[dropAt] || l === main[rotAt]))) strays.push(`${relative(DIST, f)}:${i + 1}`)
+            })
+          }
+          if (strays.length) fail56(`«${PREV56}» трогают вне переноса остатка (${strays.slice(0, 4).join(', ')}) — это последнее поколение настроек человека, пакет его только заменяет`)
         }
       }
     }
@@ -6216,6 +6649,9 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
 // under .bak/<revision> that is not the chosen backup; a third block sets the cross otherwise.
 // Operator, 30.10.2026: results are the engine's marks U+E14B and U+E14C (fork global_vars.cpp:175-176).
 // The old words must not come back in any quoting; "up to date" and "available" stay words.
+// Operator, 02.11.2026: the engine's own mark (main.cpp handleInterpreterCompletion) dies with the
+// rebuild, the new page reads only the stored footer. So every outcome of an item that rebuilds
+// stores one; a block ending in force_failure is a step and not an outcome.
 {
   const bad = []
   let blocks = 0, choosers = 0, applyReturns = 0, plainFooters = 0
@@ -6353,6 +6789,7 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
     ...['mariko', 'erista'].flatMap(rev => [
       [`service/restore-${rev}.ini`, new RegExp(`^\\[Create backup\\?${rev}\\]`), [MARK_OK, MARK_FAIL, MARK_FAIL]],
       [`service/restore-${rev}.ini`, /^\[Apply this backup /, [MARK_OK, MARK_IMPORT, MARK_FAIL]],
+      [`service/restore-${rev}.ini`, /^\[Delete this backup /, [MARK_OK, MARK_FAIL, MARK_FAIL]],
     ]),
   ]
   let outcomes = 0
@@ -6364,10 +6801,192 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
     const got = sec.split(/\r?\n/).map(footerArg).filter(x => x !== undefined && !x.includes('{'))
     if (got.join('|') !== want.join('|')) bad.push(`${rel} «${showMark(sec.split(/\r?\n/)[0])}» — исходы ${showMark(got.join(' | '))}, а ждали ${showMark(want.join(' | '))}`)
   }
+  // Items that may rebuild without a footer of their own, each with its reason.
+  const NO_MARK = new Map(['mariko', 'erista'].map(rev => [`service/restore-${rev}.ini|*Choose backup?${rev}`,
+    'picks a value: the name shows in the table under it, the rebuild happens on the way back']))
+  const REBUILDS = /^(refresh(-to|-return)?|back)(\s|$)/
+  const exempt = new Set()
+  let rebuilders = 0, rebuildOutcomes = 0
+  // A notice of failure never comes with a check mark: the block stores a cross or, with no footer,
+  // ends in force_failure so that the engine's own mark is a cross (handleInterpreterCompletion).
+  const REFUSALS = new Set(['Pick a backup first'])
+  const isFailNote = t => /\bfail(ed|s|ure)?\b|\berror\b/i.test(t) || REFUSALS.has(t)
+  let failNotes = 0
+  // Every item with a notice is listed here by name, branch by branch: its first line, its mark
+  // (a literal footer, else the engine's: force_failure last means a cross) and its notice.
+  // Word lists cannot tell a refusal from a success; the table can.
+  const DP = '{ini_file(Restore,Path)}'
+  const OLD_PKG = "'/switch/.packages/.4IFIR Wizard_old/package.ini'"
+  const SPEAKS = [
+    ['package.ini', /^Update\b/, [
+      ["delete './updater/rolledback.flag'", 'OK', 'Updated. Restart the overlay to apply.'],
+      [`!path_exists ${OLD_PKG}`, 'FAIL', 'Download failed. Nothing changed'],
+      [`path_exists ${OLD_PKG}`, 'FAIL', 'Update failed. Previous version restored.'],
+      ["!path_exists './updater/rolledback.flag'", 'FAIL', 'Update failed. The previous version is in /switch/.packages/.4IFIR Wizard_old and your overlay settings are in /config/ultrahand/downloads/.keep'],
+    ]],
+    ...['mariko', 'erista'].flatMap(rev => [
+      [`service/restore-${rev}.ini`, /^Delete this backup /, [
+        [`path_exists ${DP}`, 'OK', 'Done - Deleted'],
+        [`path_exists ${DP}`, 'FAIL', ''],
+        ["notify 'Pick a backup first' 22 4000", 'FAIL', 'Pick a backup first'],
+      ]],
+      ['service/package.ini', new RegExp(`^\\*Import old 4IFIR backup\\?${rev}$`), [
+        ['file_source /atmosphere/kips/kip-json/*.json', 'OK', 'Imported - apply it from Backup manager'],
+      ]],
+    ]),
+  ]
+  const spoke = new Set()
+  const markName = m => m === MARK_OK ? 'OK' : m === MARK_FAIL ? 'FAIL' : m
+  const row = r => r.map(x => showMark(x)).join(' / ')
+  for (const file of iniFiles) {
+    if (file === join(DIST, 'boot_package.ini')) continue
+    const rel = relative(DIST, file).split(String.fromCharCode(92)).join('/')
+    const secs = []
+    readFileSync(file, 'utf8').split(/\r?\n/).forEach((l, i) => {
+      const h = l.match(/^\[(.*)\]$/)
+      if (h) secs.push({ head: h[1], n: i + 1, parts: [[]] })
+      else if (secs.length && l === 'try:') secs.at(-1).parts.push([])
+      else if (secs.length && l.trim() && !l.startsWith(';')) secs.at(-1).parts.at(-1).push({ l, n: i + 1 })
+    })
+    for (const { head, n, parts } of secs) {
+      if (parts.flat().some(x => isNotice(x.l))) {
+        const want = SPEAKS.find(([r, re]) => r === rel && re.test(head))
+        const got = (parts.length > 1 ? parts.slice(1) : parts).map(b => {
+          const marks = b.map(x => footerArg(x.l)).filter(x => x !== undefined)
+          const mark = marks.length ? markName(marks.at(-1)) : b.at(-1)?.l === 'force_failure' ? 'FAIL' : 'OK'
+          return [b[0]?.l ?? '', mark, b.map(x => noticeText(x.l)).filter(t => t !== undefined).join(' + ')]
+        })
+        if (!want) bad.push(`${rel}:${n} «${showMark(head)}» — пункт с уведомлением не сверяется поимённо: внесите его ветки (первая строка, значок, уведомление) в SPEAKS`)
+        else {
+          spoke.add(want)
+          if (got.map(row).join(' | ') !== want[2].map(row).join(' | '))
+            bad.push(`${rel}:${n} «${showMark(head)}» — ветки не те: ${got.map(row).join(' | ').slice(0, 300)}; ждали ${want[2].map(row).join(' | ').slice(0, 300)}`)
+        }
+      }
+      for (const b of parts.length > 1 ? parts.slice(1) : parts) {
+        const said = b.map(x => noticeText(x.l)).filter(t => t !== undefined && isFailNote(t))
+        if (!said.length) continue
+        failNotes++
+        const marks = b.map(x => footerArg(x.l)).filter(x => x !== undefined)
+        const cross = marks.length ? marks.at(-1) === MARK_FAIL : b.at(-1)?.l === 'force_failure'
+        if (!cross) bad.push(`${rel}:${b[0]?.n ?? n} «${showMark(head)}» — ветка с уведомлением об отказе «${said[0].slice(0, 40)}» даёт галочку: нужен set-footer крестика или force_failure последней строкой`)
+      }
+      if (!parts.flat().some(x => REBUILDS.test(x.l))) continue
+      const key = `${rel}|${head}`
+      if (NO_MARK.has(key)) { exempt.add(key); continue }
+      rebuilders++
+      const outcomes = (parts.length > 1 ? parts.slice(1) : parts).filter(b => b.at(-1)?.l !== 'force_failure')
+      if (!outcomes.length) bad.push(`${rel}:${n} «${showMark(head)}» — перестройка есть, а исхода нет ни одного`)
+      for (const b of outcomes) {
+        rebuildOutcomes++
+        if (!b.some(x => /^set-footer\s/.test(x.l)))
+          bad.push(`${rel}:${b[0]?.n ?? n} «${showMark(head)}» — исход без своей подписи: значок движка пропадёт с перестройкой страницы`)
+      }
+    }
+  }
+  for (const key of NO_MARK.keys()) if (!exempt.has(key)) bad.push(`исключение «${key}» устарело: такого пункта с перестройкой нет, снимите его из NO_MARK`)
+  // Apply's mark spoke of the backup the delete has just removed; the page shows dashes then.
+  for (const rev of ['mariko', 'erista']) {
+    const abs = join(DIST, 'service', `restore-${rev}.ini`)
+    if (!existsSync(abs)) continue
+    const secs = readFileSync(abs, 'utf8').split(/\r?\n(?=\[)/)
+    const applyName = secs.find(x => /^\[Apply this backup /.test(x))?.split(/\r?\n/)[0].slice(1, -1)
+    const gone = secs.find(x => /^\[Delete this backup /.test(x))?.split(/\r?\ntry:\r?\n/)[1]
+    if (!applyName || !gone) { bad.push(`service/restore-${rev}.ini: нет Apply или блока удаления — снятие значка Apply проверять не на чем`); continue }
+    const P = '{ini_file(Restore,Path)}'
+    const gl = gone.split(/\r?\n/)
+    const delAt = gl.indexOf(`delete ${P}`), sawAt = gl.indexOf(`!path_exists ${P}`), okAt = gl.indexOf("notify 'Done - Deleted' 22 4000")
+    if (!(delAt >= 0 && delAt < sawAt && sawAt < okAt))
+      bad.push(`service/restore-${rev}.ini «Delete this backup» — галочка удаления не подтверждена: delete молчит об ошибке, нужен «!path_exists ${P}» после delete и до «Done - Deleted»`)
+    const delSec = secs.find(x => /^\[Delete this backup /.test(x)).split(/\r?\ntry:\r?\n/).slice(1)
+    const notes = delSec.map(b => b.split(/\r?\n/).filter(isNotice).map(noticeText).join('+'))
+    if (notes.join(' | ') !== 'Done - Deleted |  | Pick a backup first')
+      bad.push(`service/restore-${rev}.ini «Delete this backup» — уведомления исходов Delete «${notes.join(' | ')}», а ждали «Done - Deleted |  | Pick a backup first»`)
+    if (!gone.split(/\r?\n/).includes(`remove-ini-key './config.ini' '${applyName}' footer`))
+      bad.push(`service/restore-${rev}.ini «Delete this backup» — значок Apply переживёт удалённую копию: в блоке удаления нет снятия его подписи`)
+  }
+  {
+    const F = './updater/rolledback.flag'
+    const upd = readFileSync(join(DIST, 'package.ini'), 'utf8').split(/\r?\n(?=\[)/).find(x => /^\[Update\b/.test(x) && /^unzip\s/m.test(x))
+    const ub = upd ? upd.split(/\r?\ntry:\r?\n/).slice(1).map(b => b.split(/\r?\n/).filter(l => l.trim())) : []
+    if (ub.length !== 4) bad.push(`package.ini «Update» — веток ${ub.length}, а ждали четыре: обновление, сбой загрузки, откат, сообщение об остатках`)
+    else {
+      if (ub[0][0] !== `delete '${F}'`) bad.push(`package.ini «Update» — флаг отката не снимается первой строкой обновления: старый флаг заглушит сообщение о неудаче`)
+      // The head of the update up to this press's stash is an allow-list as well: it runs while .keep may
+      // hold the only copy of the settings a failed rollback left there (operator, 02.11.2026).
+      const K = '/config/ultrahand/downloads/.keep/', P = '/config/ultrahand/downloads/.keep-prev/'
+      const KC = f => `'{if_null({crc32(/config/ultrahand/${f})},${K}${f},${K}none)}'`
+      const L = '/config/ultrahand/'
+      const ONE = (f, no, yes) => `{if_null({crc32(${K}${f})},${no},{if_==({crc32(${K}${f})},{crc32(${L}${f})},${no},${yes})})}`
+      const LEFT = (yes, no) => `'${ONE('config.ini', ONE('overlays.ini', no, yes), yes)}'`
+      const STASH = `copy '/config/ultrahand/config.ini' '${K}config.ini'`
+      const HEAD = [
+        `delete '${F}'`,
+        'delete /config/ultrahand/downloads/4IFIR-Wizard.zip',
+        "delete '/switch/.packages/.4IFIR Wizard_old/'",
+        `move ${KC('config.ini')} '/config/ultrahand/config.ini'`,
+        `move ${KC('overlays.ini')} '/config/ultrahand/overlays.ini'`,
+        `!path_exists ${KC('config.ini')}`,
+        `!path_exists ${KC('overlays.ini')}`,
+        `delete ${LEFT(P, K + 'none')}`,
+        `move ${LEFT(K, K + 'none')} '${P}'`,
+        `delete ${LEFT(K + 'none', K)}`,
+        `!path_exists '${K}config.ini'`,
+        `!path_exists '${K}overlays.ini'`,
+      ]
+      const stashAt64 = ub[0].indexOf(STASH)
+      const head = stashAt64 < 0 ? ub[0] : ub[0].slice(0, stashAt64)
+      const strange = head.filter(l => !HEAD.includes(l))
+      if (strange.length)
+        bad.push(`package.ini «Update» — начало обновления до отвода несёт строки вне белого списка (${strange.map(l => `«${l.slice(0, 60)}»`).join(', ')}): они идут, пока в .keep может лежать последняя копия настроек`)
+      else if (head.join('\n') !== HEAD.join('\n'))
+        bad.push(`package.ini «Update» — начало обновления до отвода не совпадает с белым списком построчно: ждали ${HEAD.length} строк в заданном порядке, есть ${head.length}`)
+      // Download failure: nothing was moved, so the branch may only drop this pass's copies in .keep.
+      const nc = ub[1], ncSay = nc.findIndex(isNotice), ncT = nc.indexOf(`touch '${F}'`)
+      const ncDel = nc.indexOf("delete '/config/ultrahand/downloads/.keep/'")
+      const seen = f => { const i = nc.indexOf(`path_exists '${f}'`); return i >= 0 && i < ncDel }
+      if (nc[0] !== `!path_exists ${OLD_PKG}` || !seen('/switch/.packages/4IFIR Wizard/package.ini'))
+        bad.push(`package.ini «Update» — ветка сбоя загрузки не убеждается, что пакет не переносился: нужны «!path_exists ${OLD_PKG}» первой строкой и «path_exists» живого package.ini`)
+      if (ncDel < 0 || !seen('/config/ultrahand/config.ini') || !seen('/config/ultrahand/overlays.ini'))
+        bad.push(`package.ini «Update» — ветка сбоя загрузки убирает копии из .keep, не проверив оригиналы config.ini и overlays.ini`)
+      // Allow-list, line by line: the engine has aliases (del, mv, cp, notification, download-no-retry),
+      // so a pattern of forbidden verbs leaks; any line not named here breaks «Nothing changed».
+      const NC = [
+        `!path_exists ${OLD_PKG}`,
+        "path_exists '/switch/.packages/4IFIR Wizard/package.ini'",
+        "path_exists '/config/ultrahand/config.ini'",
+        "path_exists '/config/ultrahand/overlays.ini'",
+        // .keep goes only when it holds this press's copies: equal to the live files. A leftover the head
+        // failed to move away differs and stops the branch (the last one speaks, .keep stays).
+        "path_exists '{if_==({crc32(/config/ultrahand/downloads/.keep/config.ini)},{crc32(/config/ultrahand/config.ini)},/config/ultrahand/config.ini,/config/ultrahand/downloads/.keep/none)}'",
+        "path_exists '{if_==({crc32(/config/ultrahand/downloads/.keep/overlays.ini)},{crc32(/config/ultrahand/overlays.ini)},/config/ultrahand/overlays.ini,/config/ultrahand/downloads/.keep/none)}'",
+        "delete '/config/ultrahand/downloads/.keep/'",
+        `touch '${F}'`,
+        "notify-now 'Download failed. Nothing changed' 26 center word 8000",
+        'force_failure',
+      ]
+      const alien = nc.filter(l => !NC.includes(l))
+      if (alien.length)
+        bad.push(`package.ini «Update» — ветка сбоя загрузки несёт строки вне белого списка (${alien.map(l => `«${l.slice(0, 60)}»`).join(', ')}), а обещает «Nothing changed»`)
+      else if (nc.join('\n') !== NC.join('\n'))
+        bad.push(`package.ini «Update» — ветка сбоя загрузки не совпадает с белым списком построчно: ждали ${NC.length} строк в заданном порядке, есть ${nc.length}`)
+      if (ncT < 0 || ncT > ncSay) bad.push(`package.ini «Update» — ветка сбоя загрузки не ставит флаг «${F}» до уведомления: последняя ветка заговорит вслед`)
+      const t = ub[2].indexOf(`touch '${F}'`), say = ub[2].findIndex(isNotice)
+      if (t < 0 || t > say) bad.push(`package.ini «Update» — откат не ставит флаг «${F}» до своего уведомления`)
+      const back = ub[2].indexOf("move '/switch/.packages/.4IFIR Wizard_old/' '/switch/.packages/4IFIR Wizard/'")
+      const came = ub[2].indexOf("path_exists '/switch/.packages/4IFIR Wizard/package.ini'")
+      if (!(back >= 0 && back < came && came < t))
+        bad.push(`package.ini «Update» — откат не проверяет, что пакет вернулся: нужен «path_exists '/switch/.packages/4IFIR Wizard/package.ini'» после переноса из _old и до флага`)
+      if (ub[3][0] !== `!path_exists '${F}'`) bad.push(`package.ini «Update» — после полного отката последняя ветка даст второе уведомление: нет «!path_exists '${F}'» первой строкой`)
+    }
+  }
+  for (const w of SPEAKS) if (!spoke.has(w)) bad.push(`${w[0]} ${w[1]} — пункта с уведомлением нет: запись SPEAKS устарела или пункт замолчал`)
+  if (!failNotes) bad.push('ни одной ветки с уведомлением об отказе — правило о крестике смотрит в пустоту')
+  if (!rebuilders) bad.push('пунктов с перестройкой не найдено — проверять подписи не на чем')
   if (applyReturns !== 2) bad.push(`списков Choose backup с перестройкой найдено ${applyReturns}, а их два (mariko и erista) — курсор на Apply this backup проверять не на чем`)
   if (!blocks || !choosers || !plainFooters) problems.push({ sev: 'CRITICAL', what: `проверка перестройки после подписи не нашла предмета (блоков ${blocks}, выборов копии ${choosers}, буквальных подписей ${plainFooters}) — она смотрит в пустоту, ничего не проверив` })
   else if (bad.length) problems.push({ sev: 'CRITICAL', what: `подпись-результат или выбор копии не видны сразу (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
-  else ok.push(`result footers and the backup choice rebuild the page at once (${blocks} blocks, ${choosers} choosers, ${applyReturns} land on Apply); Create backup reads back before the check mark (${creates} sections); ${plainFooters} plain footers carry none of the old words, ${outcomes} result items show the marks`)
+  else ok.push(`result footers and the backup choice rebuild the page at once (${blocks} blocks, ${choosers} choosers, ${applyReturns} land on Apply); Create backup reads back before the check mark (${creates} sections); ${plainFooters} plain footers carry none of the old words, ${outcomes} result items show the marks; ${rebuilders} rebuilding items store a footer on all ${rebuildOutcomes} outcomes, ${exempt.size} exempt by name; ${failNotes} failure notices come with a cross, ${spoke.size} speaking items match their named branches`)
 }
 
 // ---------------- 65. the short RAM model is one rule on every screen that shows it
@@ -8435,6 +9054,54 @@ let model68 = null
   else ok.push(`blocks of keys go only into files made by the same press (${blocks} blocks, no key twice), ${rebuilt.size} footer files rebuilt, each holding its page's footers alone`)
 }
 
+// ---------------- 76. a choice in an Advanced list steps back, a failed one stays with a cross
+//
+// Operator, 08.11.2026: in CPU, GPU, RAM and Micro-Enhance a value chosen in a list returns to the
+// page it came from, and the return is the confirmation. Every successful branch ends with a bare
+// `refresh-return` and `back`; the last branch is `try:` + `force_failure`, so a failed write stays
+// in the list with a cross. A write before the first branch is allowed only with a later branch that
+// reads the same cell back: `try:` resets the result, and the failure would pass for success.
+// Everywhere else an option list does not step back, except Choose backup with its own target.
+{
+  const STEP76 = /^advanced\/(cpu|gpu|ram|micro-enhance)\//
+  const bad = []
+  let lists = 0, branches = 0
+  for (const f of iniFiles) {
+    const rel = relative(DIST, f).split(sep).join('/')
+    for (const sec of readFileSync(f, 'utf8').split(/\n(?=\[)/)) {
+      const ls = sec.split('\n').map(l => l.trimEnd())
+      if (!ls.includes(';mode=option')) continue
+      const at = `${rel} ${ls[0]}`
+      const body = ls.filter(l => l && !l.startsWith(';') && !l.startsWith('['))
+      if (!STEP76.test(rel)) {
+        if (body.includes('back') && !/^\[\*Choose backup\?/.test(ls[0])) bad.push(`${at}: шаг назад вне CPU, GPU, RAM и Micro-Enhance`)
+        continue
+      }
+      lists++
+      const first = body.indexOf('try:')
+      if (first < 0) { bad.push(`${at}: нет ветвей — шаг назад не отличит удачу от сбоя`); continue }
+      const parts = []
+      for (const l of body.slice(first)) l === 'try:' ? parts.push([]) : parts[parts.length - 1].push(l)
+      const last = parts.pop()
+      if (last.length !== 1 || last[0] !== 'force_failure') bad.push(`${at}: последняя ветвь не «try: force_failure» — сбой записи не оставит крестик`)
+      for (const p of parts) {
+        branches++
+        if (p.length < 2 || p[p.length - 2] !== 'refresh-return' || p[p.length - 1] !== 'back') bad.push(`${at}: удачная ветвь не кончается шагом назад (refresh-return, back)`)
+        if (p.filter(l => /^(refresh-return|back)\b/.test(l)).length !== 2) bad.push(`${at}: в ветви лишний или целевой refresh-return/back`)
+      }
+      for (const w of body.slice(0, first)) {
+        const m = w.match(/^hex-by-custom-offset \S+ CUST (\d+) /)
+        if (!m && /^(hex-by|set-ini-val|delete|move|copy)/.test(w)) { bad.push(`${at}: запись до ветвей без сверки — «${w.slice(0, 60)}»`); continue }
+        if (m && body.slice(first).some(l => l.startsWith(`matching_hex_val_custom `) && l.includes(` CUST ${m[1]} {json_file_source(*,hex)}`))) continue
+        if (m && !/\{json_file_source\(\*,w\d+\)\}$/.test(w)) bad.push(`${at}: запись CUST ${m[1]} до ветвей, и ни одна ветвь её не сверяет`)
+      }
+    }
+  }
+  if (!lists) problems.push({ sev: 'CRITICAL', what: 'в CPU, GPU, RAM и Micro-Enhance ни одного списка выбора — проверка 76 смотрит в пустоту' })
+  else if (bad.length) problems.push({ sev: 'CRITICAL', what: `шаг назад после выбора (${bad.length}):\n     ${bad.slice(0, 8).join('\n     ')}` })
+  else ok.push(`a choice in CPU, GPU, RAM and Micro-Enhance steps back and a failed one stays with a cross (${lists} lists, ${branches} branches), no other list steps back but Choose backup`)
+}
+
 // ---------------- 61. guard numbers are unique, gapless-or-retired, and every doc reference lands
 //
 // A block number is the only address DECISIONS.md, NOTES.md and ANCHORS.md use to name a
@@ -8564,7 +9231,8 @@ const RETIRED61 = new Map([
   // 11.10.2026: 74 -> 75 for check 73 (archive root text files deleted on entry).
   // 30.10.2026: 75 -> 76 for check 74 (1600 timings move to the S sections on 4IFIR 2.5).
   // 31.10.2026: 76 -> 77 for check 75 (a block of keys goes only where they cannot be yet).
-  const EXPECTED = 77
+  // 08.11.2026: 77 -> 78 for check 76 (a choice in an Advanced list steps back).
+  const EXPECTED = 78
   // ОТКАЗ ТОЛЬКО ПРИ МОЛЧАНИИ. Проверка, которая нашла беду, зелёной строки не печатает —
   // значит счёт падает законно, и объявлять это исчезновением сторожа нельзя. 05.09.2026
   // прежняя редакция делала ровно это: строка в 906 байт, задуманная предупреждением,

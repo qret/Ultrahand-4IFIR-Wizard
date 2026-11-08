@@ -1,10 +1,17 @@
-<!-- i18n: source=Guides/ru/01-install.md sha=c55cc0a99957 self=29f70874bfd3 -->
+<!-- i18n: source=Guides/ru/01-install.md sha=f000492f5570 self=9472cd264782 -->
 # Installation
 
 <!-- nav:begin -->
 [Contents](README.md) · [First run →](02-first-run.md)  
 **English** · [Русский](../ru/01-install.md)
 <!-- nav:end -->
+
+> [!TIP]
+> **The latest 4IFIR is always here:**
+> - **[Telegram](https://t.me/kf4fr)** — the 4IFIR group: releases, news and help.
+> - **[GitHub](https://github.com/rashevskyv/4ifir-checker/releases)** — the build itself: the latest archive.
+>
+> <a href="https://t.me/kf4fr"><img src="../img/telegram-kf4fr.png" width="160" alt="QR: t.me/kf4fr"></a>
 
 > [!NOTE]
 > **The current 4IFIR is 2.7, and it supports HOS 23.0.1.** It already includes Ultrahand
@@ -16,10 +23,11 @@ The configurator installs **on top of an existing 4IFIR**. It does not touch the
 itself: the bootloader, `loader.kip`, the 4IFIR overlay and the system modules all
 stay as they are.
 
-Only one thing changes: the tuning package. The Ultrahand overlay engine the configurator runs
-on comes with the 4IFIR build, and an ordinary release does not carry it. There is a
-second kind of archive though — the kit with the engine; the release page says which of
-the two you are looking at. More in step 2.
+Only the tuning package changes. On 4IFIR 2.5 and 2.6 it is installed once from the kit
+with the engine — **[4IFIR-Wizard.zip](https://github.com/qret/Ultrahand-4IFIR-Wizard/releases/download/v0.1.0-2026-10-11-2149/4IFIR-Wizard.zip)**
+(release [`v0.1.0-2026-10-11-2149`](https://github.com/qret/Ultrahand-4IFIR-Wizard/releases/tag/v0.1.0-2026-10-11-2149)): besides the configurator it brings
+the Ultrahand overlay engine the configurator runs on. From then on the configurator updates
+[from its own menu](11-update.md#how-to-update); releases after that kit carry the configurator alone.
 
 ## Step 1. Delete the old package
 
@@ -39,34 +47,24 @@ them, and side by side the two will get in each other's way.
 > settings, `kip-json\` with your saved profiles — the configurator can read them,
 > [importing old profiles](10-profiles.md) — and the backups the configurator makes.
 
-## Step 2. Copy the archive
+## Step 2. Copy the kit
 
-Unpack the contents of the archive **into the root of the SD card**, overwriting.
+Unpack the contents of the kit **into the root of the SD card**, overwriting.
 
-Inside the ordinary archive there is one folder of settings —
-`switch\.packages\4IFIR Wizard\` — plus `INSTALL.txt`, `BUILD.txt`, `LICENSE` and
-`NOTICE.txt` beside it. The configurator removes these text files from the root of the
+The kit with the engine holds the configurator folder `switch\.packages\4IFIR Wizard\`,
+the engine itself, `switch\.overlays\ovlmenu.ovl`, and its settings `config\ultrahand\`,
+plus `INSTALL.txt`, `BUILD.txt`, `LICENSE` and `NOTICE.txt` beside them. The configurator removes these text files from the root of the
 card by itself the first time it is opened.
 
 > [!IMPORTANT]
-> **The engine is not in the ordinary archive, and that is on purpose.** Ultrahand and
-> its `config\ultrahand\` — key combination, theme, language, overlay order, sounds —
-> come with the 4IFIR build. The ordinary archive carries none of that and overwrites
-> none of it: your overlay setup stays yours, however many times you update the configurator.
+> **The kit replaces `config\ultrahand\`** — the key combination, language, sound switch
+> and overlay order: 4IFIR on top, then Status Monitor, FPSLocker, InfoNX, ReverseNX.
+> If you changed the key combination or the overlay order, save your
+> `config\ultrahand\config.ini` and `overlays.ini` first and put them back after unpacking.
 >
-> **Sometimes a build with the engine goes out instead** — the release page says
-> so. That one brings the engine itself and `config\ultrahand\` with it: otherwise someone
-> installing from scratch would get neither the key combination, nor the language, nor
-> the sound switch, nor the overlay order — 4IFIR on top, then Status Monitor, FPSLocker,
-> InfoNX, ReverseNX. Your own settings still stay yours: the update moves `config.ini`
-> and `overlays.ini` aside before unpacking and moves them back after, so if you have
-> arranged the list yourself, your arrangement wins. What is replaced is the kit's own material — languages,
-> themes, wallpapers, images and the sound set that is playing; the sound set goes back
-> from the engine's settings.
->
-> That moving-aside lives inside the package, so it covers you from the **next** update
-> after the one that brought it. If you unpack an archive with the engine by hand rather
-> than through the update button, save your `config\ultrahand\config.ini` and `overlays.ini` first.
+> Updates through `Update` leave them alone: an archive without the engine does not carry
+> them, and for an archive with the engine the update moves them aside before unpacking
+> and back after.
 
 ## Step 3. Check
 
@@ -83,12 +81,13 @@ files from step 1 are still there.
 
 ## If the key combination does not work
 
-It is set in `config\ultrahand\config.ini` — a file that came with the 4IFIR build, not
-with the ordinary archive.
+It is set in `config\ultrahand\config.ini`: on 4IFIR 2.7 this file comes with the build,
+on 2.5 and 2.6 with the kit with the engine.
 
 If the overlay does not open at all, on any combination, the problem is the engine rather
-than the configurator. It arrives with the 4IFIR build:
-[update that](11-update.md#if-you-are-updating-4ifir-itself).
+than the configurator. On 4IFIR 2.7 it arrives with the build —
+[update that](11-update.md#if-you-are-updating-4ifir-itself); on 2.5 and 2.6 with the kit
+with the engine: unpack it again (step 2), then update the configurator through `Update`.
 
 > [!WARNING]
 > The combination in `config\tesla\config.ini` and the one in

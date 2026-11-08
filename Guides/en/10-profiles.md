@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/10-profiles.md sha=4cfbb302a204 self=08913ab8afd7 -->
+<!-- i18n: source=Guides/ru/10-profiles.md sha=34fd7667a7ec self=7f60a0cf84ed -->
 # Profiles, backups and reset
 
 <!-- nav:begin -->
@@ -53,12 +53,17 @@ A backup is not a firmware image, it is a list of values. That means it:
 
 - takes a few kilobytes;
 - **survives a firmware update** — it is applied on top of the new firmware, not
-  instead of it;
+  instead of it, as long as the kip layout has not changed: the backup remembers the layout
+  it was taken on (the `Kip layout` line) and will not apply to another one;
 - does not drag someone else's bootloader along with it.
 
 Backups are kept separately per console revision — `/atmosphere/kips/.bak/mariko/` and
 `/atmosphere/kips/.bak/erista/` — so a Mariko copy will never land on an Erista, nor the
 other way round.
+
+A backup's name tells what is in it: memory clock, `EMC Balance` and the time it was taken —
+for example `2707-eBal2-140826-175334` (14.08.26, 17:53:34); a setting left on automatic is
+written as `auto`.
 
 **What a backup is for:** keeping a setup that works. A reset gives you the factory
 state and throws your work away; a backup gives you back exactly what you had.
@@ -96,7 +101,7 @@ not in the copy: they are read from the Magician file on this console, and a lin
 says so. If Magician holds nothing for the copy's clock and `eBAL`, a short note says that
 instead of the table. The page is just as plain when no copy is chosen or the copy does not
 record the clock and `eBAL` (this happens with imported ones). `A` and `Y` work as in
-`Current Settings`; the page exists only on the engine from the first-install kit.
+`Current Settings`.
 
 > [!NOTE]
 > Not every copy holds everything. If the one you picked is short of something, a line on

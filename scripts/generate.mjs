@@ -221,6 +221,18 @@ const MARK_IMPORT = `${MARK_OK} (import)`
 const rebuildOn = head => `refresh-to '${head.split('?')[0].replace(HOLD_A, '').trim()}' '' false`
 
 /**
+ * A choice in an Advanced list (CPU, GPU, RAM, Micro-Enhance) steps back to the page it came
+ * from (operator, 08.11.2026): the return is the confirmation. Fan Control is sliders, untouched.
+ * `refresh-return` without a target rebuilds the page and lands on the item that opened the list,
+ * so the new value and anything gated on it show at once; upstream engines know it too.
+ * A failed write stays in the list with a cross: the last branch forces the failure.
+ */
+const STEP_BACK_DIR = /^advanced\/(cpu|gpu|ram|micro-enhance)(\/|$)/
+const stepsBack = () => STEP_BACK_DIR.test(currentDir)
+const STEP_BACK = ['refresh-return', 'back']
+const failBranch = () => ['try:', 'force_failure']
+
+/**
  * УСЛОВИЕ ВИДИМОСТИ ИЗ КАРТЫ МЕНЮ. Один ключ `visible_when`, две формы записи:
  *
  *   { offset, value }  — проверка байта в kip, как было всегда;
@@ -1397,9 +1409,16 @@ function emitItem(item, lines) {
   // Кэш найденного смещения якоря движок не сбрасывает сам. Пока команда одна, это неважно;
   // когда их три десятка — один скан файла вместо тридцати, и заодно страховка на случай,
   // если в этой же сессии оверлея kip подменили восстановлением копии.
-  if (d.extraOffsets.length) lines.push('clear hex_sum_cache')
-  lines.push(`${cmd} ${KIP} CUST ${field.offset} {json_file_source(*,hex)}`)
-  for (const o of d.extraOffsets) lines.push(`${cmd} ${KIP} CUST ${o} {json_file_source(*,w${o})}`)
+  const writes = [
+    ...(d.extraOffsets.length ? ['clear hex_sum_cache'] : []),
+    `${cmd} ${KIP} CUST ${field.offset} {json_file_source(*,hex)}`,
+    ...d.extraOffsets.map(o => `${cmd} ${KIP} CUST ${o} {json_file_source(*,w${o})}`),
+  ]
+  const back = stepsBack()
+  // Stepping back needs the writes inside a branch: outside one a failure does not stop the list.
+  // A seeding item keeps them outside: the seeding must stay a branch of its own (check 37).
+  if (back && !item.seed_from) lines.push('try:')
+  lines.push(...writes)
   /**
    * ONE-TIME SEEDING ON THE MODE SWITCH, not only on the way into the curve screen.
    *
@@ -1422,7 +1441,12 @@ function emitItem(item, lines) {
     if (!(donor.seed_when?.length && donor.seed_write?.length)) {
       throw new Error(`${item.id}: у узла "${item.seed_from}" нет seed_when/seed_write — сеять нечем`)
     }
-    lines.push('try:', ...donor.seed_when, ...donor.seed_write, `set-footer '{json_file_source(*,short)}'`, 'try:')
+    // The writes above sit outside the branches, and `try:` resets the result, so with stepping
+    // back the second branch reads the field back: a failed write must not pass for success.
+    if (back && cmd !== 'hex-by-custom-offset') throw new Error(`${item.id}: seeding item with ${cmd} - no read-back for it`)
+    const verify = [`matching_hex_val_custom ${KIP} CUST ${field.offset} {json_file_source(*,hex)}`]
+    lines.push('try:', ...donor.seed_when, ...donor.seed_write, `set-footer '{json_file_source(*,short)}'`,
+      ...(back ? STEP_BACK : []), 'try:', ...(back ? verify : []))
     stats.seedBlocks = (stats.seedBlocks ?? 0) + 1
   }
   // ФУТЕР БЕРЁТ `short`, А НЕ `name`, И ЭТО НЕ ПРИДИРКА.
@@ -1436,6 +1460,7 @@ function emitItem(item, lines) {
   // равно футеру, и ставит на него галочку и фокус. Поэтому `name` в словаре начинается
   // с `short` (см. `engineName`), и трогать одно без другого нельзя.
   lines.push(`set-footer '{json_file_source(*,short)}'`)
+  if (back) lines.push(...STEP_BACK, ...failBranch())
   lines.push('')
 
   // The footer shown when the package opens — from THE SAME offset and THE SAME dictionary.
@@ -1567,9 +1592,12 @@ function emitIniOption(item, lines) {
     lines.push(...v.sys)
     for (const c of [v.conds[0], ...(vc ? [vc] : []), ...v.conds.slice(1)]) { lines.push(`;visibility_condition=${c}`); stats.guards++ }
     lines.push(`json_file_source './json/${base}.json' name`)
+    const back = stepsBack()
+    if (back) lines.push('try:')
     lines.push(`hex_file '${KIP}'`)
     lines.push(`set-ini-val '${w.file}' '${v.sec}' ${w.key} '{json_file_source(*,mv)}'`)
     lines.push(`set-footer '{json_file_source(*,short)}'`)
+    if (back) lines.push(...STEP_BACK, ...failBranch())
     lines.push('')
     // The footer on entry comes from the same file and the same key, so the two writers of it
     // cannot disagree (check 53 compares them through `short`).
@@ -3901,8 +3929,10 @@ if (kipRows.length) {
     const page = `service/restore-${rev}.ini`
     const pageDir = page.slice(0, page.lastIndexOf('/'))
     const applyHead = `Apply this backup ${HOLD_A}`
+    const deleteHead = `Delete this backup ${HOLD_A}`
     oneShotFooter(pageDir, backupCreateHead[rev])
     oneShotFooter(pageDir, applyHead)
+    oneShotFooter(pageDir, deleteHead)
     oneShotChoice.set(pageDir, RESTORE_CHOICE_KEYS)
     oneShotBackupPath.add(pageDir)
 
@@ -4066,20 +4096,34 @@ if (kipRows.length) {
       // видна всегда (условие видимости движок считает один раз при построении страницы),
       // и без проверки она сделала бы вид, что стёрла ещё раз.
       del: [
-        `[Delete this backup ${HOLD_A}]`,
+        `[${deleteHead}]`,
         ';hold=true',
         `ini_file './config.ini'`,
         'try:',
         `path_exists {ini_file(Restore,Path)}`,
         `delete {ini_file(Restore,Path)}`,
+        // `delete` reports nothing: the check mark is earned by the file being gone.
+        `!path_exists {ini_file(Restore,Path)}`,
         // Path, Name and the "old copy" flag (else the warning outlives the file). [boot]
         // clears the same list on every entry, so both "nothing chosen" states match.
         ...RESTORE_CHOICE_KEYS.map(k => `set-ini-val './config.ini' Restore ${k} ''`),
+        // Apply's mark spoke of the backup that is gone, and the page below shows dashes now.
+        `remove-ini-key './config.ini' '${applyHead}' footer`,
         `notify 'Done - Deleted' 22 4000`,
-        // the choice is gone: rebuild so nothing gated on it outlives the file
-        rebuildOn(`Delete this backup ${HOLD_A}`),
+        // The engine's own mark dies with the rebuild: only a stored footer survives it.
+        // The rebuild stays: the choice is gone, nothing gated on it may outlive the file.
+        `set-footer '${MARK_OK}'`,
+        rebuildOn(deleteHead),
+        // The file is still there: the delete failed. A cross, no notice of its own.
+        'try:',
+        `path_exists {ini_file(Restore,Path)}`,
+        `set-footer '${MARK_FAIL}'`,
+        rebuildOn(deleteHead),
         'try:',
         `notify 'Pick a backup first' 22 4000`,
+        // Nothing was deleted, the engine would show a check mark for the notify alone.
+        `set-footer '${MARK_FAIL}'`,
+        rebuildOn(deleteHead),
       ],
       // No explanatory note under the summary: removed at the operator's word 13.09.2026
       // (it took a screen of space). The red mismatch text is separate and stays.
@@ -4668,6 +4712,8 @@ function reseedRootFooters () {
         if (want.some(l => l.startsWith('set-ini-val')) && !want.every(l => block.includes(l))) {
           let end = block.length
           while (end > 0 && !block[end - 1].trim()) end--
+          // A step back stays the last thing a branch does (check 76).
+          if (block[end - 2] === 'refresh-return' && block[end - 1] === 'back') end -= 2
           block.splice(end, 0, ...want)
           patched++
         }

@@ -51,8 +51,9 @@ The package runs on **Ultrahand Overlay** by **ppkantorski**, GPL v2:
 the author of the 4IFIR firmware and reaches people with the firmware build; unpacking
 such an archive leaves it, and its `config/ultrahand/`, untouched.
 
-**The first-install kit does carry it.** Since 8 September 2026
-it is a standard second kind of release: that archive also
+**The first-install kit does carry it.** It is the second kind of release, and on 4IFIR
+2.5 and 2.6 the configurator is installed from it (release `v0.1.0-2026-10-11-2149`);
+4IFIR 2.7 has the engine in its own build. That archive also
 holds our fork's `ovlmenu.ovl` and its `config\ultrahand\`, `config.ini` and `overlays.ini`
 among them.
 Unpacking it by hand replaces all of that. The configurator's own Update entry installs

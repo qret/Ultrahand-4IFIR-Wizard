@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/02-first-run.md sha=3caae6980433 self=a29c7a4536ef -->
+<!-- i18n: source=Guides/ru/02-first-run.md sha=2d5f8dc1001b self=2a3a40ac7efe -->
 # First run
 
 <!-- nav:begin -->
@@ -84,10 +84,6 @@ It works on both Mariko and Erista. In the heading of the Optimized profile timi
 the configurator moves what was saved in the new format there by itself when it is opened. The
 moved timings take effect from the next boot.
 
-> [!NOTE]
-> The third page exists only on the engine from the first-install kit
-> ([Installation](01-install.md)). On any other engine the summary keeps its two pages.
-
 ## The second thing: know how to go back
 
 **`Service → Restore Factory Defaults`** returns every overclock setting to factory
@@ -113,6 +109,15 @@ menu is there for that.
 > [!NOTE]
 > Until you reboot, the console runs on the old settings while the summary already shows
 > the new ones. That is not a bug: the summary reports exactly what is in the file.
+
+## Reading the values
+
+Each item shows its current value on the right. Those labels are read from the kip on
+entering a section, so they reflect the file, not something remembered from last time.
+
+Values are shown as `stage` or as an absolute figure, and the difference matters: a stage
+lets the kip calculate per RAM speed, while a fixed voltage applies to every RAM speed
+alike. What suits overclocked memory is usually excessive at 1600 MHz.
 
 ## Console revision
 

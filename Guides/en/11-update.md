@@ -1,4 +1,4 @@
-<!-- i18n: source=Guides/ru/11-update.md sha=11a34feda959 self=f9a758edc6a0 -->
+<!-- i18n: source=Guides/ru/11-update.md sha=2516f9423792 self=9adce56dc092 -->
 # Updating
 
 <!-- nav:begin -->
@@ -33,8 +33,9 @@ The firmware, the bootloader and the 4IFIR overlay stay as they were. The config
 does not touch them, at install or at update.
 
 **The overlay engine is maintained by the author of the firmware**, and it is
-updated together with the 4IFIR build. Whether the engine rides in the configurator's archive depends on
-which archive came out: there are two kinds, and the release page says which one this is.
+updated together with the 4IFIR build. An ordinary configurator archive does not carry the engine.
+The kit with the engine comes out as a separate release — it is what the configurator is installed
+from on 4IFIR 2.5 and 2.6 ([Installation](01-install.md)). The release page says which kind this is.
 
 - **Configurator only.** The archive holds one directory, `switch/.packages/4IFIR Wizard/`,
   plus install notes, a build passport and the licence files. Neither the engine nor
