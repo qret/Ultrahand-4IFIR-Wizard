@@ -651,8 +651,22 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       // Check 64: the copies in .keep go without checking that the originals are there.
       name: 'ветка сбоя загрузки не проверяет оригиналы',
       file: join(DIST, 'package.ini'),
-      hurt: s => s.replace("\npath_exists '/config/ultrahand/overlays.ini'\npath_exists '{if_==(", "\npath_exists '{if_==("),
+      hurt: s => s.replace(/\npath_exists '\{if_null\(\{crc32\(\/config\/ultrahand\/overlays\.ini\)\},\{if_null[^\n]*\n(?=path_exists '\{if_null\(\{crc32\(\/config\/ultrahand\/config\.ini\)\},\{if_null\(\{crc32\(\/config\/ultrahand\/downloads\/\.keep\/config\.ini\)\},[^,]*,\/config\/ultrahand\/downloads\/\.keep\/none)/, '\n'),
       expect: /не проверив оригиналы/,
+    },
+    {
+      // Check 64: the original's check passes even when its copy sits in .keep - .keep would go with it.
+      name: 'ветка сбоя загрузки пропускает пропавший оригинал при живой копии в .keep',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace(/(\npath_exists '\{if_null\(\{crc32\(\/config\/ultrahand\/config\.ini\)\},)\{if_null\(\{crc32\(\/config\/ultrahand\/downloads\/\.keep\/config\.ini\)\},(\/switch\/\.packages\/4IFIR Wizard\/package\.ini),\/config\/ultrahand\/config\.ini\)\}(,\/config\/ultrahand\/config\.ini\)\}'\n(?=path_exists '\{if_null\(\{crc32\(\/config\/ultrahand\/overlays\.ini\)\},\{if_null\(\{crc32\(\/config\/ultrahand\/downloads\/\.keep\/overlays\.ini\)\},[^,]*,\/config\/ultrahand\/overlays\.ini\)\},\/config\/ultrahand\/overlays\.ini\)\}'\npath_exists '\{if_null\(\{crc32\(\/config\/ultrahand\/config\.ini\)\},\{if_null\(\{crc32\(\/config\/ultrahand\/downloads\/\.keep\/config\.ini\)\},[^,]*,\/config\/ultrahand\/downloads\/\.keep\/none))/, '$1$2$3'),
+      expect: /не проверив оригиналы|ветка сбоя загрузки несёт строки вне белого списка/,
+    },
+    {
+      // Check 56: the stash of config.ini is "proved" by a path that always exists, with no condition.
+      name: 'отвод config.ini доказан всегда существующим путём без условия',
+      file: join(DIST, 'package.ini'),
+      hurt: s => s.replace("\npath_exists '{if_null({crc32(/config/ultrahand/config.ini)},/switch/.packages/4IFIR Wizard/package.ini,/config/ultrahand/downloads/.keep/config.ini)}'", "\npath_exists '/switch/.packages/4IFIR Wizard/package.ini'"),
+      expect: /отвод «\/config\/ultrahand\/config\.ini» ничем не подтверждён/,
     },
     {
       // Check 64: without the flag the last branch speaks after "Nothing changed".
@@ -797,7 +811,7 @@ if (process.argv.includes('--проба-отказа') || process.argv.includes(
       // Check 64: the download-failure branch drops .keep without checking it holds this press's copies.
       name: 'ветка сбоя загрузки убирает .keep без сверки копий',
       file: join(DIST, 'package.ini'),
-      hurt: s => s.replace(/\npath_exists '\{if_==\(\{crc32\(\/config\/ultrahand\/downloads\/\.keep\/config\.ini\)\}[^\n]*/, ''),
+      hurt: s => s.replace(/\npath_exists '\{if_null\(\{crc32\(\/config\/ultrahand\/config\.ini\)\},\{if_null\([^\n]*\.keep\/none\)\},\{if_==[^\n]*/, ''),
       expect: /ветка сбоя загрузки не совпадает с белым списком построчно/,
     },
     {
@@ -6154,7 +6168,10 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
             continue
           }
           // (б) отвод ДОКАЗАН: `copy` молчит об ошибке, значит копия проверяется явно.
-          const stashProved = main.some((l, i) => i > stashAt && i < unzipAt && /^path_exists\s/.test(l) && argsOf(l)[1] === side)
+          // A missing live file (4IFIR 2.7 keeps its settings in config/tesla) has nothing to save: the
+          // proof then looks at the package's own package.ini, and only when crc32 of the live path is null.
+          const skip56 = `{if_null({crc32(${live})},/switch/.packages/4IFIR Wizard/package.ini,${side})}`
+          const stashProved = main.some((l, i) => i > stashAt && i < unzipAt && /^path_exists\s/.test(l) && (argsOf(l)[1] === side || argsOf(l)[1] === skip56))
           if (!stashProved) {
             fail56(`отвод «${live}» ничем не подтверждён — copy об ошибке не сообщает, нужен path_exists на «${side}» до распаковки`)
             continue
@@ -6945,21 +6962,27 @@ const knownWarning = q => q.sev === 'IMPORTANT' && KNOWN_WARNINGS.find(k => k.ma
       const nc = ub[1], ncSay = nc.findIndex(isNotice), ncT = nc.indexOf(`touch '${F}'`)
       const ncDel = nc.indexOf("delete '/config/ultrahand/downloads/.keep/'")
       const seen = f => { const i = nc.indexOf(`path_exists '${f}'`); return i >= 0 && i < ncDel }
-      if (nc[0] !== `!path_exists ${OLD_PKG}` || !seen('/switch/.packages/4IFIR Wizard/package.ini'))
+      // The originals are proved present, or both original and copy absent: nothing was saved (4IFIR 2.7
+      // keeps its settings in config/tesla). An original missing while its copy sits in .keep stops the branch.
+      const PKG64 = '/switch/.packages/4IFIR Wizard/package.ini'
+      const UL = f => `/config/ultrahand/${f}`, KP = f => `/config/ultrahand/downloads/.keep/${f}`
+      const optLive = f => `{if_null({crc32(${UL(f)})},{if_null({crc32(${KP(f)})},${PKG64},${UL(f)})},${UL(f)})}`
+      const optSame = f => `{if_null({crc32(${UL(f)})},{if_null({crc32(${KP(f)})},${PKG64},${KP('none')})},{if_==({crc32(${KP(f)})},{crc32(${UL(f)})},${UL(f)},${KP('none')})})}`
+      if (nc[0] !== `!path_exists ${OLD_PKG}` || !seen(PKG64))
         bad.push(`package.ini «Update» — ветка сбоя загрузки не убеждается, что пакет не переносился: нужны «!path_exists ${OLD_PKG}» первой строкой и «path_exists» живого package.ini`)
-      if (ncDel < 0 || !seen('/config/ultrahand/config.ini') || !seen('/config/ultrahand/overlays.ini'))
+      if (ncDel < 0 || !seen(optLive('config.ini')) || !seen(optLive('overlays.ini')))
         bad.push(`package.ini «Update» — ветка сбоя загрузки убирает копии из .keep, не проверив оригиналы config.ini и overlays.ini`)
       // Allow-list, line by line: the engine has aliases (del, mv, cp, notification, download-no-retry),
       // so a pattern of forbidden verbs leaks; any line not named here breaks «Nothing changed».
       const NC = [
         `!path_exists ${OLD_PKG}`,
         "path_exists '/switch/.packages/4IFIR Wizard/package.ini'",
-        "path_exists '/config/ultrahand/config.ini'",
-        "path_exists '/config/ultrahand/overlays.ini'",
+        `path_exists '${optLive('config.ini')}'`,
+        `path_exists '${optLive('overlays.ini')}'`,
         // .keep goes only when it holds this press's copies: equal to the live files. A leftover the head
         // failed to move away differs and stops the branch (the last one speaks, .keep stays).
-        "path_exists '{if_==({crc32(/config/ultrahand/downloads/.keep/config.ini)},{crc32(/config/ultrahand/config.ini)},/config/ultrahand/config.ini,/config/ultrahand/downloads/.keep/none)}'",
-        "path_exists '{if_==({crc32(/config/ultrahand/downloads/.keep/overlays.ini)},{crc32(/config/ultrahand/overlays.ini)},/config/ultrahand/overlays.ini,/config/ultrahand/downloads/.keep/none)}'",
+        `path_exists '${optSame('config.ini')}'`,
+        `path_exists '${optSame('overlays.ini')}'`,
         "delete '/config/ultrahand/downloads/.keep/'",
         `touch '${F}'`,
         "notify-now 'Download failed. Nothing changed' 26 center word 8000",

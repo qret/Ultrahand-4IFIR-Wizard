@@ -2364,9 +2364,12 @@ function emitInfoBlock(r, lines) {
 const rootLines = []
 rootLines.push(`;title='4IFIR Wizard'`)
 rootLines.push(`;version='0.1.0'`)
-rootLines.push(`;creator='Ultrahand-4IFIR project'`)
-rootLines.push(`;about='Overclock configurator for 4IFIR, built on Ultrahand. Generated from a verified field map.'`)
+// Same wording as the copy shipped inside 4IFIR 2.7 (operator, 12.11.2026).
+rootLines.push(`;creator='4IFIR project'`)
+rootLines.push(`;about='Overclock configurator for 4IFIR, built on Tesla. Generated from a verified field map.'`)
 rootLines.push(`;color=#00AAFF`)
+// Header colour for the light theme; the 4IFIR 2.7 engine reads it, older engines skip the line.
+rootLines.push(`;color_light=#0052A1`)
 rootLines.push('')
 
 /**
